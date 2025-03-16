@@ -96,9 +96,9 @@ When(/^I inspect "(.*)"$/) do |dir|
   step %(I run `#{exe} .`)
 end
 
-When(/^I test comments for "(.*)"$/) do |ext|
+When(/^I test comments for "(.*)"$/) do |file|
   step %(I cd to "../../fixtures/comments")
-  step %(I run `#{cmd} test#{ext}`)
+  step %(I run `#{cmd} #{file}`)
 end
 
 When(/^I test patterns for "(.*)"$/) do |file|
