@@ -4,7 +4,7 @@ Feature: Frontmatter
     When I test "frontmatter"
     Then the output should contain exactly:
       """
-      test.md:2:9:meta.Title:'My document' should be in title case
+      test.md:2:9:Meta.Title:'My document' should be in title case
       test.md:3:23:vale.Annotations:'NOTE' left in text
       test.md:4:19:vale.Annotations:'XXX' left in text
       test.md:9:1:vale.Annotations:'NOTE' left in text
