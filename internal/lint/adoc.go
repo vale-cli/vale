@@ -43,6 +43,11 @@ func (l *Linter) lintADoc(f *core.File) error {
 		return core.NewE100("lintAdoc", errors.New("asciidoctor not found"))
 	}
 
+	err = l.lintMetadata(f)
+	if err != nil {
+		return err
+	}
+
 	s, err := l.Transform(f)
 	if err != nil {
 		return err

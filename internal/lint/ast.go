@@ -168,7 +168,7 @@ func (l *Linter) lintSizedScopes(f *core.File) error {
 	//
 	// TODO: is this the most efficient place to assign tagging?
 	summary := nlp.NewLinedBlock(f.Content, f.Summary.String(),
-		"summary"+f.RealExt, 0, &f.NLP)
+		"summary"+f.RealExt, 0)
 
 	for _, blk := range []nlp.Block{summary} {
 		err := l.lintBlock(f, blk, len(f.Lines), 0, true)

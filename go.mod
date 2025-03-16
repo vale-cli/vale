@@ -33,9 +33,11 @@ require (
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
+	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/MarvinJWendt/testza v0.4.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
+	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/atomicgo/cursor v0.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect

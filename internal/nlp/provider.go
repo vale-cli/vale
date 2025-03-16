@@ -17,7 +17,7 @@ type Block struct {
 
 // NewBlock makes a new Block with prepared text and a Selector.
 func NewBlock(ctx, txt, sel string) Block {
-	return NewLinedBlock(ctx, txt, sel, -1, nil)
+	return NewLinedBlock(ctx, txt, sel, -1)
 }
 
 // NewBlockWithParent makes a new Block with prepared text, a Selector, and a parent.
@@ -35,7 +35,7 @@ func NewBlockWithParent(ctx, txt, sel, parent string) Block {
 }
 
 // NewLinedBlock creates a Block with an already-known location.
-func NewLinedBlock(ctx, txt, sel string, line int, _ *Info) Block {
+func NewLinedBlock(ctx, txt, sel string, line int) Block {
 	if ctx == "" {
 		ctx = txt
 	}
@@ -92,7 +92,7 @@ func (n *Info) doNLP(blk *Block, seg segmenter) ([]Block, error) {
 	if n.Splitting {
 		for _, p := range strings.SplitAfter(blk.Text, "\n\n") {
 			blks = append(
-				blks, NewLinedBlock(ctx, p, "paragraph."+blk.Scope, idx, nil))
+				blks, NewLinedBlock(ctx, p, "paragraph."+blk.Scope, idx))
 		}
 	}
 
@@ -101,13 +101,13 @@ func (n *Info) doNLP(blk *Block, seg segmenter) ([]Block, error) {
 			s = strings.TrimSpace(s)
 			if s != "" {
 				blks = append(
-					blks, NewLinedBlock(ctx, s, "sentence."+blk.Scope, idx, nil))
+					blks, NewLinedBlock(ctx, s, "sentence."+blk.Scope, idx))
 			}
 		}
 	}
 
 	blks = append(
-		blks, NewLinedBlock(ctx, blk.Text, blk.Scope, idx, nil))
+		blks, NewLinedBlock(ctx, blk.Text, blk.Scope, idx))
 
 	return blks, nil
 }

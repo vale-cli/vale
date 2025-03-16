@@ -23,22 +23,12 @@ func Test_applyPatterns(t *testing.T) {
 				},
 			},
 			exts: extensionConfig{".md", ".md"},
-			content: `---
-title: Example page
-description: Example page
----
-
+			content: `
 This is the intro pagragraph.
 
 {/* This is a comment */}
 `,
 			expected: strings.ReplaceAll(`
-@@@
-title: Example page
-description: Example page
-@@@
-
-
 This is the intro pagragraph.
 
 <!-- This is a comment -->
@@ -48,22 +38,12 @@ This is the intro pagragraph.
 			description: "MDX comment in markdown, no custom comment delimiter",
 			conf:        core.Config{},
 			exts:        extensionConfig{".md", ".md"},
-			content: `---
-title: Example page
-description: Example page
----
-
+			content: `
 This is the intro pagragraph.
 
 {/* This is a comment */}
 `,
 			expected: strings.ReplaceAll(`
-@@@
-title: Example page
-description: Example page
-@@@
-
-
 This is the intro pagragraph.
 
 {/* This is a comment */}
@@ -77,28 +57,18 @@ This is the intro pagragraph.
 				},
 			},
 			exts: extensionConfig{".md", ".md"},
-			content: `---
-title: Example page
-description: Example page
----
-
+			content: `
 This is the intro pagragraph.
 
-{/* 
-This is a comment 
+{/*
+This is a comment
 */}
 `,
 			expected: strings.ReplaceAll(`
-@@@
-title: Example page
-description: Example page
-@@@
-
-
 This is the intro pagragraph.
 
-<!-- 
-This is a comment 
+<!--
+This is a comment
 -->
 `, "@", "`"),
 		},
@@ -146,11 +116,7 @@ func Test_applyPatterns_errors(t *testing.T) {
 				},
 			},
 			exts: extensionConfig{".md", ".md"},
-			content: `---
-title: Example page
-description: Example page
----
-
+			content: `
 This is the intro pagragraph.
 
 {/* This is a comment */}

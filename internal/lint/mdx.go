@@ -16,6 +16,11 @@ func (l Linter) lintMDX(f *core.File) error {
 		return core.NewE100("lintMDX", errors.New("mdx2vast not found"))
 	}
 
+	err = l.lintMetadata(f)
+	if err != nil {
+		return err
+	}
+
 	s, err := l.Transform(f)
 	if err != nil {
 		return err

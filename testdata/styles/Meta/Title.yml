@@ -1,0 +1,12 @@
+extends: capitalization
+message: "'%s' should be in title case"
+level: warning
+scope: text.frontmatter.title
+# $title, $sentence, $lower, $upper, or a pattern.
+match: $title
+# AP or Chicago; only applies when match is set to
+# $title.
+style: AP
+exceptions:
+  - ABC
+  - add
