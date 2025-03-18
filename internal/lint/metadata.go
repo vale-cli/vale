@@ -11,7 +11,7 @@ import (
 	"github.com/errata-ai/vale/v3/internal/nlp"
 )
 
-func (l Linter) lintMetadata(f *core.File) error {
+func (l Linter) lintMetadata(f *core.File) error { //nolint:unused
 	metadata := make(map[string]any)
 
 	_, err := frontmatter.Parse(strings.NewReader(f.Content), &metadata)
