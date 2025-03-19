@@ -28,7 +28,6 @@ type NLPToken struct {
 type Sequence struct {
 	Definition   `mapstructure:",squash"`
 	Tokens       []NLPToken
-	history      []int
 	Ignorecase   bool
 	needsTagging bool
 }
@@ -134,7 +133,7 @@ func tokensMatch(token NLPToken, word tag.Token) bool {
 	return true
 }
 
-func sequenceMatches(idx int, chk Sequence, target NLPToken, words []tag.Token) ([]string, int) {
+func sequenceMatches(idx int, chk Sequence, target NLPToken, words []tag.Token, history []int) ([]string, int) {
 	var text []string
 
 	toks := chk.Tokens
@@ -144,7 +143,7 @@ func sequenceMatches(idx int, chk Sequence, target NLPToken, words []tag.Token) 
 	index := 0
 
 	for jdx, tok := range words {
-		if tokensMatch(target, tok) && !core.IntInSlice(jdx, chk.history) {
+		if tokensMatch(target, tok) && !core.IntInSlice(jdx, history) {
 			index = jdx
 			// We've found our context.
 			//
@@ -213,21 +212,42 @@ func sequenceMatches(idx int, chk Sequence, target NLPToken, words []tag.Token) 
 }
 
 func stepsToString(steps []string) string {
-	s := ""
-	for _, step := range steps {
-		if strings.HasPrefix(step, "'") {
-			s += step
-		} else {
-			s += " " + step
+	var sb strings.Builder
+
+	for i, step := range steps {
+		switch {
+		case step == "." || step == "," || step == ":" || step == ";" || step == "!" || step == "?" || step == "'" || step == `"` || step == ")":
+			// No space before punctuation or closing parenthesis
+			sb.WriteString(step)
+		case step == "(":
+			// No space before or after an opening parenthesis
+			if i > 0 && sb.Len() > 0 {
+				lastChar := sb.String()[sb.Len()-1]
+				if lastChar != ' ' {
+					sb.WriteString(" ")
+				}
+			}
+			sb.WriteString(step)
+		case strings.HasPrefix(step, "'"):
+			// If the step starts with an apostrophe, attach it without space
+			sb.WriteString(step)
+		default:
+			// Otherwise, add space before the word
+			if sb.Len() > 0 {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(step)
 		}
 	}
-	return strings.Trim(s, " ")
+
+	return strings.TrimSpace(sb.String())
 }
 
 // Run looks for the user-defined sequence of tokens.
 func (s Sequence) Run(blk nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, error) {
 	var alerts []core.Alert
 	var offset []string
+	var history []int
 
 	// This is *always* sentence-scoped.
 	words := nlp.TextToTokens(blk.Text, &f.NLP)
@@ -238,8 +258,8 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, _ *core.Config) ([]core.Alert
 			// We're looking for our "anchor" ...
 			for _, loc := range tok.re.FindAllStringIndex(txt, -1) {
 				// These are all possible violations in `txt`:
-				steps, index := sequenceMatches(idx, s, tok, words)
-				s.history = append(s.history, index) //nolint:staticcheck
+				steps, index := sequenceMatches(idx, s, tok, words, history)
+				history = append(history, index)
 
 				if len(steps) > 0 {
 					seq := stepsToString(steps)
