@@ -113,7 +113,7 @@ func (s Substitution) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core
 					return alerts, err
 				}
 
-				observed := strings.TrimSpace(converted)
+				observed := converted
 				expected, msgErr := subMsg(s, (idx/2)-1, observed)
 				if msgErr != nil {
 					return alerts, msgErr

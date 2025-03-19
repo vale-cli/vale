@@ -56,7 +56,7 @@ Feature: Styles
             test.mdx:1:3:demo.HeadingStartsWithCapital:'this is a heading' should be capitalized
             test.mdx:9:4:demo.ScopedHeading:'this is another heading!' should be in title case
             test.rst:1:22:demo.CommasPerSentence:More than 3 commas!
-            test.rst:1:58:demo.Spacing:'. I' should have one space
+            test.rst:1:58:demo.Spacing:'.  I' should have one space
             test.rst:3:1:demo.SentenceLength:Sentences should be less than 25 words
             test.rst:5:28:demo.Ending-Preposition:Don't end a sentence with 'by.'
             test.rst:9:1:demo.ParagraphLength:Paragraphs should be less than 150 words

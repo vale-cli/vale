@@ -13,7 +13,6 @@ import (
 var defaultIgnoreDirectories = []string{
 	"node_modules", ".git",
 }
-var spaces = regexp.MustCompile(" +")
 var reANSI = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))")
 var sanitizer = strings.NewReplacer(
 	"&rsquo;", "'",
@@ -39,12 +38,9 @@ func StripANSI(s string) string {
 	return reANSI.ReplaceAllString(s, "")
 }
 
-// WhitespaceToSpace converts newlines and multiple spaces (e.g., "  ") into a
-// single space.
+// WhitespaceToSpace converts newlines into a single space.
 func WhitespaceToSpace(msg string) string {
-	msg = strings.ReplaceAll(msg, "\n", " ")
-	msg = spaces.ReplaceAllString(msg, " ")
-	return msg
+	return strings.ReplaceAll(msg, "\n", " ")
 }
 
 // ShouldIgnoreDirectory will check if directory should be ignored
