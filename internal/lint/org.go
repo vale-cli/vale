@@ -39,7 +39,13 @@ func (l Linter) lintOrg(f *core.File) error {
 	s = reOrgProps.ReplaceAllString(s, orgExample)
 
 	f.Content = s
-	s, err := l.Transform(f)
+
+	err := l.lintMetadata(f)
+	if err != nil {
+		return err
+	}
+
+	s, err = l.Transform(f)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,94 @@
+;;;
+{
+  "author": "John Doe XXX",
+  "description": "A short NOTE summary of the document's purpose.",
+  "title": "My document"
+}
+;;;
+
+Reference code like `TODO` or `methods` inline.
+
+Literal block:
+
+....
+XXX = False
+# This is a codeblock.
+....
+
+Indent the line one space to insert a TODO code snippet
+
+ XXX = False
+
+Listing block with title, no syntax highlighting:
+
+.Gemfile.lock
+----
+// XXX: fix this relatively soon.
+func ExtFromSyntax(name string) string {
+    for XXX, relatively := range LookupSyntaxName {
+        if matched, _ := regexp.MatchString(r, name); matched {
+            return s
+        }
+    }
+    return name
+}
+----
+
+Code block with title and XXX syntax highlighting:
+
+[[app-listing]]
+[source,python]
+.app.py
+----
+def foo():
+    """
+    NOTE: this is a very important function.
+    """
+    obviously = False
+    very = True
+    return very and obviously
+----
+
+TODO: this is not in a block.
+
+[source,go]
+----
+// XXX: fix this relatively soon.
+func ExtFromSyntax(name string) string {
+    for XXX, relatively := range LookupSyntaxName {
+        if matched, _ := regexp.MatchString(r, name); matched {
+            return s
+        }
+    }
+    return name
+}
+----
+
+FIXME *bold phrase* TODO _XXX_
+
+
+.Table Title
+|===
+|Name of Column 1 |Name of Column 2 |XXX
+
+|Cell in column 1, TODO
+|Cell in column 2, row 1
+|Cell in column 3, row 1
+
+|Cell in column 1, row 2
+|Cell in column 2, row 2
+|Cell in column 3, row 2
+|===
+
+image:logo.png[TODO]
+
+This should not {TODO} raise an alert.
+
+This NOTE should be found.
+
+[source,NOTE]
+----
+some NOTE
+----
+
+This NOTE should be found too.

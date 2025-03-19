@@ -42,6 +42,11 @@ func (l *Linter) lintRST(f *core.File) error {
 		return core.NewE100("lintRST", errors.New("rst2html not found"))
 	}
 
+	err := l.lintMetadata(f)
+	if err != nil {
+		return err
+	}
+
 	s, err := l.Transform(f)
 	if err != nil {
 		return err

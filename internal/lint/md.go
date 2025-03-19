@@ -36,6 +36,11 @@ var reNumericList = regexp.MustCompile(`(?m)^\d+\.`)
 func (l Linter) lintMarkdown(f *core.File) error {
 	var buf bytes.Buffer
 
+	err := l.lintMetadata(f)
+	if err != nil {
+		return err
+	}
+
 	s, err := l.Transform(f)
 	if err != nil {
 		return err
