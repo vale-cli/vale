@@ -46,7 +46,6 @@ shortcodes
 signavio
 smog
 Spotify
-tch
 testthedocs
 textlint
 tox
