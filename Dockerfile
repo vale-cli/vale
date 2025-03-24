@@ -28,7 +28,11 @@ FROM alpine
 
 RUN apk add --no-cache \
     py3-docutils \
-    asciidoctor
+    asciidoctor \
+    nodejs \
+    npm
+
+RUN npm install -g mdx2vast
 
 COPY --from=build /app/vale /bin
 
