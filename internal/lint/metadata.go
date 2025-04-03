@@ -7,6 +7,7 @@ import (
 
 	"github.com/adrg/frontmatter"
 
+	"github.com/errata-ai/vale/v3/internal/check"
 	"github.com/errata-ai/vale/v3/internal/core"
 	"github.com/errata-ai/vale/v3/internal/nlp"
 )
@@ -26,15 +27,19 @@ func (l Linter) lintMetadata(f *core.File) error {
 		return fmErr
 	}
 
+	ignored := check.NewScope(l.Manager.Config.IgnoredScopes)
 	for key, value := range metadata {
 		if s, ok := value.(string); ok {
 			i, _ := findBestLineBySubstring(frontmatter, s)
 			if i < 0 {
 				continue
 			}
-
 			scope := "text.frontmatter." + key + f.RealExt
+
 			block := nlp.NewLinedBlock(f.Content, s, scope, i-1)
+			if ignored.Matches(block) {
+				continue
+			}
 
 			lErr := l.lintBlock(f, block, len(f.Lines), 0, false)
 			if lErr != nil {
