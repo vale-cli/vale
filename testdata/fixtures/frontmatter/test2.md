@@ -1,0 +1,12 @@
+---
+title: How the SDK works
+description: |
+  Understand how the Android SDK loads, tracks, and send data
+  TODO
+maintainedBy:
+  - dc.android@xx.com
+category: android
+lang: en
+---
+
+## Introduction

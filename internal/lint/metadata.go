@@ -14,22 +14,24 @@ import (
 func (l Linter) lintMetadata(f *core.File) error {
 	metadata := make(map[string]any)
 
-	_, err := frontmatter.Parse(strings.NewReader(f.Content), &metadata)
+	body, err := frontmatter.Parse(strings.NewReader(f.Content), &metadata)
 	if errors.Is(err, frontmatter.ErrNotFound) {
-		// No front matter found, return the original content.
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	seen := make(map[string]int)
+	frontmatter, fmErr := extractFrontMatter(f.Content, string(body))
+	if fmErr != nil {
+		return fmErr
+	}
+
 	for key, value := range metadata {
 		if s, ok := value.(string); ok {
-			i, line := findLineBySubstring(f.Content, s, seen)
+			i, _ := findBestLineBySubstring(frontmatter, s)
 			if i < 0 {
-				return core.NewE100(f.Path, fmt.Errorf("'%s' not found", s))
+				continue
 			}
-			seen[line] = i
 
 			scope := "text.frontmatter." + key + f.RealExt
 			block := nlp.NewLinedBlock(f.Content, s, scope, i-1)
@@ -42,4 +44,12 @@ func (l Linter) lintMetadata(f *core.File) error {
 	}
 
 	return nil
+}
+
+func extractFrontMatter(file, body string) (string, error) {
+	startIndex := strings.Index(file, body)
+	if startIndex == -1 {
+		return "", fmt.Errorf("body not found in the file")
+	}
+	return file[:startIndex], nil
 }

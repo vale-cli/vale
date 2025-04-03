@@ -3,8 +3,37 @@ package lint
 import (
 	"strings"
 
+	"github.com/adrg/strutil"
+	"github.com/adrg/strutil/metrics"
+
 	"github.com/errata-ai/vale/v3/internal/core"
 )
+
+func findBestLineBySubstring(s, sub string) (int, string) {
+	if strings.Count(sub, "\n") > 0 {
+		sub = strings.Split(sub, "\n")[0]
+	}
+
+	bestMatchLine := -1
+	bestMatch := ""
+	bestMatchDistance := -1.0
+
+	metric := metrics.NewLevenshtein()
+	for i, line := range strings.Split(s, "\n") {
+		if !strings.Contains(line, sub) {
+			continue
+		}
+
+		distance := strutil.Similarity(line, sub, metric)
+		if bestMatchLine == -1 || distance < bestMatchDistance {
+			bestMatchDistance = distance
+			bestMatchLine = i + 1
+			bestMatch = line
+		}
+	}
+
+	return bestMatchLine, bestMatch
+}
 
 func findLineBySubstring(s, sub string, seen map[string]int) (int, string) {
 	if strings.Count(sub, "\n") > 0 {
