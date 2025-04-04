@@ -19,18 +19,18 @@ func (l Linter) lintMetadata(f *core.File) error {
 	if errors.Is(err, frontmatter.ErrNotFound) {
 		return nil
 	} else if err != nil {
-		return err
+		return core.NewE201FromPosition(err.Error(), f.Path, 1)
 	}
 
-	frontmatter, fmErr := extractFrontMatter(f.Content, string(body))
+	fm, fmErr := extractFrontMatter(f.Content, string(body))
 	if fmErr != nil {
-		return fmErr
+		return core.NewE201FromPosition(fmErr.Error(), f.Path, 1)
 	}
 
 	ignored := check.NewScope(l.Manager.Config.IgnoredScopes)
 	for key, value := range metadata {
 		if s, ok := value.(string); ok {
-			i, _ := findBestLineBySubstring(frontmatter, s)
+			i, _ := findBestLineBySubstring(fm, s)
 			if i < 0 {
 				continue
 			}
