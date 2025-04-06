@@ -44,6 +44,8 @@ Feature: Misc
             test.adoc:7:1:Markup.ID:Use 'leader' rather than 'Master'.
             test.adoc:12:1:Markup.ID:Use 'leader' rather than 'master'.
             test.adoc:14:55:Markup.ID:Use 'leader' rather than 'master'.
+            test2.adoc:5:26:Markup.ID:Use 'leader' rather than 'master'.
+            test2.adoc:5:146:Markup.ID:Use 'leader' rather than 'master'.
             """
 
     Scenario: Unicode

@@ -84,8 +84,7 @@ func (l *Linter) lintADoc(f *core.File) error {
 		// TODO: Multiple line comments are not handled correctly.
 		//
 		// https://docs.asciidoctor.org/asciidoc/latest/comments/
-		parts := strings.Split(m, "//")
-		span := strings.Repeat("*", nlp.StrLen(parts[1])-1)
+		span := strings.Repeat("*", nlp.StrLen(strings.TrimPrefix(m, "// ")))
 		return "// " + span
 	})
 
