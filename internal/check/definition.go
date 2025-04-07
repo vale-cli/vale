@@ -79,6 +79,9 @@ var defaultRules = map[string]map[string]interface{}{
 		"swap":       map[string]string{},
 		"vocab":      false,
 		"path":       "internal",
+		"action": core.Action{
+			Name: "replace",
+		},
 	},
 	"Repetition": {
 		"extends":    "repetition",
