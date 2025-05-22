@@ -27,7 +27,7 @@ func findBestLineBySubstring(s, sub string) (int, string) {
 		distance := strutil.Similarity(line, sub, metric)
 		if bestMatchLine == -1 || distance < bestMatchDistance {
 			bestMatchDistance = distance
-			bestMatchLine = i + 1
+			bestMatchLine = i
 			bestMatch = line
 		}
 	}

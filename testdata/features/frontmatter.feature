@@ -45,4 +45,5 @@ Feature: Frontmatter
             test.rst:87:10:vale.Annotations:'TODO' left in text
             test2.md:2:8:Meta.Title:'How the SDK works' should be in title case
             test2.md:5:3:vale.Annotations:'TODO' left in text
+            test3.md:2:8:Meta.Title:'castle' should be in title case
             """
