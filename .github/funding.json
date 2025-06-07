@@ -1,0 +1,171 @@
+{
+    "version": "v1.0.0",
+    "entity": {
+        "type": "individual",
+        "role": "maintainer",
+        "name": "Joseph Kato",
+        "email": "joseph@jdkato.io",
+        "phone": "",
+        "description": "Joseph Kato is the original creator and sole maintainer of Vale, a suite of open-source tools for automated prose linting and documentation quality. Used by Microsoft, GitLab, Docker, and more, Vale has over 1 million downloads and helps documentation teams enforce consistent, inclusive, and high-quality writing at scale.",
+        "webpageUrl": {
+            "url": "https://vale.sh",
+            "wellKnown": ""
+        }
+    },
+    "projects": [
+        {
+            "guid": "vale-cli",
+            "name": "Vale CLI",
+            "description": "The core command-line interface of the Vale ecosystem, enabling customizable style-based linting for technical documentation, blog posts, and other text formats. Extensively used in CI/CD workflows.",
+            "webpageUrl": {
+                "url": "https://vale.sh",
+                "wellKnown": ""
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/errata-ai/vale",
+                "wellKnown": ""
+            },
+            "licenses": [
+                "spdx:MIT"
+            ],
+            "tags": [
+                "cli",
+                "developer-tools",
+                "linting",
+                "documentation",
+                "static-analysis",
+                "open-source"
+            ]
+        },
+        {
+            "guid": "vale-ls",
+            "name": "Vale Language Server",
+            "description": "A language server implementation for Vale, allowing seamless editor integration (e.g., VS Code, Neovim). Brings real-time linting to developers and writers in IDEs.",
+            "webpageUrl": {
+                "url": "https://vale.sh",
+                "wellKnown": ""
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/errata-ai/vale-ls",
+                "wellKnown": ""
+            },
+            "licenses": [
+                "spdx:MIT"
+            ],
+            "tags": [
+                "language-server",
+                "developer-tools",
+                "real-time",
+                "linting",
+                "ide",
+                "open-source"
+            ]
+        },
+        {
+            "guid": "vale-action",
+            "name": "Vale GitHub Action",
+            "description": "GitHub Action for integrating Vale into CI pipelines. Makes it easy to add documentation linting to pull requests, ensuring consistency in collaborative writing workflows.",
+            "webpageUrl": {
+                "url": "https://vale.sh",
+                "wellKnown": ""
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/errata-ai/vale-action",
+                "wellKnown": ""
+            },
+            "licenses": [
+                "spdx:MIT"
+            ],
+            "tags": [
+                "ci",
+                "github-action",
+                "automation",
+                "linting",
+                "open-source",
+                "documentation"
+            ]
+        },
+        {
+            "guid": "vale-website",
+            "name": "Vale Website",
+            "description": "The public documentation and marketing website for the Vale ecosystem. Hosts installation guides, style configuration examples, integration docs, and more for both new and advanced users.",
+            "webpageUrl": {
+                "url": "https://vale.sh",
+                "wellKnown": ""
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/errata-ai/vale.sh",
+                "wellKnown": ""
+            },
+            "licenses": [
+                "spdx:MIT"
+            ],
+            "tags": [
+                "documentation",
+                "docs-site",
+                "developer-tools",
+                "static-site",
+                "open-source",
+                "website"
+            ]
+        },
+        {
+            "guid": "vale-packages",
+            "name": "Vale Packages",
+            "description": "A collection of curated and community-contributed style packages for Vale. These packages provide reusable rulesets for organizations and open-source communities to enforce grammar, inclusive language, tone, and branding consistency.",
+            "webpageUrl": {
+                "url": "https://vale.sh",
+                "wellKnown": ""
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/errata-ai/packages",
+                "wellKnown": ""
+            },
+            "licenses": [
+                "spdx:MIT"
+            ],
+            "tags": [
+                "linting",
+                "style-guides",
+                "developer-tools",
+                "documentation",
+                "rulesets",
+                "inclusive-language",
+                "grammar",
+                "open-source"
+            ]
+        }
+    ],
+    "funding": {
+        "channels": [
+            {
+                "guid": "github-sponsors",
+                "type": "payment-provider",
+                "address": "https://github.com/sponsors/jdkato",
+                "description": "Preferred platform for one-time and recurring contributions."
+            },
+            {
+                "guid": "open-collective",
+                "type": "payment-provider",
+                "address": "https://opencollective.com/vale",
+                "description": "Support Vale through Open Collective for transparent funding and expense tracking."
+            }
+        ],
+        "plans": [
+            {
+                "guid": "vale-browser-extension-plan",
+                "status": "active",
+                "name": "Vale Browser Extension Development",
+                "description": "Funding requested to build a cross-browser extension for real-time text linting with Vale, supporting editing interfaces like GitHub, GitLab, and CMS tools. This will make Vale accessible to non-technical users and documentation writers.",
+                "amount": 10000,
+                "currency": "USD",
+                "frequency": "one-time",
+                "channels": [
+                    "github-sponsors",
+                    "open-collective"
+                ]
+            }
+        ],
+        "history": []
+    }
+}
