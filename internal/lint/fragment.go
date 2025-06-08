@@ -58,7 +58,7 @@ func (l *Linter) lintFragments(f *core.File) error {
 		return err
 	}
 
-	found, err := updateQueries(f, l.Manager.Config.Blueprints)
+	found, err := updateQueries(f, l.Manager.Config.Views)
 	if err != nil {
 		return err
 	} else if len(found) > 0 {

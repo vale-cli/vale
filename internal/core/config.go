@@ -34,14 +34,14 @@ var (
 	// PipeDir is the default location for Vale's configuration pipeline.
 	PipeDir = ".vale-config"
 
-	VocabDir      = filepath.Join(ConfigDir, "vocabularies")
-	DictDir       = filepath.Join(ConfigDir, "dictionaries")
-	TmplDir       = filepath.Join(ConfigDir, "templates")
-	IgnoreDir     = filepath.Join(ConfigDir, "ignore")
-	ActionDir     = filepath.Join(ConfigDir, "actions")
-	FilterDir     = filepath.Join(ConfigDir, "filters")
-	ScriptDir     = filepath.Join(ConfigDir, "scripts")
-	BlueprintsDir = filepath.Join(ConfigDir, "blueprints")
+	VocabDir  = filepath.Join(ConfigDir, "vocabularies")
+	DictDir   = filepath.Join(ConfigDir, "dictionaries")
+	TmplDir   = filepath.Join(ConfigDir, "templates")
+	IgnoreDir = filepath.Join(ConfigDir, "ignore")
+	ActionDir = filepath.Join(ConfigDir, "actions")
+	FilterDir = filepath.Join(ConfigDir, "filters")
+	ScriptDir = filepath.Join(ConfigDir, "scripts")
+	ViewDir   = filepath.Join(ConfigDir, "views")
 )
 
 // ConfigDirs is a list of all directories that contain user-defined, non-style
@@ -54,7 +54,7 @@ var ConfigDirs = []string{
 	ActionDir,
 	ScriptDir,
 	FilterDir,
-	BlueprintsDir,
+	ViewDir,
 }
 
 // ConfigVars is a list of all supported environment variables.
@@ -213,10 +213,10 @@ type Config struct {
 	AcceptedTokens []string `json:"-"` // Project-specific vocabulary (okay)
 	RejectedTokens []string `json:"-"` // Project-specific vocabulary (avoid)
 
-	FallbackPath string                `json:"-"`
-	SecToPat     map[string]glob.Glob  `json:"-"`
-	Styles       []string              `json:"-"`
-	Blueprints   map[string]*Blueprint `json:"-"`
+	FallbackPath string               `json:"-"`
+	SecToPat     map[string]glob.Glob `json:"-"`
+	Styles       []string             `json:"-"`
+	Views        map[string]*View     `json:"-"`
 
 	NLPEndpoint string // An external API to call for NLP-related work.
 
@@ -245,7 +245,7 @@ func NewConfig(flags *CLIFlags) (*Config, error) {
 	cfg.TokenIgnores = make(map[string][]string)
 	cfg.CommentDelimiters = make(map[string][2]string)
 	cfg.FormatToLang = make(map[string]string)
-	cfg.Blueprints = make(map[string]*Blueprint)
+	cfg.Views = make(map[string]*View)
 	cfg.Paths = []string{}
 	cfg.ConfigFiles = []string{}
 

@@ -9,16 +9,16 @@ import (
 )
 
 func (l *Linter) lintData(f *core.File) error {
-	for syntax, blueprint := range l.Manager.Config.Blueprints {
+	for syntax, view := range l.Manager.Config.Views {
 		sec, err := glob.Compile(syntax)
 		if err != nil {
 			return err
 		} else if sec.Match(f.Path) {
-			found, berr := blueprint.Apply(f)
+			found, berr := view.Apply(f)
 			if berr != nil {
 				return core.NewE201FromTarget(
 					berr.Error(),
-					fmt.Sprintf("Blueprint = %s", blueprint),
+					fmt.Sprintf("View = %s", view),
 					l.Manager.Config.RootINI,
 				)
 			}

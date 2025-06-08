@@ -1,6 +1,6 @@
-Feature: Blueprints
+Feature: Views
     Scenario: YAML
-        When I test "blueprints"
+        When I test "views"
         Then the output should contain exactly:
             """
             API.yml:3:10:Scopes.Titles:'sample API' should be capitalized

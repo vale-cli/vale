@@ -15,7 +15,7 @@ import (
 type DaselValue = map[string]any
 
 var blockChompingRegex = regexp.MustCompile(`(\w: )>(-?\s*)`)
-var blueprintEngines = []string{"tree-sitter", "dasel"}
+var viewEngines = []string{"tree-sitter", "dasel"}
 
 // A Scope is a single query that we want to run against a document.
 type Scope struct {
@@ -24,14 +24,16 @@ type Scope struct {
 	Type string `yaml:"type"`
 }
 
-// A Blueprint is a set of queries that we want to run against a document.
+// A View is a named, virtual representation of a subset of a file's
+// structured content. It is defined by a set of queries that can be
+// used to extract specific information from the file.
 //
 // The supported engines are:
 //
 // - `tree-sitter`
 // - `dasel`
 // - `command`
-type Blueprint struct {
+type View struct {
 	Engine string  `yaml:"engine"`
 	Scopes []Scope `yaml:"scopes"`
 }
@@ -43,34 +45,34 @@ type ScopedValues struct {
 	Values []string
 }
 
-// NewBlueprint creates a new blueprint from the given path.
-func NewBlueprint(path string) (*Blueprint, error) {
-	var blueprint Blueprint
+// NewView creates a new blueprint from the given path.
+func NewView(path string) (*View, error) {
+	var view View
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	err = yaml.Unmarshal(data, &blueprint)
+	err = yaml.Unmarshal(data, &view)
 	if err != nil {
 		return nil, err
 	}
 
-	if blueprint.Engine == "" {
+	if view.Engine == "" {
 		return nil, fmt.Errorf("missing parser")
-	} else if !StringInSlice(blueprint.Engine, blueprintEngines) {
-		return nil, fmt.Errorf("unsupported parser: %s", blueprint.Engine)
+	} else if !StringInSlice(view.Engine, viewEngines) {
+		return nil, fmt.Errorf("unsupported parser: %s", view.Engine)
 	}
 
-	if len(blueprint.Scopes) == 0 {
+	if len(view.Scopes) == 0 {
 		return nil, fmt.Errorf("missing queries")
 	}
 
-	return &blueprint, nil
+	return &view, nil
 }
 
-func (b *Blueprint) Apply(f *File) ([]ScopedValues, error) {
+func (b *View) Apply(f *File) ([]ScopedValues, error) {
 	found := []ScopedValues{}
 
 	value, err := fileToValue(f)

@@ -122,20 +122,20 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 		cfg.FormatToLang[label] = sec.Key("Lang").String()
 		return nil
 	},
-	"Blueprint": func(label string, sec *ini.Section, cfg *Config) error {
-		name := sec.Key("Blueprint").String()
+	"View": func(label string, sec *ini.Section, cfg *Config) error {
+		name := sec.Key("View").String()
 
-		path := FindConfigAsset(cfg, name+".yml", BlueprintsDir)
+		path := FindConfigAsset(cfg, name+".yml", ViewDir)
 		if path == "" {
-			return fmt.Errorf("blueprint '%s' not found", name)
+			return fmt.Errorf("view '%s' not found", name)
 		}
 
-		blueprint, err := NewBlueprint(path)
+		view, err := NewView(path)
 		if err != nil {
 			return err
 		}
 
-		cfg.Blueprints[label] = blueprint
+		cfg.Views[label] = view
 		return nil
 	},
 }
