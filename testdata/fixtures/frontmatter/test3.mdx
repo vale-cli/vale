@@ -1,0 +1,207 @@
+---
+title: "Using the Nylas Email API"
+rootNav: "Email"
+sidebar:
+  label: Using the Email API
+  parent: Email
+  order: 1
+description: "Use the Nylas Email API to access and work with email data."
+---
+
+:::success
+**Looking for the Email API references?** [You can find them here](/docs/api/v3/ecc/#tag/messages)!
+:::
+
+This page explains how to use the Nylas Email API. You'll learn how to do the following tasks:
+
+- Read email messages from an account's inbox.
+- Search for email messages.
+- Update an email message's labels, file attachments, unread status, stars, folders, and more.
+- Delete drafts, files, and folders.
+
+## How the Email API works
+
+The Nylas Email API interacts with users' providers using their original SMTP/ActiveSync gateways. This means that when you make a [Send Message request](/docs/api/v3/ecc/#tag/messages/POST/v3/grants/{grant_id}/messages/send), for example, Nylas connects to the provider to send an email message as the user. Because of this, providers see the activity as _the user_ sending a message, rather than an external platform making the request _on the user's behalf_.
+
+Email messages sent through Nylas have very high deliverability, but might be subject to rate-limiting and abuse detection from the provider. See [Improve email deliverability](/docs/dev-guide/best-practices/improving-email-delivery/) for more information and a list of best practices.
+
+### Provider IDs for messages
+
+Nylas v3 uses an object's provider ID to refer to the object, and different providers return differently formatted IDs. For IMAP messages, Nylas extracts the ID from the `message-id` header. For Google and Microsoft, the object ID comes from the provider's internal ID.
+
+## Before you begin
+
+!!!include(src/\_docs_includes/v3-using-api-before-you-begin.md)!!!
+
+### One-click unsubscribe requirements for Google messages
+
+!!!include(src/\_docs_includes/email/v3-google-unsubscribe-headers.md)!!!
+
+## Read email messages from inboxes
+
+Messages are the fundamental object in the Nylas platform, and the core building block for most email applications. They contain several pieces of information, such as the message's timestamp, the sender's address, the recipients, and the body of the message. They can also contain file attachments, calendar invites, and more.
+
+By default, the Messages endpoint returns the 50 most recent messages, but the following examples use the `limit` parameter to reduce the number of results to 5.
+
+```bash [mostRecentMessages-Request]
+!!!include(v3_code_samples/messages/GET/curl.sh)!!!
+```
+
+```json [mostRecentMessages-Response (JSON)]
+!!!include(v3_code_samples/messages/GET/response.json)!!!
+```
+
+```js [mostRecentMessages-Node.js SDK]
+!!!include(v3_code_samples/messages/GET/node.js)!!!
+```
+
+```python [mostRecentMessages-Python SDK]
+!!!include(v3_code_samples/messages/GET/python.py)!!!
+```
+
+```ruby [mostRecentMessages-Ruby SDK]
+require 'nylas'
+
+nylas = Nylas::Client.new(api_key: '<NYLAS_API_KEY>')
+query_params = { limit: 5 }
+messages, _ = nylas.messages.list(identifier: '<NYLAS_GRANT_ID>', query_params: query_params)
+
+messages.each {|message|
+  puts "[#{Time.at(message[:date]).strftime("%d/%m/%Y at %H:%M:%S")}] \
+      #{message[:subject]}"
+}
+```
+
+```java [mostRecentMessages-Java SDK]
+import com.nylas.NylasClient;
+import com.nylas.models.*;
+import java.text.SimpleDateFormat;
+
+public class ReadInbox {
+  public static void main(String[] args) throws NylasSdkTimeoutError, NylasApiError {
+    NylasClient nylas = new NylasClient.Builder("<NYLAS_API_KEY>").build();
+    ListMessagesQueryParams queryParams = new ListMessagesQueryParams.Builder().limit(5).build();
+    ListResponse<Message> message = nylas.messages().list("<NYLAS_GRANT_ID>", queryParams);
+
+    for(Message email : message.getData()) {
+      String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").
+          format(new java.util.Date((email.getDate() * 1000L)));
+
+      System.out.println("[" + date + "] | " + email.getSubject());
+    }
+  }
+}
+```
+
+```kt [mostRecentMessages-Kotlin SDK]
+import com.nylas.NylasClient
+import com.nylas.models.*
+import java.text.SimpleDateFormat
+import java.util.*
+
+fun dateFormatter(milliseconds: String): String {
+  return SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Date(milliseconds.toLong() * 1000)).toString()
+}
+
+fun main(args: Array<String>) {
+  val nylas: NylasClient = NylasClient(apiKey = "<NYLAS_API_KEY>")
+  val queryParams = ListMessagesQueryParams(limit = 5, inFolder = listOf("Inbox"))
+  val messages : List<Message> = nylas.messages().list("<NYLAS_GRANT_ID>", queryParams).data
+
+  for(message in messages) {
+    println("[" + dateFormatter(message.date.toString()) + "] |" + message.subject + " | " + message.folders)
+  }
+}
+```
+
+:::info
+**Your users get a lot of messages**. If you encounter [`429` errors](/docs/api/errors/400-response/) or [provider rate limits](/docs/dev-guide/platform/rate-limits/#provider-rate-limits) when listing all messages, try lowering your `limit` and adding other parameters to reduce the number of messages returned.
+:::
+
+## Search an inbox for email messages
+
+You can add query parameters to a [Get all Messages request](/docs/api/v3/ecc/#tag/messages/GET/v3/grants/{grant_id}/messages) to search for messages.
+
+:::warn
+**If you're using the `in` query parameter on a Google account to filter for email messages with a specific folder ("label" in the Google UI), you must reference the folder ID**. Nylas does not support filtering by folders using their name.
+:::
+
+```javascript [searchMessagesSDKs-Node.js SDK]
+!!!include(v3_code_samples/messages/GET/search-inbox-messages.js)!!!
+```
+
+```python [searchMessagesSDKs-Python SDK]
+!!!include(v3_code_samples/messages/GET/search-inbox-messages.py)!!!
+```
+
+```ruby [searchMessagesSDKs-Ruby SDK]
+require 'nylas'
+
+nylas = Nylas::Client.new(api_key: '<NYLAS_API_KEY>')
+query_params = {limit: 5, search_query_native: "subject: hello"}
+messages, _ = nylas.messages.list(identifier: '<NYLAS_GRANT_ID>', query_params: query_params)
+
+messages.each {|message|
+  puts "[#{Time.at(message[:date]).strftime("%d/%m/%Y at %H:%M:%S")}] \
+      #{message[:subject]}"
+}
+```
+
+```java [searchMessagesSDKs-Java SDK]
+import com.nylas.NylasClient;
+import com.nylas.models.*;
+import java.text.SimpleDateFormat;
+import com.nylas.models.Thread;
+import java.util.List;
+
+public class SearchInbox {
+  public static void main(String[] args) throws NylasSdkTimeoutError, NylasApiError {
+    NylasClient nylas = new NylasClient.Builder("<NYLAS_API_KEY>").build();
+
+    ListMessagesQueryParams queryParams = new ListMessagesQueryParams.Builder().
+        searchQueryNative("subject: hello").
+        limit(5).
+        build();
+
+    ListResponse<Message> message = nylas.messages().list("<NYLAS_GRANT_ID>", queryParams);
+
+    for(Message email : message.getData()) {
+      String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").
+          format(new java.util.Date((email.getDate() * 1000L)));
+
+      System.out.println("[" + date + "] | " + email.getSubject());
+    }
+  }
+}
+```
+
+```kt [searchMessagesSDKs-Kotlin SDK]
+import com.nylas.NylasClient
+import com.nylas.models.*
+import java.text.SimpleDateFormat
+import java.util.*
+
+fun dateFormatter(milliseconds: String): String {
+  return SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Date(milliseconds.toLong() * 1000)).toString()
+}
+
+fun main(args: Array<String>) {
+  val nylas: NylasClient = NylasClient(apiKey = "<NYLAS_API_KEY>")
+  val queryParams = ListMessagesQueryParams(limit = 5, searchQueryNative = "subject: hello")
+  val messages : List<Message> = nylas.messages().list("<NYLAS_GRANT_ID>", queryParams).data
+
+  for(message in messages) {
+    println("[" + dateFormatter(message.date.toString()) + "] |" + message.subject)
+  }
+}
+```
+
+## Modify and delete inbox content
+
+Most Nylas Email API endpoints allow you to modify objects using `PUT` and `POST` requests. You can make the following changes:
+
+- **Threads and Messages**: Modify labels, unread status, stars, and folders. See the [Threads](/docs/api/v3/ecc/#tag/threads) and [Messages](/docs/api/v3/ecc/#tag/messages) references for more information.
+- **Folders and Labels**: Update folder and label names. See the [Folders](/docs/api/v3/ecc/#tag/folders) references for more information.
+- **Files**: Upload files to use as attachments. See the [Attachments](/docs/api/v3/ecc/#tag/attachments) references for more information.
+
+You can also make `DELETE` requests to certain endpoints. This allows you to delete existing objects, such as Folders.

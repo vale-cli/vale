@@ -12,6 +12,7 @@ Feature: Misc
             test.md:21:1:Vale.Terms:Use 'ABC-DEF' instead of 'ABC-DEf'.
             test.md:23:1:Vale.Terms:Use 'PLuG' instead of 'plug'.
             test.md:27:17:Vale.Terms:Use '[Oo]bservability' instead of 'oBservability'.
+            test.md:32:8:Vale.Terms:Use '[Oo]bservability' instead of 'oBservability'.
             """
 
     Scenario: Multiple Vocabs
