@@ -43,6 +43,16 @@ Feature: Lint
             test.proto:31:1:vale.Annotations:'NOTE' left in text
             """
 
+    Scenario: Lint a Nix file
+        When I lint "test.nix"
+        Then the output should contain exactly:
+            """
+            test.nix:3:3:vale.Annotations:'NOTE' left in text
+            test.nix:7:5:vale.Annotations:'XXX' left in text
+            test.nix:10:6:vale.Annotations:'NOTE' left in text
+            test.nix:17:7:vale.Annotations:'TODO' left in text
+            """
+
     Scenario: Lint an Org file
         When I lint "test.org"
         Then the output should contain exactly:

@@ -53,6 +53,11 @@ var CommentsByNormedExt = map[string]map[string]string{
 		"blockStart": `(\{-.*)`,
 		"blockEnd":   `(.*-\})`,
 	},
+	".nix": {
+		"inline":     `(#.+)`,
+		"blockStart": `(/\*.*)`,
+		"blockEnd":   `(.*\*/)`,
+	},
 }
 
 // FormatByExtension associates a file extension with its "normed" extension
@@ -92,6 +97,7 @@ var FormatByExtension = map[string][]string{
 	`\.(?:yaml|yml)$`:  {".yml", "data"},
 	`\.(?:json)$`:      {".json", "data"},
 	`\.(?:toml)$`:      {".toml", "data"},
+	`\.(?:nix)$`:       {".nix", "code"},
 }
 
 // FormatFromExt takes a file extension and returns its [normExt, format]
