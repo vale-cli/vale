@@ -36,7 +36,8 @@ func findBestLineBySubstring(s, sub string) (int, string) {
 }
 
 func findLineBySubstring(s, sub string, seen map[string]int) (int, string) {
-	if strings.Count(sub, "\n") > 0 {
+	lines := strings.Count(sub, "\n")
+	if lines > 0 {
 		sub = strings.Split(sub, "\n")[0]
 	}
 
@@ -44,6 +45,21 @@ func findLineBySubstring(s, sub string, seen map[string]int) (int, string) {
 		if strings.Contains(line, sub) {
 			if j, ok := seen[line]; !ok || j-1 != i {
 				return i + 1, line
+			}
+		}
+	}
+
+	if lines <= 0 {
+		// Special case: check for substrings.
+		//
+		// See #1018.
+		for _, part := range strings.Split(sub, " ") {
+			for i, line := range strings.Split(s, "\n") {
+				if strings.Contains(line, part) {
+					if j, ok := seen[line]; !ok || j-1 != i {
+						return i + 1, line
+					}
+				}
 			}
 		}
 	}

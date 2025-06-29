@@ -1,0 +1,4 @@
+openapi: 3.0.1
+info:
+  description: "Line 1\
+    \ Line 2"

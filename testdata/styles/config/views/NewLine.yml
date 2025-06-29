@@ -1,0 +1,5 @@
+engine: dasel
+scopes:
+  # API info
+  - expr: info.description
+    name: title
