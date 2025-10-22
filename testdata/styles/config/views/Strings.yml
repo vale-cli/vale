@@ -1,0 +1,4 @@
+engine: tree-sitter
+scopes:
+  - expr: (string_literal)+ @string
+    name: java

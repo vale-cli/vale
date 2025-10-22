@@ -18,6 +18,7 @@ Feature: Views
             github-workflow.json:494:264:Vale.Spelling:Did you really mean 'prereleased'?
             github-workflow.json:568:83:Vale.Spelling:Did you really mean 'job_id'?
             github-workflow.json:652:83:Vale.Spelling:Did you really mean 'job_id'?
+            test.java:13:38:vale.Annotations:'XXX' left in text
             test.py:1:3:vale.Annotations:'FIXME' left in text
             test.py:11:3:vale.Annotations:'XXX' left in text
             test.py:13:16:vale.Annotations:'XXX' left in text
