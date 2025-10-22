@@ -1,6 +1,6 @@
 module github.com/errata-ai/vale/v3
 
-go 1.23.2
+go 1.25.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
