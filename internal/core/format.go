@@ -68,7 +68,7 @@ var FormatByExtension = map[string][]string{
 	`\.(?:go)$`:                       {".go", "code"},
 	`\.(?:hs)$`:                       {".hs", "code"},
 	`\.(?:html|htm|shtml|xhtml)$`:     {".html", "markup"},
-	`\.(?:java|bsh)$`:                 {".c", "code"},
+	`\.(?:java|bsh)$`:                 {".java", "code"},
 	`\.(?:jl)$`:                       {".jl", "code"},
 	`\.(?:js|jsx)$`:                   {".js", "code"},
 	`\.(?:lua)$`:                      {".lua", "code"},

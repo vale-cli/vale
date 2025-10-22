@@ -40,6 +40,8 @@ func GetLanguageFromExt(ext string) (*Language, error) {
 		return JavaScript(), nil
 	case ".jl":
 		return Julia(), nil
+	case ".java":
+		return Java(), nil
 	case ".ts":
 		return TypeScript(), nil
 	case ".tsx":

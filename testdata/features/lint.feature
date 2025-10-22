@@ -34,6 +34,14 @@ Feature: Lint
             test.jl:47:3:vale.Annotations:'XXX' left in text
             """
 
+    Scenario: Lint a Java file
+        When I lint "test.java"
+        Then the output should contain exactly:
+            """
+            test.java:1:4:vale.Annotations:'XXX' left in text
+            test.java:9:4:vale.Annotations:'TODO' left in text
+            """
+
     Scenario: Lint a proto file
         When I lint "test.proto"
         Then the output should contain exactly:
