@@ -141,15 +141,15 @@ func installPkg(dir, name, styles string, index int) error {
 	return nil
 }
 
-func moveDir(old, new string) error { //nolint:predeclared
-	files, err := os.ReadDir(old)
+func moveDir(oldPath, newPath string) error {
+	files, err := os.ReadDir(oldPath)
 	if err != nil {
 		return err
 	}
 
 	for _, file := range files {
 		if !file.IsDir() || file.Name() != "config" {
-			if err = moveAsset(file.Name(), old, new); err != nil {
+			if err = moveAsset(file.Name(), oldPath, newPath); err != nil {
 				return err
 			}
 		}
@@ -158,9 +158,9 @@ func moveDir(old, new string) error { //nolint:predeclared
 	return nil
 }
 
-func moveAsset(name, old, new string) error { //nolint:predeclared
-	src := filepath.Join(old, name)
-	dst := filepath.Join(new, name)
+func moveAsset(name, oldPath, newPath string) error {
+	src := filepath.Join(oldPath, name)
+	dst := filepath.Join(newPath, name)
 
 	if system.FileExists(dst) || system.IsDir(dst) {
 		if err := os.RemoveAll(dst); err != nil {
@@ -168,7 +168,7 @@ func moveAsset(name, old, new string) error { //nolint:predeclared
 		}
 	}
 
-	err := os.MkdirAll(new, os.ModePerm)
+	err := os.MkdirAll(newPath, os.ModePerm)
 	if err != nil {
 		return err
 	}

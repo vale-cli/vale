@@ -1,4 +1,4 @@
-image: golang:1.23
+image: golang:1.25
 
 stages:
   - test
