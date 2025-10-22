@@ -40,14 +40,6 @@
   </a>
 </p>
 
-> Thanks to [Appwrite][4] for supporting Vale through their [Open Source Sponsorship program][3].
-
-<p>
-  <a href="https://appwrite.io/">
-    <img src="https://github.com/errata-ai/vale/assets/8785025/95d4b2f8-a94b-4512-8197-7e80973655cc" width="201px">
-  </a>
-</p>
-
 ### Individuals
 
 <a href="https://opencollective.com/vale"><img src="https://opencollective.com/vale/individuals.svg?width=890"></a>
