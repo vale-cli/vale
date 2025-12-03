@@ -9,7 +9,7 @@ servers:
     description: Optional server description, e.g. Main (production) serrver
   - url: http://staging-api.example.com
     description: |
-      Optional server description, e.g. 
+      Optional server description, e.g.
       Internal staging serrver for testing
   - url: http://api.example.com/v2
     description: Optional server description, e.g. Main (production) serrver

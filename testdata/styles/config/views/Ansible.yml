@@ -1,0 +1,13 @@
+engine: dasel
+scopes:
+  - name: chapter.title
+    expr: chapters.all().title
+
+  - name: chapter.goal
+    expr: chapters.all().goal
+    # Long form content (`|-`) might contain markup?
+    type: md
+
+  - name: section.objective
+    # objectives can be empty
+    expr: chapters.all().topics.all().sections.all().objectives?.all()

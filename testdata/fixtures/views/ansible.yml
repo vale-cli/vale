@@ -1,0 +1,15 @@
+chapters:
+  - keyword: roles
+    title: "reusing Code with Ansible Roles and Coent Collections"
+    goal: |-
+      Use Ansible Roles and Ansible Content Collections to devlop playbooks more quickly and to reuse Ansible code.
+    topics:
+      - keyword: structure
+        title: Defining Ansible Role Structure
+        sections:
+          - type: lecture
+            time: 15
+            objectives:
+              - Define the purose of an Ansible Role, its structure, and how roles are used in playbooks.
+          - type: multichoice
+            time: 15
