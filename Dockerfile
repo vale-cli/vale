@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG GOLANG_VER=1.23
+ARG GOLANG_VER=1.25
 FROM golang:${GOLANG_VER}-alpine AS build
 
 # See https://cloud.docker.com/repository/docker/jdkato/vale
