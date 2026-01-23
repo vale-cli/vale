@@ -11,7 +11,7 @@ require (
 	github.com/d5/tengo/v2 v2.17.0
 	github.com/errata-ai/ini v1.63.0
 	github.com/errata-ai/regexp2 v1.7.0
-	github.com/expr-lang/expr v1.17.0
+	github.com/expr-lang/expr v1.17.7
 	github.com/gobwas/glob v0.2.3
 	github.com/jdkato/go-tree-sitter-julia v0.1.0
 	github.com/jdkato/twine v0.10.2
