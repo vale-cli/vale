@@ -116,28 +116,28 @@ CommentDelimiters = "{/*"
 }
 
 func Test_processConfig_transform(t *testing.T) {
-   body := `[*.xml]
+	body := `[*.xml]
 Transform = transform.xsl
 `
-   uCfg, err := shadowLoad([]byte(body))
-   if err != nil {
-       t.Fatal(err)
-   }
+	uCfg, err := shadowLoad([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-   conf, err := NewConfig(&CLIFlags{})
-   if err != nil {
-       t.Fatal(err)
-   }
-   conf.AddConfigFile("C:\\Source\\project\\.vale.ini")
+	conf, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf.AddConfigFile("C:\\Source\\project\\.vale.ini")
 
-   _, err = processConfig(uCfg, conf, false)
-   if err != nil {
-       t.Fatal(err)
-   }
+	_, err = processConfig(uCfg, conf, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-   actual := conf.Stylesheets["*.xml"]
-   expected := "C:\\Source\\project\\transform.xsl"
-   if actual != expected {
-       t.Errorf("expected %v, but got %v", expected, actual)
-   }
+	actual := conf.Stylesheets["*.xml"]
+	expected := "C:\\Source\\project\\transform.xsl"
+	if actual != expected {
+		t.Errorf("expected %v, but got %v", expected, actual)
+	}
 }

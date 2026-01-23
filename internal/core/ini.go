@@ -114,7 +114,7 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 	},
 	"Transform": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
 		candidate := sec.Key("Transform").String()
-       cfg.Stylesheets[label] = system.DeterminePath(cfg.ConfigFile(), candidate)
+		cfg.Stylesheets[label] = system.DeterminePath(cfg.ConfigFile(), candidate)
 		return nil
 
 	},
