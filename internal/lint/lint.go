@@ -197,7 +197,7 @@ func (l *Linter) lintFile(src string) lintResult {
 			err = l.lintMDX(file)
 		case ".rst":
 			err = l.lintRST(file)
-        case ".xml", ".xsd":
+		case ".xml", ".xsd":
 			err = l.lintXML(file)
 		case ".dita":
 			err = l.lintDITA(file)

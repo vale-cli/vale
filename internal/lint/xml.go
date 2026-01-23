@@ -33,10 +33,10 @@ func (l Linter) lintXML(file *core.File) error {
 			errors.New("no XSLT transform provided"))
 	}
 
-    args := append([]string{}, xsltArgs...)
-    args = append(args, []string{file.Transform, "-"}...)
+	args := append([]string{}, xsltArgs...)
+	args = append(args, []string{file.Transform, "-"}...)
 
-    cmd := exec.Command(xsltproc, args...)
+	cmd := exec.Command(xsltproc, args...)
 	cmd.Stdin = strings.NewReader(file.Content)
 	cmd.Stdout = &out
 	cmd.Stderr = &eut
