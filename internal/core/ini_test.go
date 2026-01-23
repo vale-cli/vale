@@ -136,7 +136,36 @@ Transform = transform.xsl
 	}
 
 	actual := conf.Stylesheets["*.xml"]
-	expected := "C:\\Source\\project\\transform.xsl"
+	// Transform = transform.xsl is a relative path, so it should remain as is.
+	expected := "transform.xsl"
+	if actual != expected {
+		t.Errorf("expected %v, but got %v", expected, actual)
+	}
+}
+
+func Test_processConfig_transform_abs(t *testing.T) {
+	body := `[*.xml]
+Transform = C:\\Source\\project\\transform.xsl
+`
+	uCfg, err := shadowLoad([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	conf, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf.AddConfigFile("C:\\Source\\project\\.vale.ini")
+
+	_, err = processConfig(uCfg, conf, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	actual := conf.Stylesheets["*.xml"]
+	// Transform = transform.xsl is a relative path, so it should remain as is.
+	expected := `C:\\Source\\project\\transform.xsl`
 	if actual != expected {
 		t.Errorf("expected %v, but got %v", expected, actual)
 	}
