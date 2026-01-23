@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -114,7 +116,6 @@ CommentDelimiters = "{/*"
 		})
 	}
 }
-
 func Test_processConfig_transform(t *testing.T) {
 	body := `[*.xml]
 Transform = transform.xsl
@@ -128,7 +129,11 @@ Transform = transform.xsl
 	if err != nil {
 		t.Fatal(err)
 	}
-	conf.AddConfigFile("C:\\Source\\project\\.vale.ini")
+
+	// Use a path that works on both Unix and Windows
+	projectDir, _ := filepath.Abs(filepath.Join("Source", "project"))
+	cfgFile := filepath.Join(projectDir, ".vale.ini")
+	conf.AddConfigFile(cfgFile)
 
 	_, err = processConfig(uCfg, conf, false)
 	if err != nil {
@@ -136,17 +141,24 @@ Transform = transform.xsl
 	}
 
 	actual := conf.Stylesheets["*.xml"]
-	// Transform = transform.xsl is a relative path, so it should remain as is.
-	expected := "transform.xsl"
+
+	// Logic: DeterminePath joins relative 'transform.xsl' with the config dir
+	expected := filepath.Join(projectDir, "transform.xsl")
+
 	if actual != expected {
 		t.Errorf("expected %v, but got %v", expected, actual)
 	}
 }
 
 func Test_processConfig_transform_abs(t *testing.T) {
-	body := `[*.xml]
-Transform = C:\\Source\\project\\transform.xsl
-`
+	// 1. Get a clean absolute path for the current OS
+	absPath, _ := filepath.Abs("transform.xsl")
+
+	// 2. Use a raw string format.
+	body := fmt.Sprintf(`[*.xml]
+Transform = %s
+`, absPath)
+
 	uCfg, err := shadowLoad([]byte(body))
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +168,10 @@ Transform = C:\\Source\\project\\transform.xsl
 	if err != nil {
 		t.Fatal(err)
 	}
-	conf.AddConfigFile("C:\\Source\\project\\.vale.ini")
+
+	// 3. Ensure the project directory is also absolute/clean
+	projectDir, _ := filepath.Abs(filepath.Join("Source", "project"))
+	conf.AddConfigFile(filepath.Join(projectDir, ".vale.ini"))
 
 	_, err = processConfig(uCfg, conf, false)
 	if err != nil {
@@ -164,9 +179,10 @@ Transform = C:\\Source\\project\\transform.xsl
 	}
 
 	actual := conf.Stylesheets["*.xml"]
-	// Transform = transform.xsl is a relative path, so it should remain as is.
-	expected := `C:\\Source\\project\\transform.xsl`
-	if actual != expected {
-		t.Errorf("expected %v, but got %v", expected, actual)
+
+	// 4. Normalize both paths before comparison to account for
+	// any trailing slashes or separator inconsistencies.
+	if filepath.Clean(actual) != filepath.Clean(absPath) {
+		t.Errorf("expected %v, but got %v", absPath, actual)
 	}
 }
