@@ -18,12 +18,13 @@ import (
 
 // A Linter lints a File.
 type Linter struct {
-	Manager   *check.Manager
-	glob      *glob.Glob
-	client    *http.Client
-	HasDir    bool
-	nonGlobal bool
-	metaScope string
+	Manager     *check.Manager
+	glob        *glob.Glob
+	client      *http.Client
+	HasDir      bool
+	nonGlobal   bool
+	metaScope   string
+	scopeIgnore []string // rules to skip for the current scope
 }
 
 type lintResult struct {
@@ -78,6 +79,21 @@ func (l *Linter) SetMetaScope(scope string) {
 	} else {
 		l.metaScope = ""
 	}
+}
+
+// SetScopeIgnore sets the list of rules to ignore for the current scope.
+func (l *Linter) SetScopeIgnore(ignore []string) {
+	l.scopeIgnore = ignore
+}
+
+// isScopeIgnored checks if a rule should be ignored for the current scope.
+func (l *Linter) isScopeIgnored(name string) bool {
+	for _, ignored := range l.scopeIgnore {
+		if ignored == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Lint src according to its format.
@@ -301,6 +317,11 @@ func (l *Linter) shouldRun(name string, f *core.File, chk check.Rule, blk nlp.Bl
 		// See #129.
 		list := strings.Split(name, ".")
 		name = strings.Join([]string{list[0], list[1]}, ".")
+	}
+
+	// Has the check been ignored for the current scope (e.g., YAML key)?
+	if l.isScopeIgnored(name) {
+		return false
 	}
 
 	chkScope := check.NewScope(details.Scope)

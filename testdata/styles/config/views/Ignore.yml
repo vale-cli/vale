@@ -1,0 +1,18 @@
+engine: dasel
+scopes:
+  # Extract 'name' field - ignore spelling errors
+  - name: metadata
+    expr: name
+    ignore:
+      - Vale.Spelling
+
+  # Extract 'kind' field - ignore spelling errors
+  - name: metadata
+    expr: kind
+    ignore:
+      - Vale.Spelling
+
+  # Extract 'description' field - all rules apply
+  - name: content
+    expr: description
+    type: md

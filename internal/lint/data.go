@@ -39,6 +39,7 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 
 	for _, match := range values {
 		l.SetMetaScope(match.Scope)
+		l.SetScopeIgnore(match.Ignore)
 
 		seen := make(map[string]int)
 		for _, v := range match.Values {
@@ -74,6 +75,9 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 			last = size
 		}
 	}
+
+	// Reset scope-specific ignores to avoid affecting other linting paths.
+	l.SetScopeIgnore(nil)
 
 	return err
 }

@@ -29,6 +29,8 @@ Feature: Views
             github-workflow.json:494:264:Vale.Spelling:Did you really mean 'prereleased'?
             github-workflow.json:568:83:Vale.Spelling:Did you really mean 'job_id'?
             github-workflow.json:652:83:Vale.Spelling:Did you really mean 'job_id'?
+            ignore.yml:3:24:Vale.Spelling:Did you really mean 'tset'?
+            ignore.yml:3:48:Vale.Spelling:Did you really mean 'speling'?
             test.java:13:38:vale.Annotations:'XXX' left in text
             test.py:1:3:vale.Annotations:'FIXME' left in text
             test.py:11:3:vale.Annotations:'XXX' left in text

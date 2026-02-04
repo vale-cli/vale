@@ -1,0 +1,3 @@
+name: tset-resurce
+kind: DeplymentConfig
+description: This is a tset description with a speling error.

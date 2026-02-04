@@ -19,9 +19,10 @@ var viewEngines = []string{"tree-sitter", "dasel"}
 
 // A Scope is a single query that we want to run against a document.
 type Scope struct {
-	Name string `yaml:"name"`
-	Expr string `yaml:"expr"`
-	Type string `yaml:"type"`
+	Name   string   `yaml:"name"`
+	Expr   string   `yaml:"expr"`
+	Type   string   `yaml:"type"`
+	Ignore []string `yaml:"ignore"` // rules to skip for this scope
 }
 
 // A View is a named, virtual representation of a subset of a file's
@@ -43,6 +44,7 @@ type ScopedValues struct {
 	Scope  string
 	Format string
 	Values []string
+	Ignore []string // rules to skip for this scope
 }
 
 // NewView creates a new blueprint from the given path.
@@ -95,6 +97,7 @@ func (b *View) Apply(f *File) ([]ScopedValues, error) {
 			Scope:  s.Name,
 			Values: values,
 			Format: s.Type,
+			Ignore: s.Ignore,
 		})
 	}
 
