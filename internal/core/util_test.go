@@ -88,3 +88,74 @@ func TestNormalizePath(t *testing.T) {
 		t.Errorf("expected = %v, got = %v", expectedOutput, result)
 	}
 }
+
+func TestShouldIgnoreDirectory(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		// Direct directory names
+		{
+			name:     "direct node_modules",
+			path:     "node_modules",
+			expected: true,
+		},
+		{
+			name:     "direct .git",
+			path:     ".git",
+			expected: true,
+		},
+		// Nested paths with ignored directories
+		{
+			name:     "nested node_modules",
+			path:     "plugins/foo/node_modules",
+			expected: true,
+		},
+		{
+			name:     "nested .git in worktree",
+			path:     "worktree-a/.git",
+			expected: true,
+		},
+		{
+			name:     "deeply nested node_modules",
+			path:     "project/src/components/node_modules",
+			expected: true,
+		},
+		{
+			name:     "node_modules in path with backslashes",
+			path:     filepath.Join("project", "src", "node_modules"),
+			expected: true,
+		},
+		// Non-ignored directories
+		{
+			name:     "regular directory",
+			path:     "src",
+			expected: false,
+		},
+		{
+			name:     "nested regular directory",
+			path:     "plugins/foo",
+			expected: false,
+		},
+		{
+			name:     "directory containing node_modules in name",
+			path:     "my_node_modules_backup",
+			expected: false,
+		},
+		{
+			name:     "directory containing .git in name",
+			path:     "my.github",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ShouldIgnoreDirectory(tt.path)
+			if result != tt.expected {
+				t.Errorf("ShouldIgnoreDirectory(%q) = %v, expected %v", tt.path, result, tt.expected)
+			}
+		})
+	}
+}
