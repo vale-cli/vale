@@ -1,5 +1,0 @@
-extends: existence
-message: "'%s' should be capitalized"
-scope: chapter.title
-raw:
-  - "^[a-z].+"

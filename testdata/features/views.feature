@@ -13,7 +13,6 @@ Feature: Views
             Petstore.yaml:29:28:Vale.Spelling:Did you really mean 'Petstore'?
             Petstore.yaml:407:8:Vale.Spelling:Did you really mean 'nonintegers'?
             Rule.yml:3:39:Vale.Repetition:'can' is repeated!
-            ansible.yml:3:13:Scopes.Ansible:'reusing Code with Ansible Roles and Coent Collections' should be capitalized
             ansible.yml:3:13:Scopes.Titles:'reusing Code with Ansible Roles and Coent Collections' should be capitalized
             ansible.yml:3:31:Vale.Spelling:Did you really mean 'Ansible'?
             ansible.yml:3:49:Vale.Spelling:Did you really mean 'Coent'?
