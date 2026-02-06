@@ -35,10 +35,10 @@
 > Thanks to [DigitalOcean][1] for providing hosting credits for [Vale Studio][2].
 
 <p>
-  <a href="https://www.digitalocean.com/">
-    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/PoweredByDO/DO_Powered_by_Badge_blue.svg" width="201px">
-  </a>
+  <a href="https://www.digitalocean.com/?refcode=dc0864bb87fd&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%202.svg" alt="DigitalOcean Referral Badge" /></a>
 </p>
+
+[Deploy now on DigitalOcean](https://m.do.co/c/dc0864bb87fd) and get $200 in free credits!
 
 ### Individuals
 
