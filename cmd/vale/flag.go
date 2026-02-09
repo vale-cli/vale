@@ -26,6 +26,8 @@ func init() {
 	pflag.StringVar(&Flags.Output, "output", "CLI", `An output style ("line", "JSON", or a template file).`)
 	pflag.StringVar(&Flags.InExt, "ext", ".txt",
 		fmt.Sprintf(`An extension to associate with stdin (%s).`, toCodeStyle(`--ext=.md`)))
+	pflag.StringVar(&Flags.InPath, "path", "",
+		fmt.Sprintf(`A file path to associate with stdin (%s).`, toCodeStyle(`--path=docs/example.md`)))
 
 	pflag.StringVar(&Flags.AlertLevel, "minAlertLevel", "",
 		fmt.Sprintf(`The minimum level to display (%s).`, toCodeStyle(`--minAlertLevel=error`)))
