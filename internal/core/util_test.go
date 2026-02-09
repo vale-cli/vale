@@ -95,6 +95,11 @@ func TestShouldIgnoreDirectory(t *testing.T) {
 		path     string
 		expected bool
 	}{
+		{
+			name:     "empty directory name",
+			path:     "",
+			expected: false,
+		},
 		// Direct directory names
 		{
 			name:     "direct node_modules",
