@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
@@ -44,7 +45,12 @@ func WhitespaceToSpace(msg string) string {
 }
 
 // ShouldIgnoreDirectory will check if directory should be ignored
-func ShouldIgnoreDirectory(directoryName string) bool {
+func ShouldIgnoreDirectory(directoryPath string) bool {
+	directoryName := filepath.Base(directoryPath)
+	// if a current dir is detected e.g with directoryPath being an empty string always process
+	if directoryName == "." {
+		return false
+	}
 	for _, directory := range defaultIgnoreDirectories {
 		if directory == directoryName {
 			return true
