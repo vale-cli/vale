@@ -167,6 +167,7 @@ type CLIFlags struct {
 	Built        string
 	Glob         string
 	InExt        string
+	InPath       string
 	Output       string
 	Path         string
 	Sources      string

@@ -53,6 +53,7 @@ func NewFile(src string, config *Config) (*File, error) {
 	var format, ext string
 	var fbytes []byte
 	var lookup bool
+	path := src
 
 	if system.FileExists(src) {
 		fbytes, _ = os.ReadFile(src)
@@ -62,14 +63,24 @@ func NewFile(src string, config *Config) (*File, error) {
 			ext, format = FormatFromExt(src, config.Formats)
 		}
 	} else {
-		ext, format = FormatFromExt(config.Flags.InExt, config.Formats)
 		fbytes = []byte(src)
-		src = "stdin" + config.Flags.InExt
 		lookup = true
+		// For stdin, allow an explicit path override to drive path-based config.
+		if config.Flags.InPath != "" {
+			path = config.Flags.InPath
+		} else {
+			path = "stdin" + config.Flags.InExt
+		}
+		// If --ext was explicitly set, respect it; otherwise infer from the path.
+		if config.Flags.InExt != ".txt" {
+			ext, format = FormatFromExt(config.Flags.InExt, config.Formats)
+		} else {
+			ext, format = FormatFromExt(path, config.Formats)
+		}
 	}
 
-	filepaths := []string{src}
-	normed := system.ReplaceFileExt(src, config.Formats)
+	filepaths := []string{path}
+	normed := system.ReplaceFileExt(path, config.Formats)
 
 	baseStyles := config.GBaseStyles
 	checks := make(map[string]bool)
@@ -95,7 +106,7 @@ func NewFile(src string, config *Config) (*File, error) {
 		sec, err := glob.Compile(syntax)
 		if err != nil {
 			return &File{}, err
-		} else if sec.Match(src) {
+		} else if sec.Match(path) {
 			lang = code
 			break
 		}
@@ -105,8 +116,8 @@ func NewFile(src string, config *Config) (*File, error) {
 	for sec, p := range config.Stylesheets {
 		pat, err := glob.Compile(sec)
 		if err != nil {
-			return &File{}, NewE100(src, err)
-		} else if pat.Match(src) {
+			return &File{}, NewE100(path, err)
+		} else if pat.Match(path) {
 			transform = p
 			break
 		}
@@ -120,11 +131,11 @@ func NewFile(src string, config *Config) (*File, error) {
 	lines := strings.SplitAfter(strings.Clone(content), "\n")
 
 	file := File{
-		NormedExt: ext, Format: format, RealExt: filepath.Ext(src),
+		NormedExt: ext, Format: format, RealExt: filepath.Ext(path),
 		BaseStyles: baseStyles, Checks: checks, Lines: lines, Content: content,
 		Comments: make(map[string]bool), history: make(map[string]int),
 		simple: config.Flags.Simple, Transform: transform,
-		limits: make(map[string]int), Path: src, Metrics: make(map[string]int),
+		limits: make(map[string]int), Path: path, Metrics: make(map[string]int),
 		NLP:    nlp.Info{Endpoint: config.NLPEndpoint, Lang: lang},
 		Lookup: lookup, NormedPath: normed,
 	}
