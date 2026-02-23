@@ -3,7 +3,7 @@ Feature: Checks
         When I test "checks/Script"
         Then the output should contain exactly:
             """
-            test.md:4:19:Scripts.CustomMsg:Some message
+            test.md:1:2:Scripts.CustomMsg:Some message
             test.md:29:1:Checks.ScriptRE:Consider inserting a new section heading at this point.
             test.md:39:1:Checks.ScriptRE:Consider inserting a new section heading at this point.
             """

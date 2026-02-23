@@ -78,12 +78,13 @@ func (s Script) Run(blk nlp.Block, _ *core.File, _ *core.Config) ([]core.Alert, 
 		// don't use our custom regexp2 library, which means the offsets
 		// (`re2loc`) will be off.
 		a := core.Alert{
-			Check:    s.Name,
-			Severity: s.Level,
-			Span:     matchLoc,
-			Link:     s.Link,
-			Match:    matchText,
-			Action:   s.Action}
+			Check:          s.Name,
+			Severity:       s.Level,
+			Span:           matchLoc,
+			Link:           s.Link,
+			Match:          matchText,
+			Action:         s.Action,
+			HasByteOffsets: true}
 
 		if matchMsg, ok := match["message"].(string); ok {
 			a.Message, a.Description = formatMessages(matchMsg, s.Description, matchText)

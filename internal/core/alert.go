@@ -27,9 +27,10 @@ type Alert struct {
 	Message     string   // the output message
 	Severity    string   // 'suggestion', 'warning', or 'error'
 	Match       string   // the actual matched text
-	Line        int      // the source line
-	Limit       int      `json:"-"` // the max times to report
-	Hide        bool     `json:"-"` // should we hide this alert?
+	Line           int      // the source line
+	Limit          int      `json:"-"` // the max times to report
+	Hide           bool     `json:"-"` // should we hide this alert?
+	HasByteOffsets bool     `json:"-"` // Span holds byte offsets into the raw document
 }
 
 // FormatAlert ensures that all required fields have data.
