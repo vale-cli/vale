@@ -18,15 +18,15 @@ type Action struct {
 
 // An Alert represents a potential error in prose.
 type Alert struct {
-	Action      Action   // a possible solution
-	Span        []int    // the [begin, end] location within a line
-	Offset      []string `json:"-"` // tokens to ignore before this match
-	Check       string   // the name of the check
-	Description string   // why `Message` is meaningful
-	Link        string   // reference material
-	Message     string   // the output message
-	Severity    string   // 'suggestion', 'warning', or 'error'
-	Match       string   // the actual matched text
+	Action         Action   // a possible solution
+	Span           []int    // the [begin, end] location within a line
+	Offset         []string `json:"-"` // tokens to ignore before this match
+	Check          string   // the name of the check
+	Description    string   // why `Message` is meaningful
+	Link           string   // reference material
+	Message        string   // the output message
+	Severity       string   // 'suggestion', 'warning', or 'error'
+	Match          string   // the actual matched text
 	Line           int      // the source line
 	Limit          int      `json:"-"` // the max times to report
 	Hide           bool     `json:"-"` // should we hide this alert?
