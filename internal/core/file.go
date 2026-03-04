@@ -252,6 +252,32 @@ func (f *File) assignLoc(ctx string, blk nlp.Block, pad int, a Alert) (int, []in
 	return blk.Line + 1, a.Span
 }
 
+// locFromByteOffset computes a 1-based line number and a [col, col+len] span
+// from absolute byte offsets into the raw document text. This avoids the
+// text-search approach used by FindLoc/initialPosition, which can report the
+// wrong location when the matched text appears more than once.
+func locFromByteOffset(ctx string, begin, end, pad int) (int, []int) {
+	line := 1
+	lineStart := 0
+
+	for i := 0; i < begin && i < len(ctx); i++ {
+		if ctx[i] == '\n' {
+			line++
+			lineStart = i + 1
+		}
+	}
+
+	col := nlp.StrLen(ctx[lineStart:begin]) + 1 + pad
+	matchLen := nlp.StrLen(ctx[begin:end])
+
+	span := []int{col, col + matchLen - 1}
+	if span[1] <= 0 {
+		span[1] = 1
+	}
+
+	return line, span
+}
+
 // SetText updates the file's content, lines, and history.
 func (f *File) SetText(s string) {
 	f.Content = s
@@ -271,19 +297,31 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 		ctx = old
 	}
 
-	// NOTE: If the `ctx` document is large (as could be the case with
-	// `scope: raw`) this is *slow*. Thus, the cap at 1k.
+	// When the alert carries byte offsets from a script rule and falls within
+	// the document, compute line:column directly from those offsets instead of
+	// performing a text search. This fixes incorrect position reporting for
+	// script rules with `scope: raw` when the matched text appears more than
+	// once.
 	//
-	// TODO: Actually fix this.
-	if len(a.Offset) == 0 && strings.Count(ctx, a.Match) > 1 && len(ctx) < 1000 {
-		a.Offset = append(a.Offset, strings.Fields(ctx[0:a.Span[0]])...)
-	}
+	// We use blk.Context (the original document) rather than ctx, which may
+	// have been modified by ChkToCtx substitutions from earlier alerts.
+	if a.HasByteOffsets && a.Span[0] >= 0 && a.Span[1] <= len(blk.Context) {
+		a.Line, a.Span = locFromByteOffset(blk.Context, a.Span[0], a.Span[1], pad)
+	} else {
+		// NOTE: If the `ctx` document is large (as could be the case with
+		// `scope: raw`) this is *slow*. Thus, the cap at 1k.
+		//
+		// TODO: Actually fix this.
+		if len(a.Offset) == 0 && strings.Count(ctx, a.Match) > 1 && len(ctx) < 1000 {
+			a.Offset = append(a.Offset, strings.Fields(ctx[0:a.Span[0]])...)
+		}
 
-	if !lookup {
-		a.Line, a.Span = f.assignLoc(ctx, blk, pad, a)
-	}
-	if (!lookup && a.Span[0] < 0) || lookup {
-		a.Line, a.Span = f.FindLoc(ctx, blk.Text, pad, lines, a)
+		if !lookup {
+			a.Line, a.Span = f.assignLoc(ctx, blk, pad, a)
+		}
+		if (!lookup && a.Span[0] < 0) || lookup {
+			a.Line, a.Span = f.FindLoc(ctx, blk.Text, pad, lines, a)
+		}
 	}
 
 	if a.Span[0] > 0 {
