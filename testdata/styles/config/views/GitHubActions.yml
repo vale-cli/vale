@@ -1,4 +1,4 @@
 engine: dasel
 scopes:
-  - expr: definitions.all().property(description?)
+  - expr: 'definitions.search(has("description")).map(description)'
     type: md

@@ -38,7 +38,11 @@ func findBestLineBySubstring(s, sub string) (int, string) {
 func findLineBySubstring(s, sub string, seen map[string]int) (int, string) {
 	lines := strings.Count(sub, "\n")
 	if lines > 0 {
-		sub = strings.Split(sub, "\n")[0]
+		parts := strings.Split(sub, "\n")
+		sub = parts[0]
+		if len(parts) > 1 && parts[1] != "" {
+			sub = parts[1]
+		}
 	}
 
 	for i, line := range strings.Split(s, "\n") {
@@ -67,13 +71,18 @@ func findLineBySubstring(s, sub string, seen map[string]int) (int, string) {
 	return -1, ""
 }
 
-func adjustPos(alerts []core.Alert, last, line, padding int) []core.Alert {
+func adjustPos(alerts []core.Alert, last, line, padding int, v, rv string) []core.Alert {
 	for i := range alerts {
 		if i >= last {
 			alerts[i].Line += line - 1
+			extra := 0
+			if strings.Count(v, "\n") > 0 && strings.Contains(rv, "\\n") {
+				pos := alerts[i].Span[0] - 1
+				extra = strings.Count(v[:pos], "\n")
+			}
 			alerts[i].Span = []int{
-				alerts[i].Span[0] + padding,
-				alerts[i].Span[1] + padding,
+				alerts[i].Span[0] + padding + extra,
+				alerts[i].Span[1] + padding + extra,
 			}
 		}
 	}

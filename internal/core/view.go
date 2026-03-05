@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,8 @@ import (
 	"regexp"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/tomwright/dasel/v2"
+	v2dasel "github.com/tomwright/dasel/v2"
+	"github.com/tomwright/dasel/v3"
 	"gopkg.in/yaml.v2"
 )
 
@@ -72,7 +74,7 @@ func NewView(path string) (*View, error) {
 	return &view, nil
 }
 
-func (b *View) Apply(f *File) ([]ScopedValues, error) {
+func (b *View) ApplyV2(f *File) ([]ScopedValues, error) {
 	found := []ScopedValues{}
 
 	value, err := fileToValue(f)
@@ -81,7 +83,7 @@ func (b *View) Apply(f *File) ([]ScopedValues, error) {
 	}
 
 	for _, s := range b.Scopes {
-		selected, verr := dasel.Select(value, s.Expr)
+		selected, verr := v2dasel.Select(value, s.Expr)
 		if verr != nil {
 			return found, verr
 		}
@@ -96,6 +98,53 @@ func (b *View) Apply(f *File) ([]ScopedValues, error) {
 			Values: values,
 			Format: s.Type,
 		})
+	}
+
+	return found, nil
+}
+
+func (b *View) Apply(f *File) ([]ScopedValues, error) {
+	found := []ScopedValues{}
+
+	value, err := fileToValue(f)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range b.Scopes {
+		selected, _, verr := dasel.Select(context.Background(), value, s.Expr)
+		if verr != nil {
+			// We failed; try to see if the old version of dasel can handle it.
+			v2found, v2err := b.ApplyV2(f)
+			if v2err != nil {
+				// If the old version also fails, return the original error.
+				return nil, verr
+			}
+			return v2found, nil
+		}
+
+		if selectResults, ok := selected.([]any); ok {
+			if len(selectResults) == 1 {
+				if inner, iok := selectResults[0].([]any); iok {
+					selectResults = inner
+				}
+			} else {
+				return nil, fmt.Errorf("unexpected result type for scope %s: expected array, got %T", s.Name, selected)
+			}
+
+			values := []string{}
+			for _, v := range selectResults {
+				if str, sok := v.(string); sok {
+					values = append(values, str)
+				}
+			}
+
+			found = append(found, ScopedValues{
+				Scope:  s.Name,
+				Values: values,
+				Format: s.Type,
+			})
+		}
 	}
 
 	return found, nil

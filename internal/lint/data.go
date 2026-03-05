@@ -48,7 +48,11 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 			}
 			seen[line] = i
 
-			f.SetText(v)
+			if strings.Contains(line, "\\n") {
+				f.SetText(strings.ReplaceAll(v, "\n", " "))
+			} else {
+				f.SetText(v)
+			}
 			f.SetNormedExt(match.Format)
 
 			switch match.Format {
@@ -69,7 +73,16 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 			size := len(f.Alerts)
 			if size != last {
 				padding := strings.Index(line, v)
-				f.Alerts = adjustPos(f.Alerts, last, i, padding)
+				if strings.Count(v, "\n") > 0 {
+					firstLine := strings.SplitN(v, "\n", 2)[0]
+					padding = strings.Index(line, firstLine)
+					if padding < 0 {
+						// block scalar case - use indentation of matched line
+						i-- // adjust for 1-based line numbers
+						padding = strings.Index(line, strings.TrimSpace(line))
+					}
+				}
+				f.Alerts = adjustPos(f.Alerts, last, i, padding, v, line)
 			}
 			last = size
 		}
