@@ -74,25 +74,18 @@ func NewView(path string) (*View, error) {
 	return &view, nil
 }
 
-func (b *View) ApplyV2(f *File) ([]ScopedValues, error) {
-	found := []ScopedValues{}
-
+func (b *View) Apply(f *File) ([]ScopedValues, error) {
 	value, err := fileToValue(f)
 	if err != nil {
 		return nil, err
 	}
 
+	found := make([]ScopedValues, 0, len(b.Scopes))
 	for _, s := range b.Scopes {
-		selected, verr := v2dasel.Select(value, s.Expr)
-		if verr != nil {
-			return found, verr
+		values, err := selectStrings(value, s.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("processing scope %q: %w", s.Name, err)
 		}
-
-		values := []string{}
-		for _, v := range selected {
-			values = append(values, v.String())
-		}
-
 		found = append(found, ScopedValues{
 			Scope:  s.Name,
 			Values: values,
@@ -103,55 +96,75 @@ func (b *View) ApplyV2(f *File) ([]ScopedValues, error) {
 	return found, nil
 }
 
-func (b *View) Apply(f *File) ([]ScopedValues, error) {
-	found := []ScopedValues{}
+func selectStrings(value DaselValue, expr string) ([]string, error) {
+	selected, _, err := dasel.Select(context.Background(), value, expr)
+	if err != nil {
+		return selectStringsV2(value, expr)
+	}
 
-	value, err := fileToValue(f)
+	outer, ok := selected.([]any)
+	if !ok {
+		return nil, fmt.Errorf("expected []any, got %T", selected)
+	}
+
+	// Unwrap single-element wrapper if present.
+	if len(outer) == 1 {
+		if inner, ok := outer[0].([]any); ok {
+			outer = inner
+		}
+	}
+
+	results := make([]string, 0, len(outer))
+	for _, v := range outer {
+		if str, ok := v.(string); ok {
+			results = append(results, str)
+		}
+	}
+	return results, nil
+}
+
+func selectStringsV2(value DaselValue, expr string) ([]string, error) {
+	selected, err := v2dasel.Select(value, expr)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, s := range b.Scopes {
-		selected, _, verr := dasel.Select(context.Background(), value, s.Expr)
-		if verr != nil {
-			// We failed; try to see if the old version of dasel can handle it.
-			v2found, v2err := b.ApplyV2(f)
-			if v2err != nil {
-				// If the old version also fails, return the original error.
-				return nil, verr
-			}
-			return v2found, nil
-		}
-
-		if selectResults, ok := selected.([]any); ok {
-			if len(selectResults) == 1 {
-				if inner, iok := selectResults[0].([]any); iok {
-					selectResults = inner
-				}
-			} else {
-				return nil, fmt.Errorf("unexpected result type for scope %s: expected array, got %T", s.Name, selected)
-			}
-
-			values := []string{}
-			for _, v := range selectResults {
-				if str, sok := v.(string); sok {
-					values = append(values, str)
-				}
-			}
-
-			found = append(found, ScopedValues{
-				Scope:  s.Name,
-				Values: values,
-				Format: s.Type,
-			})
-		}
+	results := make([]string, 0, len(selected))
+	for _, v := range selected {
+		results = append(results, v.String())
 	}
+	return results, nil
+}
 
-	return found, nil
+// normalize recursively converts map[interface{}]interface{} (produced by
+// gopkg.in/yaml.v2) to map[string]any so that Dasel v3 can traverse the
+// document without choking on interface{} map keys.
+func normalize(v any) any {
+	switch v := v.(type) {
+	case map[interface{}]interface{}:
+		out := make(map[string]any, len(v))
+		for k, val := range v {
+			out[fmt.Sprintf("%v", k)] = normalize(val)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, val := range v {
+			out[k] = normalize(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i, val := range v {
+			out[i] = normalize(val)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func fileToValue(f *File) (DaselValue, error) {
-	var value DaselValue
+	var raw any
 
 	// We replace block chomping indicators with a pipe to ensure that
 	// newlines are preserved.
@@ -164,22 +177,27 @@ func fileToValue(f *File) (DaselValue, error) {
 	contents := []byte(text)
 	switch f.RealExt {
 	case ".json":
-		err := json.Unmarshal(contents, &value)
+		err := json.Unmarshal(contents, &raw)
 		if err != nil {
 			return nil, err
 		}
 	case ".yml", ".yaml":
-		err := yaml.Unmarshal(contents, &value)
+		err := yaml.Unmarshal(contents, &raw)
 		if err != nil {
 			return nil, err
 		}
 	case ".toml":
-		err := toml.Unmarshal(contents, &value)
+		err := toml.Unmarshal(contents, &raw)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		return nil, errors.New("unsupported file type")
+	}
+
+	value, ok := normalize(raw).(map[string]any)
+	if !ok {
+		return nil, errors.New("document root is not an object")
 	}
 
 	return value, nil

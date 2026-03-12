@@ -9,6 +9,7 @@ Feature: Views
             API.yml:9:70:Vale.Spelling:Did you really mean 'serrver'?
             API.yml:13:24:Vale.Spelling:Did you really mean 'serrver'?
             API.yml:15:70:Vale.Spelling:Did you really mean 'serrver'?
+            API.yml:20:48:Vale.Spelling:Did you really mean 'servver'?
             Petstore.yaml:15:18:Vale.Spelling:Did you really mean 'Petstore'?
             Petstore.yaml:29:28:Vale.Spelling:Did you really mean 'Petstore'?
             Petstore.yaml:407:17:Vale.Spelling:Did you really mean 'nonintegers'?
