@@ -82,7 +82,8 @@ func (b *View) Apply(f *File) ([]ScopedValues, error) {
 
 	found := make([]ScopedValues, 0, len(b.Scopes))
 	for _, s := range b.Scopes {
-		values, err := selectStrings(value, s.Expr)
+		var values []string
+		values, err = selectStrings(value, s.Expr)
 		if err != nil {
 			return nil, fmt.Errorf("processing scope %q: %w", s.Name, err)
 		}
@@ -102,21 +103,21 @@ func selectStrings(value DaselValue, expr string) ([]string, error) {
 		return selectStringsV2(value, expr)
 	}
 
-	outer, ok := selected.([]any)
-	if !ok {
+	outer, isSlice := selected.([]any)
+	if !isSlice {
 		return nil, fmt.Errorf("expected []any, got %T", selected)
 	}
 
 	// Unwrap single-element wrapper if present.
 	if len(outer) == 1 {
-		if inner, ok := outer[0].([]any); ok {
+		if inner, isInner := outer[0].([]any); isInner {
 			outer = inner
 		}
 	}
 
 	results := make([]string, 0, len(outer))
 	for _, v := range outer {
-		if str, ok := v.(string); ok {
+		if str, isStr := v.(string); isStr {
 			results = append(results, str)
 		}
 	}
@@ -139,27 +140,27 @@ func selectStringsV2(value DaselValue, expr string) ([]string, error) {
 // gopkg.in/yaml.v2) to map[string]any so that Dasel v3 can traverse the
 // document without choking on interface{} map keys.
 func normalize(v any) any {
-	switch v := v.(type) {
+	switch val := v.(type) {
 	case map[interface{}]interface{}:
-		out := make(map[string]any, len(v))
-		for k, val := range v {
-			out[fmt.Sprintf("%v", k)] = normalize(val)
+		out := make(map[string]any, len(val))
+		for k, v := range val {
+			out[fmt.Sprintf("%v", k)] = normalize(v)
 		}
 		return out
 	case map[string]any:
-		out := make(map[string]any, len(v))
-		for k, val := range v {
-			out[k] = normalize(val)
+		out := make(map[string]any, len(val))
+		for k, v := range val {
+			out[k] = normalize(v)
 		}
 		return out
 	case []any:
-		out := make([]any, len(v))
-		for i, val := range v {
-			out[i] = normalize(val)
+		out := make([]any, len(val))
+		for i, v := range val {
+			out[i] = normalize(v)
 		}
 		return out
 	default:
-		return v
+		return val
 	}
 }
 
@@ -195,8 +196,8 @@ func fileToValue(f *File) (DaselValue, error) {
 		return nil, errors.New("unsupported file type")
 	}
 
-	value, ok := normalize(raw).(map[string]any)
-	if !ok {
+	value, isMap := normalize(raw).(map[string]any)
+	if !isMap {
 		return nil, errors.New("document root is not an object")
 	}
 
