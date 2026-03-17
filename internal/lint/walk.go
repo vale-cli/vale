@@ -34,13 +34,18 @@ type walker struct {
 
 	begin int
 	end   int
+
+	// ext holds the file extension of the current file.
+	ext string
 }
 
 func newWalker(f *core.File, raw []byte, offset int) *walker {
 	return &walker{
 		lines:   len(f.Lines) + offset,
 		context: string2ByteSlice(f.Content),
-		z:       html.NewTokenizer(bytes.NewReader(raw))}
+		z:       html.NewTokenizer(bytes.NewReader(raw)),
+		ext:     f.NormedExt,
+	}
 }
 
 func (w *walker) sub(sub string, char rune) bool {
@@ -137,10 +142,20 @@ func (w *walker) walk() (html.TokenType, html.Token, string) {
 
 func (w *walker) replaceToks(tok html.Token) {
 	tags := core.StringInSlice(tok.Data, []string{
-		"img", "a", "p", "script", "h1", "h2", "h3", "h4", "h5", "h6"})
+		"img", "a", "p", "script", "h1", "h2", "h3", "h4", "h5", "h6", "span"})
 	if tags {
+		names := []string{"href", "id", "src", "alt"}
+		if w.ext == ".html" {
+			// We need to handle cases in which inline tags include `class` attributes, which may
+			// contain substrings that match our actual findings. The challenge is that many of our
+			// supported formats inject these *after* converting to HTML, so we can't find them in
+			// the original text.
+			//
+			// See testdata/fixtures/patterns/{test2.rst, test3.html} for examples.
+			names = append(names, "class")
+		}
 		for _, a := range tok.Attr {
-			if core.StringInSlice(a.Key, []string{"href", "id", "src", "alt"}) {
+			if core.StringInSlice(a.Key, names) {
 				if a.Key == "href" {
 					a.Val, _ = url.QueryUnescape(a.Val)
 				}

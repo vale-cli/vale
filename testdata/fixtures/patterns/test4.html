@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <title>UI</title>
+</head>
+
+<body>
+    <div class="document" id="ui">
+        <h1 class="title">UI</h1>
+        <h2 class="subtitle" id="injecting-buttons">Injecting Buttons</h2>
+
+        <div class="system-message">
+            <p class="system-message-title">System Message: WARNING/2 (<tt class="docutils">test2.rst</tt>, line 7)</p>
+            <p>Cannot analyze code. Pygments package not found.</p>
+        </div>
+        <p>As of Mautic 2.3.0, support for plugins to inject buttons throughout Mautic's UI has been added by listening
+            to the <cite>CoreEvents::VIEW_INJECT_CUSTOM_BUTTONS</cite> event.</p>
+        <p>There are five places in Mautic's UI that buttons can be injected into:</p>
+        <table border="1" class="docutils">
+            <colgroup>
+                <col width="50%" />
+                <col width="50%" />
+            </colgroup>
+            <thead valign="bottom">
+                <tr>
+                    <th class="head">Location</th>
+                    <th class="head">Description</th>
+                </tr>
+            </thead>
+            <tbody valign="top">
+                <tr>
+                    <td><tt class="docutils literal"><span
+                                class="pre">\Mautic\CoreBundle\Templating\Helper\ButtonHelper::LOCATION_LIST_ACTIONS</span></tt>
+                    </td>
+                    <td>Drop down actions per each item in list views.</td>
+                </tr>
+                <tr>
+                    <td><tt class="docutils literal"><span
+                                class="pre">\Mautic\CoreBundle\Templating\Helper\ButtonHelper::LOCATION_TOOLBAR_ACTIONS</span></tt>
+                    </td>
+                    <td>Top right above list view tables to the right of the table filter. Preferably buttons with icons
+                        only.</td>
+                </tr>
+                <tr>
+                    <td><tt class="docutils literal"><span
+                                class="pre">\Mautic\CoreBundle\Templating\Helper\ButtonHelper::LOCATION_PAGE_ACTIONS</span></tt>
+                    </td>
+                    <td>Main page buttons to the right of the page title (New, Edit, etc). Primary buttons will be
+                        displayed as buttons while the rest will be displayed in a drop down.</td>
+                </tr>
+                <tr>
+                    <td><tt class="docutils literal"><span
+                                class="pre">\Mautic\CoreBundle\Templating\Helper\ButtonHelper::LOCATION_NAVBAR</span></tt>
+                    </td>
+                    <td>Top of the page to the left of the account/profile menu. Buttons with text and/or icons.</td>
+                </tr>
+                <tr>
+                    <td><tt class="docutils literal"><span
+                                class="pre">\Mautic\CoreBundle\Templating\Helper\ButtonHelper::LOCATION_BULK_ACTIONS</span></tt>
+                    </td>
+                    <td>Buttons inside the bulk dropdown (around the checkall checkbox of lists).</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>Buttons use a priority system to determine order. The higher the priority, the closer to first the button is
+            displayed. The lower the priority, the closer to last. For a button dropdown, setting a button as
+            <cite>primary</cite> will display the button in the button group rather than the dropdown.
+        </p>
+        <div class="section" id="button-array-format">
+            <h1>Button Array Format</h1>
+            <p>The array defining the button can include the following keys:</p>
+            <table border="1" class="docutils">
+                <colgroup>
+                    <col width="33%" />
+                    <col width="33%" />
+                    <col width="33%" />
+                </colgroup>
+                <thead valign="bottom">
+                    <tr>
+                        <th class="head">Key</th>
+                        <th class="head">Type</th>
+                        <th class="head">Description</th>
+                    </tr>
+                </thead>
+                <tbody valign="top">
+                    <tr>
+                        <td>attr</td>
+                        <td>array</td>
+                        <td>Array of attributes to be appended to the button (data attributes, href, etc)</td>
+                    </tr>
+                    <tr>
+                        <td>btnText</td>
+                        <td>string</td>
+                        <td>Text to display for the button</td>
+                    </tr>
+                    <tr>
+                        <td>iconClass</td>
+                        <td>string</td>
+                        <td>Font Awesome class to use as the icon within the button</td>
+                    </tr>
+                    <tr>
+                        <td>tooltip</td>
+                        <td>string</td>
+                        <td>Text to display as a tooltip</td>
+                    </tr>
+                    <tr>
+                        <td>primary</td>
+                        <td>boolean</td>
+                        <td>For button dropdown formats, this will display the button in the group rather than in the
+                            dropdown</td>
+                    </tr>
+                    <tr>
+                        <td>priority</td>
+                        <td>int</td>
+                        <td>Determines the order of buttons. Higher the priority, closer to the first the button will be
+                            placed. Buttons with the same priority wil be ordered alphabetically.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>If a button is to display a confirmation modal, the key <cite>confirm</cite> can be used. A
+                <cite>confirm</cite> array can have the following keys:
+            </p>
+            <table border="1" class="docutils">
+                <colgroup>
+                    <col width="33%" />
+                    <col width="33%" />
+                    <col width="33%" />
+                </colgroup>
+                <thead valign="bottom">
+                    <tr>
+                        <th class="head">Key</th>
+                        <th class="head">Type</th>
+                        <th class="head">Description</th>
+                    </tr>
+                </thead>
+                <tbody valign="top">
+                    <tr>
+                        <td>message</td>
+                        <td>string</td>
+                        <td>Translated message to display in the confirmation window</td>
+                    </tr>
+                    <tr>
+                        <td>confirmText</td>
+                        <td>string</td>
+                        <td>Text to display as the confirm button</td>
+                    </tr>
+                    <tr>
+                        <td>confirmAction</td>
+                        <td>string</td>
+                        <td>HREF of the button</td>
+                    </tr>
+                    <tr>
+                        <td>cancelText</td>
+                        <td>string</td>
+                        <td>Text to display as the cancel button</td>
+                    </tr>
+                    <tr>
+                        <td>cancelCallback</td>
+                        <td>string</td>
+                        <td>Mautic namespaced Javascript method to be executed when the cancel button is clicked</td>
+                    </tr>
+                    <tr>
+                        <td>confirmCallback</td>
+                        <td>string</td>
+                        <td>Mautic namespaced Javascript method to be executed when the confirm button is clicked</td>
+                    </tr>
+                    <tr>
+                        <td>precheck</td>
+                        <td>string</td>
+                        <td>Mautic namespaced Javascript method to be executed prior to displaying the confirmation
+                            modal</td>
+                    </tr>
+                    <tr>
+                        <td>btnClass</td>
+                        <td>string</td>
+                        <td>Class for the button</td>
+                    </tr>
+                    <tr>
+                        <td>iconClass</td>
+                        <td>string</td>
+                        <td>Font Awesome class to use as the icon</td>
+                    </tr>
+                    <tr>
+                        <td>btnTextAttr</td>
+                        <td>string</td>
+                        <td>string of attributes to append to the button's inner text</td>
+                    </tr>
+                    <tr>
+                        <td>attr</td>
+                        <td>array</td>
+                        <td>Array of attributes to append to the button's outer tag</td>
+                    </tr>
+                    <tr>
+                        <td>tooltip</td>
+                        <td>string</td>
+                        <td>Translated string to display as a tooltip</td>
+                    </tr>
+                    <tr>
+                        <td>tag</td>
+                        <td>string</td>
+                        <td>Tag to use as the button. Defaults to an <cite>a</cite> tag.</td>
+                    </tr>
+                    <tr>
+                        <td>wrapOpeningTag</td>
+                        <td>string</td>
+                        <td>Tag/html to wrap button in. Defaults to nothing.</td>
+                    </tr>
+                    <tr>
+                        <td>wrapClosingTag</td>
+                        <td>string</td>
+                        <td>Tag/thml to close wrapOpeningTag. Defaults to nothing.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>On the same nested level as the <cite>confirm</cite> key can include <cite>primary</cite> and/or
+                <cite>priority</cite>.
+            </p>
+        </div>
+        <div class="section" id="defining-button-locations">
+            <h1>Defining Button Locations</h1>
+            <div class="system-message">
+                <p class="system-message-title">System Message: WARNING/2 (<tt class="docutils">test2.rst</tt>, line
+                    204)</p>
+                <p>Cannot analyze code. Pygments package not found.</p>
+                <pre class="literal-block">
+                    .. code-block:: php
+
+                    &lt;?php
+                    $dropdownOpenHtml = '&lt;button type=&quot;button&quot; class=&quot;btn btn-default btn-nospin
+                    dropdown-toggle&quot; data-toggle=&quot;dropdown&quot; aria-expanded=&quot;false&quot;&gt;&lt;i
+                    class=&quot;fa fa-caret-down&quot;&gt;&lt;/i&gt;&lt;/button&gt;'
+                    .&quot;\n&quot;;
+                    $dropdownOpenHtml .= '&lt;ul class=&quot;dropdown-menu dropdown-menu-right&quot;
+                    role=&quot;menu&quot;&gt;'.&quot;\n&quot;;
+
+                    echo $view['buttons']-&gt;reset($app-&gt;getRequest(),
+                    'custom_location')-&gt;renderButtons($dropdownOpenHtml, '&lt;/ul&gt;');
+
+
+                </pre>
+            </div>
+            <p>A plugin can define it's own locations that other plugins can leverage by using the template
+                <cite>buttons</cite> helper.
+            </p>
+            <p>There are three types of button groups supported:</p>
+            <table border="1" class="docutils">
+                <colgroup>
+                    <col width="50%" />
+                    <col width="50%" />
+                </colgroup>
+                <thead valign="bottom">
+                    <tr>
+                        <th class="head">Type</th>
+                        <th class="head">Description</th>
+                    </tr>
+                </thead>
+                <tbody valign="top">
+                    <tr>
+                        <td>MauticCoreBundleTemplatingHelperButtonHelper::TYPE_BUTTON_DROPDOWN</td>
+                        <td>Primary buttons are displayed in a button group while others in a dropdown menu.</td>
+                    </tr>
+                    <tr>
+                        <td>MauticCoreBundleTemplatingHelperButtonHelper::TYPE_DROPDOWN</td>
+                        <td>Buttons displayed in a dropdown menu.</td>
+                    </tr>
+                    <tr>
+                        <td>MauticCoreBundleTemplatingHelperButtonHelper::TYPE_GROUP</td>
+                        <td>A group of buttons side by side.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Dropdowns require the wrapping HTML to be passed to the <cite>renderButtons</cite> method.</p>
+        </div>
+    </div>
+</body>
+
+</html>

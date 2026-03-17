@@ -53,7 +53,17 @@ Feature: IgnorePatterns
         When I test patterns for "test.html"
         Then the output should contain exactly:
             """
-            test.html:22:11:Vale.Repetition:'bye' is repeated!
+            test.html:22:13:Vale.Repetition:'bye' is repeated!
+            """
+        And the exit status should be 1
+
+    Scenario: HTML with Ignored Classes
+        When I test patterns for "test3.html"
+        Then the output should contain exactly:
+            """
+            test3.html:30:75:write-good.We:Try to avoid using first-person plural like 'us'.
+            test3.html:32:98:Vale.Spelling:Did you really mean 'hasChildren'?
+            test3.html:33:64:write-good.We:Try to avoid using first-person plural like 'us'.
             """
         And the exit status should be 1
 
