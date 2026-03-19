@@ -130,8 +130,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/tomwright/dasel/v2 v2.8.1 h1:mo5SlL0V2d3a0uPsD9Rrndn0cHWpbNDheB4+Fm++z8k=
 github.com/tomwright/dasel/v2 v2.8.1/go.mod h1:6bNDNAnmGEtGpuIvksuQwiNcAgQ87pmzndynsqTNglc=
-github.com/tomwright/dasel/v3 v3.3.1 h1:szLYe1mX0CgR2hnZs/s299ij7SUVU5gF5DBmCIwIY20=
-github.com/tomwright/dasel/v3 v3.3.1/go.mod h1:0YJkmcgt+s40MGFIgLXfiAzm89BD079r8QGRaERwBls=
+github.com/tomwright/dasel/v3 v3.3.2 h1:KLFpJrGW5suih9FvGJDJ9HFv+YcyYjE/JfDGCfwxyq4=
+github.com/tomwright/dasel/v3 v3.3.2/go.mod h1:0YJkmcgt+s40MGFIgLXfiAzm89BD079r8QGRaERwBls=
 github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778/go.mod h1:2MuV+tbUrU1zIOPMxZ5EncGwgmMJsa+9ucAQZXxsObs=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
