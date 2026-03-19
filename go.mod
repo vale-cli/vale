@@ -25,7 +25,7 @@ require (
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	github.com/spf13/pflag v1.0.5
 	github.com/tomwright/dasel/v2 v2.8.1
-	github.com/tomwright/dasel/v3 v3.3.1
+	github.com/tomwright/dasel/v3 v3.3.2
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	golang.org/x/net v0.47.0
