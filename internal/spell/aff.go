@@ -62,11 +62,37 @@ type dictConfig struct {
 	TryChars          string
 	WordChars         string
 	CompoundOnly      string
-	AffixMap          map[rune]affix
+	AffixMap          map[string]affix
 	CamelCase         int
 	CompoundMin       int64
-	compoundMap       map[rune][]string
+	compoundMap       map[string][]string
 	NoSuggestFlag     string
+}
+
+// parseFlags splits a flag string into individual flags based on the FLAG type.
+//
+// Hunspell supports several flag formats:
+//   - "ASCII" (default): each character is a flag
+//   - "num": flags are comma-separated numbers (e.g., "14308,10482,4720")
+//   - "UTF-8": each UTF-8 character is a flag
+//   - "long": each pair of ASCII characters is a flag
+func (a dictConfig) parseFlags(flagStr string) []string {
+	switch a.Flag {
+	case "num":
+		return strings.Split(flagStr, ",")
+	case "long":
+		flags := make([]string, 0, len(flagStr)/2)
+		for i := 0; i+1 < len(flagStr); i += 2 {
+			flags = append(flags, flagStr[i:i+2])
+		}
+		return flags
+	default: // "ASCII" or "UTF-8"
+		flags := make([]string, 0, len(flagStr))
+		for _, r := range flagStr {
+			flags = append(flags, string(r))
+		}
+		return flags
+	}
 }
 
 // expand expands a word/affix using dictionary/affix rules
@@ -87,11 +113,13 @@ func (a dictConfig) expand(wordAffix string, out []string) ([]string, error) {
 	// safe
 	word, keyString := wordAffix[:idx], wordAffix[idx+1:]
 
+	flags := a.parseFlags(keyString)
+
 	// check to see if any of the flags are in the
 	// "compound only".  If so then nothing to add
 	compoundOnly := false
-	for _, key := range keyString {
-		if strings.ContainsRune(a.CompoundOnly, key) {
+	for _, key := range flags {
+		if key == a.CompoundOnly {
 			compoundOnly = true
 			continue
 		}
@@ -110,12 +138,9 @@ func (a dictConfig) expand(wordAffix string, out []string) ([]string, error) {
 	out = append(out, word)
 	prefixes := make([]affix, 0, 5)
 	suffixes := make([]affix, 0, 5)
-	for _, key := range keyString {
-		// want keyString to []?something?
-		// then iterate over that
+	for _, key := range flags {
 		af, ok := a.AffixMap[key]
 		if !ok {
-			// TODO: How should we handle this?
 			continue
 		}
 		if !af.CrossProduct {
@@ -161,8 +186,8 @@ func isCrossProduct(val string) (bool, error) {
 func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 	aff := dictConfig{
 		Flag:        "ASCII",
-		AffixMap:    make(map[rune]affix),
-		compoundMap: make(map[rune][]string),
+		AffixMap:    make(map[string]affix),
+		compoundMap: make(map[string][]string),
 		CompoundMin: 3, // default in Hunspell
 	}
 	scanner := bufio.NewScanner(file)
@@ -219,9 +244,9 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				aff.CompoundRule = make([]string, 0, val)
 			} else {
 				aff.CompoundRule = append(aff.CompoundRule, parts[1])
-				for _, char := range parts[1] {
-					if _, ok := aff.compoundMap[char]; !ok {
-						aff.compoundMap[char] = []string{}
+				for _, flag := range aff.parseFlags(parts[1]) {
+					if _, ok := aff.compoundMap[flag]; !ok {
+						aff.compoundMap[flag] = []string{}
 					}
 				}
 			}
@@ -248,8 +273,7 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 
 			sections := len(parts)
 			if sections > 4 {
-				// does this need to be split out into suffix and prefix?
-				flag := rune(parts[1][0])
+				flag := parts[1]
 				a, ok := aff.AffixMap[flag]
 				if !ok {
 					return nil, fmt.Errorf("got rules for flag %q but no definition", flag)
@@ -299,7 +323,7 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 					Type:         atype,
 					CrossProduct: cross,
 				}
-				flag := rune(parts[1][0])
+				flag := parts[1]
 				aff.AffixMap[flag] = a
 			}
 		default:
