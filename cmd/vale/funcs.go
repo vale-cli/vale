@@ -2,14 +2,31 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"text/template"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/pterm/pterm"
 )
 
 var funcs = template.FuncMap{}
+
+func newBorderlessTable(w io.Writer, wrap int) *tablewriter.Table {
+	return tablewriter.NewTable(w,
+		tablewriter.WithRowAutoWrap(wrap),
+		tablewriter.WithRendition(tw.Rendition{
+			Borders: tw.BorderNone,
+			Symbols: tw.NewSymbols(tw.StyleNone),
+			Settings: tw.Settings{
+				Lines:      tw.LinesNone,
+				Separators: tw.SeparatorsNone,
+			},
+		}),
+	)
+}
 
 func init() {
 	funcs["red"] = func(s string) string {
@@ -25,20 +42,21 @@ func init() {
 		return pterm.Underscore.Sprint(s)
 	}
 	funcs["newTable"] = func(wrap bool) *tablewriter.Table {
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetCenterSeparator("")
-		table.SetColumnSeparator("")
-		table.SetRowSeparator("")
-		table.SetAutoWrapText(wrap)
-		return table
+		wrapMode := tw.WrapNone
+		if wrap {
+			wrapMode = tw.WrapNormal
+		}
+		return newBorderlessTable(os.Stdout, wrapMode)
 	}
 	funcs["addRow"] = func(t *tablewriter.Table, r []string) *tablewriter.Table {
 		t.Append(r)
 		return t
 	}
 	funcs["renderTable"] = func(t *tablewriter.Table) *tablewriter.Table {
+		fmt.Println()
 		t.Render()
-		t.ClearRows()
+		fmt.Println()
+		t.Reset()
 		return t
 	}
 	funcs["jsonEscape"] = func(i string) string {

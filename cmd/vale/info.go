@@ -5,7 +5,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/pterm/pterm"
 	"github.com/spf13/pflag"
 	"golang.org/x/exp/maps"
@@ -91,11 +91,7 @@ func init() {
 	pflag.Usage = func() {
 		fmt.Println(intro)
 
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetCenterSeparator("")
-		table.SetColumnSeparator("")
-		table.SetRowSeparator("")
-		table.SetAutoWrapText(false)
+		table := newBorderlessTable(os.Stdout, tw.WrapNone)
 
 		fmt.Println(pterm.Bold.Sprintf("\nFlags:"))
 		pflag.VisitAll(func(f *pflag.Flag) {
@@ -104,8 +100,10 @@ func init() {
 			}
 		})
 
+		fmt.Println()
 		table.Render()
-		table.ClearRows()
+		fmt.Println()
+		table.Reset()
 
 		commandKeys := maps.Keys(commandInfo)
 		slices.Sort(commandKeys)
@@ -116,7 +114,9 @@ func init() {
 				table.Append([]string{toCodeStyle(cmd), commandInfo[cmd]})
 			}
 		}
+		fmt.Println()
 		table.Render()
+		fmt.Println()
 
 		os.Exit(0)
 	}
