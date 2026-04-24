@@ -1,6 +1,6 @@
 version: "{build}"
 image: Visual Studio 2019
-clone_folder: c:\GOPATH\src\github.com\errata-ai\vale
+clone_folder: c:\GOPATH\src\github.com\vale-cli\vale
 environment:
   GOPATH: c:\GOPATH
   GOROOT: C:\go
@@ -24,9 +24,11 @@ install:
 
   - choco install xsltproc
   # Git on AppVeyor includes a non-functional xsltproc. Remove this.
-  - if exist "%ProgramFiles%\Git\usr\bin\xsltproc.exe" del "%ProgramFiles%\Git\usr\bin\xsltproc.exe"
+  - if exist "%ProgramFiles%\Git\usr\bin\xsltproc.exe" del
+    "%ProgramFiles%\Git\usr\bin\xsltproc.exe"
 
-  - curl -fsSL -o C:\dita-ot-3.4.zip https://github.com/dita-ot/dita-ot/releases/download/3.4/dita-ot-3.4.zip
+  - curl -fsSL -o C:\dita-ot-3.4.zip
+    https://github.com/dita-ot/dita-ot/releases/download/3.4/dita-ot-3.4.zip
   - 7z x C:\dita-ot-3.4.zip -y -r -oC:\dita
   - set PATH=C:\dita\dita-ot-3.4\bin;%PATH%
 build_script:
@@ -35,5 +37,6 @@ build_script:
   - cmd: C:\msys64\usr\bin\make.exe build os=windows exe=vale.exe
 test_script:
   - cmd: C:\msys64\usr\bin\make.exe test
+
 # after_test:
 #   - cmd: make compare
