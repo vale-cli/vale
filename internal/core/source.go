@@ -100,62 +100,8 @@ func loadStdin(src string, cfg *Config, dry bool) (*ini.File, error) {
 }
 
 func loadINI(cfg *Config, dry bool) (*ini.File, error) {
-	uCfg := ini.Empty(ini.LoadOptions{
-		AllowShadows:             true,
-		Loose:                    true,
-		SpaceBeforeInlineComment: true,
-	})
-
-	base, err := loadConfig(configNames)
-	if err != nil {
-		return nil, NewE100("loadINI/homedir", err)
-	}
-	cfg.RootINI = base
-
-	if cfg.Flags.Sources != "" {
-		// NOTE: This case shouldn't be accessible from the CLI, but it can
-		// still be triggered by packages that include config files.
-		var sources []string
-
-		for _, source := range strings.Split(cfg.Flags.Sources, ",") {
-			abs, _ := filepath.Abs(source)
-			sources = append(sources, abs)
-		}
-
-		// We have multiple sources -- e.g., local config + remote package(s).
-		//
-		// See fixtures/config.feature#451 for an explanation of how this has
-		// changed since Vale Server was deprecated.
-		uCfg, err = processSources(cfg, sources)
-		if err != nil {
-			return nil, NewE100("config pipeline failed", err)
-		}
-	} else if cfg.Flags.Path != "" {
-		// We've been given a value through `--config`.
-		err = uCfg.Append(cfg.Flags.Path)
-		if err != nil {
-			return nil, NewE100("invalid --config", err)
-		}
-		cfg.AddConfigFile(cfg.Flags.Path)
-	} else if fromEnv, hasEnv := os.LookupEnv("VALE_CONFIG_PATH"); hasEnv {
-		// We've been given a value through `VALE_CONFIG_PATH`.
-		err = uCfg.Append(fromEnv)
-		if err != nil {
-			return nil, NewE100("invalid VALE_CONFIG_PATH", err)
-		}
-		cfg.AddConfigFile(fromEnv)
-	} else if base != "" {
-		// We're using a config file found using a local search process.
-		err = uCfg.Append(base)
-		if err != nil {
-			return nil, NewE100(".vale.ini not found", err)
-		}
-		cfg.AddConfigFile(base)
-	}
-
-	if StringInSlice(cfg.Flags.AlertLevel, AlertLevels) {
-		cfg.MinAlertLevel = LevelToInt[cfg.Flags.AlertLevel]
-	}
+	var sources []string
+	var uCfg *ini.File
 
 	// NOTE: In v3.0, we now use the user's config directory as the default
 	// location.
@@ -169,17 +115,51 @@ func loadINI(cfg *Config, dry bool) (*ini.File, error) {
 	defaultCfg, _ := DefaultConfig()
 
 	if system.FileExists(defaultCfg) && !cfg.Flags.IgnoreGlobal && !dry {
-		err = uCfg.Append(defaultCfg)
-		if err != nil {
-			return nil, NewE100("default/ini", err)
-		}
+		sources = append(sources, defaultCfg)
 		cfg.Flags.Local = true
 		cfg.AddConfigFile(defaultCfg)
-	} else if base == "" && len(cfg.ConfigFiles) == 0 && !dry {
+	}
+
+	base, err := loadConfig(configNames)
+	if err != nil {
+		return nil, NewE100("loadINI/homedir", err)
+	}
+	cfg.RootINI = base
+
+	if cfg.Flags.Sources != "" {
+		// NOTE: This case shouldn't be accessible from the CLI, but it can
+		// still be triggered by packages that include config files.
+
+		for _, source := range strings.Split(cfg.Flags.Sources, ",") {
+			abs, _ := filepath.Abs(source)
+			sources = append(sources, abs)
+		}
+	} else if cfg.Flags.Path != "" {
+		// We've been given a value through `--config`.
+		sources = append(sources, cfg.Flags.Path)
+		cfg.AddConfigFile(cfg.Flags.Path)
+	} else if fromEnv, hasEnv := os.LookupEnv("VALE_CONFIG_PATH"); hasEnv {
+		// We've been given a value through `VALE_CONFIG_PATH`.
+		sources = append(sources, fromEnv)
+		cfg.AddConfigFile(fromEnv)
+	} else if base != "" {
+		// We're using a config file found using a local search process.
+		sources = append(sources, base)
+		cfg.AddConfigFile(base)
+	}
+
+	if StringInSlice(cfg.Flags.AlertLevel, AlertLevels) {
+		cfg.MinAlertLevel = LevelToInt[cfg.Flags.AlertLevel]
+	}
+
+	if base == "" && len(cfg.ConfigFiles) == 0 && !dry {
 		return nil, NewE100(".vale.ini not found", errors.New("no config file found"))
 	}
 
-	uCfg.BlockMode = false
+	uCfg, err = processSources(cfg, sources)
+	if err != nil {
+		return nil, NewE100("config pipeline failed", err)
+	}
 	return processConfig(uCfg, cfg, dry)
 }
 

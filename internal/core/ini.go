@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +13,10 @@ import (
 	"github.com/errata-ai/vale/v3/internal/glob"
 	"github.com/errata-ai/vale/v3/internal/system"
 )
+
+var pathKeys = []string{
+	"StylesPath",
+}
 
 var coreError = "'%s' is a core option; it should be defined above any syntax-specific options (`[...]`)."
 
@@ -161,40 +166,15 @@ var globalOpts = map[string]func(*ini.Section, *Config){
 
 var coreOpts = map[string]func(*ini.Section, *Config) error{
 	"StylesPath": func(sec *ini.Section, cfg *Config) error {
-		// NOTE: The order of these paths is important. They represent the load
-		// order of the configuration files -- not `cfg.Paths`.
 		paths := sec.Key("StylesPath").ValueWithShadows()
-		files := cfg.ConfigFiles
-		if cfg.Flags.Local && len(files) == 2 {
-			// This represents the case where we have a default `.vale.ini`
-			// file and a local `.vale.ini` file.
-			//
-			// In such a case, there are three options: (1) both files define a
-			// `StylesPath`, (2) only one file defines a `StylesPath`, or (3)
-			// neither file defines a `StylesPath`.
-			basePath := system.DeterminePath(files[0], filepath.FromSlash(paths[0]))
-			mockPath := system.DeterminePath(files[1], filepath.FromSlash(paths[0]))
-			// ^ This case handles the situation where both configs define the
-			// same StylesPath (e.g., `StylesPath = styles`).
-			if len(paths) == 2 {
-				basePath = system.DeterminePath(files[0], filepath.FromSlash(paths[0]))
-				mockPath = system.DeterminePath(files[1], filepath.FromSlash(paths[1]))
-			}
-			cfg.AddStylesPath(basePath)
-			cfg.AddStylesPath(mockPath)
-		} else if len(paths) > 0 {
-			// In this case, we have a local configuration file (no default)
-			// that defines a `StylesPath`.
-			candidate := filepath.FromSlash(paths[len(paths)-1])
-			path := system.DeterminePath(cfg.ConfigFile(), candidate)
-
-			cfg.AddStylesPath(path)
+		for _, path := range paths {
 			if !system.FileExists(path) {
 				return NewE201FromTarget(
 					fmt.Sprintf("The path '%s' does not exist.", path),
-					candidate,
+					path,
 					cfg.Flags.Path)
 			}
+			cfg.AddStylesPath(path)
 		}
 		return nil
 	},
@@ -255,10 +235,78 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 	},
 }
 
+func expandPaths(file *ini.File, source interface{}) {
+	var path string
+
+	switch s := source.(type) {
+	case string:
+		abs, _ := filepath.Abs(s)
+		path = filepath.Dir(abs)
+	default:
+		path, _ = os.Getwd()
+	}
+
+	for _, section := range file.Sections() {
+		for _, key := range section.Keys() {
+			if StringInSlice(key.Name(), pathKeys) {
+				value := key.Value()
+				if !filepath.IsAbs(value) {
+					key.SetValue(filepath.Join(path, value))
+				}
+			}
+		}
+	}
+}
+
+func shadowMerge(primary *ini.File, secondary *ini.File) {
+	for _, secondarySection := range secondary.Sections() {
+		sectionName := secondarySection.Name()
+
+		primarySection, _ := primary.GetSection(sectionName)
+		if primarySection == nil {
+			primarySection, _ = primary.NewSection(sectionName)
+		}
+
+		for _, secondaryKey := range secondarySection.Keys() {
+			keyName := secondaryKey.Name()
+			keyValue := secondaryKey.Value()
+
+			primaryKey, _ := primarySection.GetKey(keyName)
+			if primaryKey == nil {
+				primarySection.NewKey(keyName, keyValue)
+			} else {
+				primaryKey.AddShadow(keyValue)
+			}
+		}
+	}
+}
+
 func shadowLoad(source interface{}, others ...interface{}) (*ini.File, error) {
-	return ini.LoadSources(ini.LoadOptions{
+	options := ini.LoadOptions{
 		AllowShadows:             true,
-		SpaceBeforeInlineComment: true}, source, others...)
+		Loose:                    true,
+		SpaceBeforeInlineComment: true,
+	}
+
+	primary, err := ini.LoadSources(options, source)
+	if err != nil {
+		return nil, err
+	}
+	expandPaths(primary, source)
+
+	for _, other := range others {
+		var shadow *ini.File
+
+		shadow, err = ini.LoadSources(options, other)
+		if err != nil {
+			return nil, err
+		}
+
+		expandPaths(shadow, other)
+		shadowMerge(primary, shadow)
+	}
+
+	return primary, nil
 }
 
 func processSources(cfg *Config, sources []string) (*ini.File, error) {
