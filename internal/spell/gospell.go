@@ -220,14 +220,17 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 
 	for _, compoundRule := range affix.CompoundRule {
 		pattern := "^"
-		for _, key := range compoundRule {
-			switch key {
-			case '(', ')', '+', '?', '*':
-				pattern += regexp.QuoteMeta(string(key))
-			default:
-				groups := affix.compoundMap[key]
-				pattern = pattern + "(" + strings.Join(groups, "|") + ")"
+		for _, key := range affix.parseFlags(compoundRule) {
+			if len(key) == 1 {
+				r := rune(key[0])
+				switch r {
+				case '(', ')', '+', '?', '*':
+					pattern += regexp.QuoteMeta(key)
+					continue
+				}
 			}
+			groups := affix.compoundMap[key]
+			pattern = pattern + "(" + strings.Join(groups, "|") + ")"
 		}
 		pattern += "$"
 
