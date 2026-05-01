@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/pterm/pterm"
 
 	"github.com/errata-ai/vale/v3/internal/core"
@@ -58,11 +58,11 @@ func printVerboseAlert(f *core.File, wrap bool) (int, int, int) {
 		return 0, 0, 0
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetCenterSeparator("")
-	table.SetColumnSeparator("")
-	table.SetRowSeparator("")
-	table.SetAutoWrapText(!wrap)
+	wrapMode := tw.WrapNone
+	if !wrap {
+		wrapMode = tw.WrapNormal
+	}
+	table := newBorderlessTable(os.Stdout, wrapMode)
 
 	fmt.Printf("\n %s", pterm.Underscore.Sprint(f.Path))
 	for _, a := range alerts {
@@ -80,6 +80,8 @@ func printVerboseAlert(f *core.File, wrap bool) (int, int, int) {
 		loc = fmt.Sprintf("%d:%d", a.Line, a.Span[0])
 		table.Append([]string{loc, level, a.Message, a.Check})
 	}
+	fmt.Println()
 	table.Render()
+	fmt.Println()
 	return errors, warnings, notifications
 }
