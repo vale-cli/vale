@@ -11,7 +11,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	v2dasel "github.com/tomwright/dasel/v2"
 	"github.com/tomwright/dasel/v3"
-	yamlv2 "gopkg.in/yaml.v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -66,7 +65,7 @@ func NewView(path string) (*View, error) {
 		return nil, err
 	}
 
-	err = yamlv2.Unmarshal(data, &view)
+	err = yaml.Unmarshal(data, &view)
 	if err != nil {
 		return nil, err
 	}
@@ -348,38 +347,10 @@ func fileToValue(f *File) (DaselValue, []scalarPos, error) {
 		return nil, nil, errors.New("unsupported file type")
 	}
 
-	value, isMap := normalize(raw).(map[string]any)
+	value, isMap := raw.(map[string]any)
 	if !isMap {
 		return nil, nil, errors.New("document root is not an object")
 	}
 
 	return value, scalars, nil
-}
-
-// normalize recursively converts map[interface{}]interface{} (produced by
-// gopkg.in/yaml.v2) to map[string]any so that Dasel v3 can traverse the
-// document without choking on interface{} map keys.
-func normalize(v any) any {
-	switch val := v.(type) {
-	case map[interface{}]interface{}:
-		out := make(map[string]any, len(val))
-		for k, v := range val {
-			out[fmt.Sprintf("%v", k)] = normalize(v)
-		}
-		return out
-	case map[string]any:
-		out := make(map[string]any, len(val))
-		for k, v := range val {
-			out[k] = normalize(v)
-		}
-		return out
-	case []any:
-		out := make([]any, len(val))
-		for i, v := range val {
-			out[i] = normalize(v)
-		}
-		return out
-	default:
-		return val
-	}
 }
