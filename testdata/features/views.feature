@@ -34,6 +34,8 @@ Feature: Views
             github-workflow.json:902:164:Vale.Spelling:Did you really mean 'redis'?
             github-workflow.json:902:618:Vale.Spelling:Did you really mean 'hostname'?
             github-workflow.json:902:632:Vale.Spelling:Did you really mean 'hostname'?
+            issue1018.yml:3:26:Vale.Spelling:Did you really mean 'misspeling'?
+            issue1018.yml:7:9:Vale.Spelling:Did you really mean 'misspeled'?
             test.java:13:38:vale.Annotations:'XXX' left in text
             test.py:1:3:vale.Annotations:'FIXME' left in text
             test.py:11:3:vale.Annotations:'XXX' left in text

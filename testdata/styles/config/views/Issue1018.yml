@@ -1,0 +1,7 @@
+engine: dasel
+scopes:
+  - name: description
+    expr: info.description
+
+  - name: summary
+    expr: info.summary

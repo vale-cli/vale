@@ -1,0 +1,7 @@
+openapi: 3.0.1
+info:
+  description: "Contains misspeling\
+    \ when wrapped"
+  summary: >
+    Includes trailing space.
+    Has misspeled second line.

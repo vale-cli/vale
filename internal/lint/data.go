@@ -35,18 +35,44 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 	l.HasDir = true
 
 	wholeFile := f.Content
+	srcLines := strings.Split(wholeFile, "\n")
 	last := 0
 
 	for _, match := range values {
 		l.SetMetaScope(match.Scope)
 
 		seen := make(map[string]int)
-		for _, v := range match.Values {
-			i, line := findLineBySubstring(wholeFile, v, seen)
-			if i < 0 {
-				return core.NewE100(f.Path, fmt.Errorf("'%s' not found", v))
+		for _, sv := range match.Values {
+			v := sv.Text
+
+			line := ""
+			i := sv.Line
+			padding := sv.Column - 1
+			fromParse := i > 0 && sv.Column > 0
+
+			if fromParse {
+				if i-1 < len(srcLines) {
+					line = srcLines[i-1]
+				}
+			} else {
+				var found int
+				found, line = findLineBySubstring(wholeFile, v, seen)
+				if found < 0 {
+					return core.NewE100(f.Path, fmt.Errorf("'%s' not found", v))
+				}
+				i = found
+				seen[line] = i
+				padding = strings.Index(line, v)
+				if strings.Count(v, "\n") > 0 {
+					firstLine := strings.SplitN(v, "\n", 2)[0]
+					padding = strings.Index(line, firstLine)
+					if padding < 0 {
+						// block scalar case - use indentation of matched line
+						i--
+						padding = strings.Index(line, strings.TrimSpace(line))
+					}
+				}
 			}
-			seen[line] = i
 
 			if strings.Contains(line, "\\n") {
 				f.SetText(strings.ReplaceAll(v, "\n", " "))
@@ -72,16 +98,6 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 
 			size := len(f.Alerts)
 			if size != last {
-				padding := strings.Index(line, v)
-				if strings.Count(v, "\n") > 0 {
-					firstLine := strings.SplitN(v, "\n", 2)[0]
-					padding = strings.Index(line, firstLine)
-					if padding < 0 {
-						// block scalar case - use indentation of matched line
-						i-- // adjust for 1-based line numbers
-						padding = strings.Index(line, strings.TrimSpace(line))
-					}
-				}
 				f.Alerts = adjustPos(f.Alerts, last, i, padding, v, line)
 			}
 			last = size
