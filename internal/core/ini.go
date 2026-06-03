@@ -168,13 +168,14 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 	"StylesPath": func(sec *ini.Section, cfg *Config) error {
 		paths := sec.Key("StylesPath").ValueWithShadows()
 		for _, path := range paths {
+			cfg.AddStylesPath(path)
+
 			if !system.FileExists(path) {
 				return NewE201FromTarget(
 					fmt.Sprintf("The path '%s' does not exist.", path),
 					path,
 					cfg.Flags.Path)
 			}
-			cfg.AddStylesPath(path)
 		}
 		return nil
 	},
