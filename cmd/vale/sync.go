@@ -17,8 +17,8 @@ func initPath(cfg *core.Config) error {
 	stylesPath := cfg.StylesPath()
 
 	if !system.IsDir(stylesPath) {
-		if err := os.MkdirAll(cfg.StylesPath(), os.ModePerm); err != nil {
-			e := fmt.Errorf("unable to initialize StylesPath (value = '%s')", cfg.StylesPath())
+		if err := os.MkdirAll(stylesPath, os.ModePerm); err != nil {
+			e := fmt.Errorf("unable to initialize StylesPath (value = '%s')", stylesPath)
 			return core.NewE100("initPath", e)
 		}
 	}
