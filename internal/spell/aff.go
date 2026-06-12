@@ -302,13 +302,23 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				// See #499.
 				//
 				// TODO: Is this safe to do in all cases?
-				if parts[3] == "0" {
-					parts[3] = ""
+				affixText := parts[3]
+				if affixText == "0" {
+					affixText = ""
+				} else if i := strings.Index(affixText, "/"); i >= 0 {
+					// Strip the affix's own continuation flags, e.g. the
+					// "/34,22" in `SFX 1 0 t/34,22 e`. Otherwise they'd be
+					// appended to the generated word ("stavet/34,22"), so the
+					// real form ("stavet") is never recognized. See #1065.
+					//
+					// NOTE: We don't yet recursively apply continuation classes,
+					// so some further-inflected forms remain unrecognized.
+					affixText = affixText[:i]
 				}
 
 				a.Rules = append(a.Rules, rule{
 					Strip:     strip,
-					AffixText: parts[3],
+					AffixText: affixText,
 					Pattern:   parts[4],
 					matcher:   matcher,
 				})

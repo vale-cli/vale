@@ -153,6 +153,59 @@ sistem/100,200
 	}
 }
 
+// TestDanishDictionary covers the three parsing bugs exposed by the
+// stavekontrolden.dk Danish dictionary (see #1065):
+//
+//  1. Affixes that carry their own continuation flags (e.g. `t/34,22`) must
+//     have those flags stripped from the generated word.
+//  2. Space-separated morphological fields (e.g. `coitus/10,39,31 al:coituum`)
+//     must be stripped so they don't corrupt FLAG num parsing.
+//  3. A single malformed entry (e.g. `/34 st:coitus`, flags but no word) must
+//     not abort the whole dictionary, which would flag every word.
+func TestDanishDictionary(t *testing.T) {
+	affContent := `SET UTF-8
+FLAG num
+
+SFX 1 Y 1
+SFX 1 0 t/34,22 e
+
+SFX 34 Y 1
+SFX 34 0 s .
+`
+	// Mirrors the real file: space-separated morphology, plus a malformed
+	// orphan-slash entry split off from its word.
+	dicContent := `3
+stave/1,34 al:stave
+coituum
+/34 st:coitus
+`
+
+	gs, err := newGoSpellReader(
+		strings.NewReader(affContent),
+		strings.NewReader(dicContent),
+	)
+	if err != nil {
+		t.Fatalf("newGoSpellReader error: %v", err)
+	}
+
+	tests := []struct {
+		word string
+		want bool
+	}{
+		{"stave", true},   // base word, morphology stripped
+		{"stavet", true},  // SFX 1 with continuation flags stripped
+		{"staves", true},  // SFX 34
+		{"coituum", true}, // word before the malformed line still loaded
+		{"thtis", false},  // a genuine misspelling is still caught
+	}
+
+	for _, tt := range tests {
+		if got := gs.spell(tt.word); got != tt.want {
+			t.Errorf("spell(%q) = %v, want %v", tt.word, got, tt.want)
+		}
+	}
+}
+
 func TestASCIFlagBackwardCompatibility(t *testing.T) {
 	// Original ASCII flag format must still work
 	affContent := `SET UTF-8

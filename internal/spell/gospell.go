@@ -195,14 +195,29 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 	words := []string{}
 	for scanner.Scan() {
 		line := scanner.Text()
-		// NOTE: We do this for entries like
+		// A .dic entry is `word/flags` optionally followed by whitespace-
+		// separated morphological fields, e.g.
 		//
-		// abandonware/M	Noun: uncountable
-		line = strings.Split(line, "\t")[0]
+		//	abandonware/M	Noun: uncountable
+		//	coitus/10,39,31 al:coituum
+		//
+		// Keep only the first field; otherwise the morphology corrupts flag
+		// parsing (e.g., FLAG num would read "31 al:coituum" as a flag).
+		//
+		// Both tab- and space-separated morphology occur in the wild -- the
+		// Danish dictionary from stavekontrolden.dk uses spaces. See #1065.
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		line = fields[0]
 
 		words, err = affix.expand(line, words)
 		if err != nil {
-			return nil, fmt.Errorf("unable to process %q: %s", line, err.Error())
+			// Skip malformed entries (e.g., a line with flags but no word)
+			// rather than abandoning the entire dictionary, which would leave
+			// every word unrecognized and flagged. See #1065.
+			continue
 		}
 
 		if len(words) == 0 {
