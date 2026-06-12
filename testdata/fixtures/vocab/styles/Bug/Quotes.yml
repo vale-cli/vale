@@ -1,0 +1,6 @@
+extends: existence
+message: "Commas and periods go inside quotation marks."
+level: warning
+nonword: true
+tokens:
+  - '"[^"]+"[.,]'

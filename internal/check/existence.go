@@ -39,7 +39,13 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 		return rule, err
 	}
 
-	re, err := updateExceptions(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
+	// `Vocab` is a list of accepted *words*, so it only makes sense to treat
+	// it as a set of exceptions for word-based rules. For `nonword` rules --
+	// whose tokens match arbitrary spans (e.g. `"[^"]+"[.,]`) -- a vocab word
+	// would suppress any match that merely *contains* it (e.g. `"plugh",`).
+	//
+	// See https://github.com/errata-ai/vale/issues/1058.
+	re, err := updateExceptions(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab && !rule.Nonword)
 	if err != nil {
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}

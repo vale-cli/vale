@@ -15,6 +15,14 @@ Feature: Misc
             test.md:32:8:Vale.Terms:Use '[Oo]bservability' instead of 'oBservability'.
             """
 
+    Scenario: Vocab does not suppress nonword rules (#1058)
+        When I use Vocab "Nonword"
+        Then the output should contain exactly:
+            """
+            test.md:1:18:Bug.Quotes:Commas and periods go inside quotation marks.
+            test.md:3:27:Bug.Quotes:Commas and periods go inside quotation marks.
+            """
+
     Scenario: Multiple Vocabs
         When I use Vocab "Multi"
         Then the output should contain exactly:
