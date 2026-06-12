@@ -1,0 +1,7 @@
+= document title
+:sectnums:
+:toc: left
+
+== about the document
+
+Some text.

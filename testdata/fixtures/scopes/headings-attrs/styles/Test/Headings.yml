@@ -1,0 +1,5 @@
+extends: capitalization
+message: "'%s' should use title-style capitalization."
+level: error
+scope: heading
+match: $title

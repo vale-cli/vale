@@ -32,6 +32,16 @@ var adocArgs = []string{
 	"notitle!",
 	"-a",
 	"attribute-missing=drop",
+	// Section numbers and a table of contents are generated artifacts: they
+	// prefix headings with "N." or duplicate heading text in a <ul class="toc">.
+	// Both break heading detection and position lookup, so we force them off --
+	// they aren't authored prose. CLI attributes override in-document ones.
+	//
+	// See https://github.com/errata-ai/vale/issues/1101.
+	"-a",
+	"sectnums!",
+	"-a",
+	"toc!",
 }
 
 func (l *Linter) lintADoc(f *core.File) error {

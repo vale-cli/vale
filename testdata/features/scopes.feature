@@ -102,6 +102,14 @@ Feature: Scopes
             test.xml:23:21:rules.Heading:'XXX' left in text
             """
 
+    Scenario: AsciiDoc headings with :sectnums: and :toc: (#1101)
+        When I test scope "headings-attrs"
+        Then the output should contain exactly:
+            """
+            test.adoc:1:3:Test.Headings:'document title' should use title-style capitalization.
+            test.adoc:5:4:Test.Headings:'about the document' should use title-style capitalization.
+            """
+
     Scenario: Table
         When I test scope "table"
         Then the output should contain exactly:
