@@ -1,0 +1,16 @@
+[
+    {
+        "Text": "\nModule docstring intro line.\n\n::\n\n  literal_command\n\n",
+        "Source": "\"\"\"\nModule docstring intro line.\n\n::\n\n  literal_command\n\"\"\"",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.block"
+    },
+    {
+        "Text": "\nFunction docstring sentence.\n\n::\n\n    nested_literal_command\n\n",
+        "Source": "\"\"\"\n    Function docstring sentence.\n\n    ::\n\n        nested_literal_command\n    \"\"\"",
+        "Line": 11,
+        "Offset": 4,
+        "Scope": "text.comment.block"
+    }
+]
