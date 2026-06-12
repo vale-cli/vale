@@ -1,0 +1,6 @@
+extends: conditional
+message: "A 'Section' requires a 'Summary:' line."
+level: error
+scope: raw
+first: '\bSection\b'
+second: 'Summary:'

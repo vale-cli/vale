@@ -22,6 +22,15 @@ Feature: Checks
             test.md:9:5:Checks.MultiCapture:'NFL' has no definition
             """
 
+    Scenario: Conditional presence check (#1048)
+        # When `second` has no capture group, the rule just requires `second` to
+        # be present whenever `first` is -- so only the file missing it flags.
+        When I test "checks/ConditionalPresence"
+        Then the output should contain exactly:
+            """
+            missing.md:1:3:Test.Presence:A 'Section' requires a 'Summary:' line.
+            """
+
     Scenario: Occurrence
         When I test "checks/Occurrence"
         Then the output should contain exactly:
