@@ -325,6 +325,9 @@ func makeRegexp(
 	return regex
 }
 
+// matchToken reports whether `observed` already conforms to `expected`. When
+// `expected` is a plain phrase it's an exact comparison; otherwise `expected`
+// is treated as a regex (e.g., a vocab term like `[pP]y.*\b`).
 func matchToken(expected, observed string, ignorecase bool) bool {
 	p := expected
 	if ignorecase {

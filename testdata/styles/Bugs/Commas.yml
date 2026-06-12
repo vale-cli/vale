@@ -1,0 +1,8 @@
+extends: substitution
+message: "Use a single comma or an ellipsis, not multiple consecutive commas."
+level: error
+nonword: true
+action:
+  name: replace
+swap:
+  ',{2,}': ',|...'

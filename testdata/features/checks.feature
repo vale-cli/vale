@@ -110,6 +110,8 @@ Feature: Checks
             test.md:25:1:Bugs.SameCase:Use 'MPL 2.0' instead of 'mpl 2.0'
             test.md:27:1:Bugs.SameCase:Use 'MPL 2.0' instead of 'MPL2.0'
             test.md:31:15:Bugs.EmptyReplace:Use  instead of 'obvious'.
+            test.md:33:4:Bugs.Commas:Use a single comma or an ellipsis, not multiple consecutive commas.
+            test.md:33:23:Bugs.Commas:Use a single comma or an ellipsis, not multiple consecutive commas.
             test2.md:3:1:demo.CapSub:Use 'Change to the `/etc` directory' instead of 'Change into the `/etc` directory'.
             test2.md:7:1:demo.CapSub:Use 'Change to the `/home/user` directory' instead of 'Change into the `/home/user` directory'.
             test2.md:9:1:demo.CapSub:Use 'Change to the `/etc/X11` directory' instead of 'Change into the `/etc/X11` directory'.

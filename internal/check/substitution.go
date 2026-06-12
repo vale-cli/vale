@@ -119,7 +119,23 @@ func (s Substitution) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core
 					return alerts, msgErr
 				}
 
-				same := matchToken(expected, observed, false)
+				// Determine whether `observed` is already in an acceptable
+				// form (a no-op suggestion). For a `replace` action the swap
+				// value is literal replacement text -- one or more `|`-separated
+				// suggestions (the same split used to build `action.Params`
+				// below) -- so we compare each option literally. Otherwise an
+				// option like `...` would be read as a regex matching any three
+				// characters (e.g. `,,,`), suppressing a real finding (#1038).
+				//
+				// For non-`replace` rules the value may instead be a regex that
+				// describes the acceptable forms (e.g. a vocab term `[pP]y.*\b`,
+				// or a `LookAround`-style pattern), which we still match as one.
+				var same bool
+				if s.Fields().Action.Name == "replace" {
+					same = core.StringInSlice(observed, getOptions(expected))
+				} else {
+					same = matchToken(expected, observed, false)
+				}
 				if !same && !isMatch(s.exceptRe, observed) {
 					action := s.Fields().Action
 					if action.Name == "replace" && len(action.Params) == 0 {
