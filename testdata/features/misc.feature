@@ -112,6 +112,15 @@ Feature: Misc
             test.md:50:11:Markup.SentSpacing:"d.A" must contain one and only one space.
             """
 
+    Scenario: Dashes adjacent to inline markup (#1029)
+        # A dash touching a link/bold (`[x](y)—z`, `**x**—z`, `x—**y**`) must not
+        # gain a spurious surrounding space; a genuinely spaced dash still does.
+        When I test "misc/dashes"
+        Then the output should contain exactly:
+            """
+            test.md:1:24:Test.Dashes:Remove the spaces around the dash.
+            """
+
     Scenario: Spelling
         When I test "spelling"
         Then the output should contain exactly:

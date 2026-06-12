@@ -1,0 +1,7 @@
+extends: existence
+message: "Remove the spaces around the dash."
+level: error
+scope: text
+nonword: true
+tokens:
+  - '\s—|—\s'
