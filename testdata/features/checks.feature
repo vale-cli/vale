@@ -27,8 +27,8 @@ Feature: Checks
         Then the output should contain exactly:
             """
             test.md:1:1:demo.ZeroOccurrence:No intro
-            test.md:1:3:demo.MinCount:Content too short.
-            test2.md:1:3:demo.MinCount:Content too short.
+            test.md:1:3:demo.MinCount:Content too short (1).
+            test2.md:1:3:demo.MinCount:Content too short (3).
             test3.md:7:37:demo.CharCount:Topic titles should use fewer than 70 characters.
             test3.md:11:4:demo.CharCount:Topic titles should use fewer than 70 characters.
             test3.md:27:6:demo.CharCount:Topic titles should use fewer than 70 characters.

@@ -1,4 +1,4 @@
-message: "Content too short."
+message: "Content too short (%d)."
 extends: occurrence
 scope: raw
 level: error

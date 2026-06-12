@@ -1,7 +1,6 @@
 package check
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/errata-ai/regexp2"
@@ -105,8 +104,11 @@ func (o Occurrence) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.A
 			}
 		}
 
-		a.Message, a.Description = formatMessages(o.Message, o.Description,
-			strconv.Itoa(occurrences))
+		// Pass the count as an int (not a string) so messages can use either
+		// `%d` or `%s` for it; a string `%d` would otherwise render as
+		// `%!d(string=0)`. See #1048.
+		a.Message = core.CondSprintf(o.Message, occurrences)
+		a.Description = core.CondSprintf(o.Description, occurrences)
 		alerts = append(alerts, a)
 	}
 
