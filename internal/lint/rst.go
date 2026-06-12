@@ -35,10 +35,8 @@ func (l *Linter) lintRST(f *core.File) error {
 
 	rst2html := system.Which([]string{
 		"rst2html", "rst2html.py", "rst2html-3", "rst2html-3.py"})
-	python := system.Which([]string{
-		"python", "py", "python.exe", "python3", "python3.exe", "py3"})
 
-	if rst2html == "" || python == "" {
+	if rst2html == "" {
 		return core.NewE100("lintRST", errors.New("rst2html not found"))
 	}
 
@@ -55,7 +53,7 @@ func (l *Linter) lintRST(f *core.File) error {
 	s = reSphinx.ReplaceAllString(s, ".. code::")
 	s = reCodeBlock.ReplaceAllString(s, "::")
 
-	html, err = callRst(s, rst2html, python)
+	html, err = callRst(s, rst2html)
 	if err != nil {
 		return core.NewE100(f.Path, err)
 	}
@@ -63,7 +61,7 @@ func (l *Linter) lintRST(f *core.File) error {
 	return l.lintHTMLTokens(f, []byte(html), 0)
 }
 
-func callRst(text, lib, _ string) (string, error) {
+func callRst(text, lib string) (string, error) {
 	html, err := system.ExecuteWithInput(lib, text, rstArgs...)
 	if err != nil {
 		return "", err
