@@ -1,0 +1,128 @@
+name: Test
+
+# Replaces the former AppVeyor (Windows) and GitLab CI (Linux) pipelines:
+# build + run the full Go and Cucumber suites on both platforms.
+
+on:
+  push:
+    branches: [v3]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1" # required for the tree-sitter parsers
+      BUNDLE_GEMFILE: ${{ github.workspace }}/testdata/Gemfile
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tags, for the version ldflag in `make build`
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.7"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install documentation toolchain
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get install -y xsltproc
+          python -m pip install --upgrade docutils sphinx  # rst2html
+          gem install asciidoctor
+          npm install -g mdx2vast
+          curl -fsSL -o dita-ot-3.6.zip \
+            https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
+          unzip -q dita-ot-3.6.zip
+          echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
+
+      - name: Setup (bundle install)
+        run: make setup
+
+      - name: Build
+        run: make build os=linux exe=vale
+
+      - name: Test
+        run: |
+          export PATH="$PWD/bin:$PATH"
+          make test
+
+  windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash # use the runner's Git bash for all steps
+    env:
+      CGO_ENABLED: "1" # required for the tree-sitter parsers
+      BUNDLE_GEMFILE: ${{ github.workspace }}/testdata/Gemfile
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.7"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install documentation toolchain
+        run: |
+          choco install --no-progress -y xsltproc
+          # Git ships a non-functional xsltproc; drop it so the choco one wins.
+          rm -f "/c/Program Files/Git/usr/bin/xsltproc.exe" || true
+          python -m pip install --upgrade docutils sphinx  # rst2html
+          gem install asciidoctor
+          npm install -g mdx2vast
+          curl -fsSL -o dita-ot-3.6.zip \
+            https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
+          unzip -q dita-ot-3.6.zip
+          echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
+
+      - name: Setup (bundle install)
+        run: cd testdata && bundle install
+
+      - name: Build
+        run: go build -o bin/vale.exe ./cmd/vale
+
+      - name: Test
+        run: |
+          export PATH="$PWD/bin:$PATH"
+          go test ./internal/core ./internal/lint ./internal/check ./internal/nlp ./internal/glob ./cmd/vale
+          cd testdata && cucumber --format progress
