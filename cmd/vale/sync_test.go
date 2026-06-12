@@ -22,12 +22,12 @@ func setupLocalSyncTestPackage(t *testing.T, root string) (string, string) {
 	}
 
 	rulePath := filepath.Join(pkgStyles, "Rule.yml")
-	if err := os.WriteFile(rulePath, []byte("extends: existence\nmessage: test\nlevel: warning\n"), 0o644); err != nil {
+	if err := os.WriteFile(rulePath, []byte("extends: existence\nmessage: test\nlevel: warning\n"), 0o600); err != nil {
 		t.Fatalf("Failed to write local package rule file %q: %v", rulePath, err)
 	}
 
 	body := []byte("StylesPath = missing-styles\nPackages = " + pkgRoot + "\n")
-	if err := os.WriteFile(cfgPath, body, 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, body, 0o600); err != nil {
 		t.Fatalf("Failed to write test config file %q: %v", cfgPath, err)
 	}
 
