@@ -13,6 +13,13 @@ import (
 )
 
 func TestSymlinkFixture(t *testing.T) {
+	// This is an integration test: it shells out to an installed `vale`
+	// binary. Skip when one isn't on PATH (e.g., local `go test ./...` or a
+	// CI job that builds the binary without installing it) rather than failing.
+	if _, err := exec.LookPath("vale"); err != nil {
+		t.Skip("vale binary not found on PATH")
+	}
+
 	fixture := "../../testdata/fixtures/misc/symlinks"
 
 	targetSrc := system.AbsPath(filepath.Join(fixture, "Symlinked"))
