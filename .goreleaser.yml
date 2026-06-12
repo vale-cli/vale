@@ -83,6 +83,13 @@ archives:
       {{- if eq .Arch "amd64" }}64-bit
       {{- else }}{{ .Arch }}{{ end }}
 
+# Create the GitHub release as a draft and upload assets to it *before* it's
+# published. A published release is immutable and rejects new assets ("422
+# Cannot upload assets to an immutable release"), so assets must be attached
+# while it's still a draft; publish it from the UI once GoReleaser finishes.
+release:
+  draft: true
+
 chocolateys:
   - # Your app's package name.
     # The value may not contain spaces or character that are not valid for a URL.
