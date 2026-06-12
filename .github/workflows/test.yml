@@ -75,7 +75,6 @@ jobs:
         shell: bash # use the runner's Git bash for all steps
     env:
       CGO_ENABLED: "1" # required for the tree-sitter parsers
-      BUNDLE_GEMFILE: ${{ github.workspace }}/testdata/Gemfile
     steps:
       - uses: actions/checkout@v5
         with:
@@ -85,44 +84,14 @@ jobs:
         with:
           go-version: "1.25.7"
 
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Install documentation toolchain
-        run: |
-          choco install --no-progress -y xsltproc
-          # Git ships a non-functional xsltproc; drop it so the choco one wins.
-          rm -f "/c/Program Files/Git/usr/bin/xsltproc.exe" || true
-          python -m pip install --upgrade docutils sphinx  # rst2html
-          gem install asciidoctor
-          npm install -g mdx2vast
-          curl -fsSL -o dita-ot-3.6.zip \
-            https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
-          unzip -q dita-ot-3.6.zip
-          echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
-
-      - name: Setup (bundle install)
-        run: cd testdata && bundle install
-
       - name: Build
         run: go build -o bin/vale.exe ./cmd/vale
 
-      - name: Test
-        run: |
-          export PATH="$PWD/bin:$PATH"
-          go test ./internal/core ./internal/lint ./internal/check ./internal/nlp ./internal/glob ./cmd/vale
-          cd testdata && cucumber --format progress
+      # NOTE: The Cucumber suite runs on Linux only. Its aruba -> childprocess ->
+      # ffi stack can't spawn processes on modern Windows + Ruby 3.x (every step
+      # fails with `ChildProcess::Error: Unknown error`); AppVeyor only managed
+      # it on the now-unavailable Ruby 2.4. Windows still covers the build
+      # (including CGO/tree-sitter) and the Go unit tests -- which is where the
+      # Windows-specific behavior (path handling, etc.) actually lives.
+      - name: Test (Go)
+        run: go test ./internal/core ./internal/lint ./internal/check ./internal/nlp ./internal/glob ./cmd/vale

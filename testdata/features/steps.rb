@@ -1,14 +1,5 @@
-require 'os'
-
 exe = 'vale'
-if OS.windows?
-  exe += '.exe'
-end
 cmd = (exe + ' --output=line --sort --normalize --relative --no-global')
-
-Given(/^on Unix$/) do
-  pending unless OS.posix?
-end
 
 When(/^I run command "(.*)"$/) do |c|
   step %(I cd to "../../fixtures/formats")
@@ -166,19 +157,10 @@ end
 
 When(/^I run cat "([^\s]+)" "([^\s]+)"$/) do |file, ext|
   step %(I cd to "../../fixtures/formats")
-  if OS.windows?
-    step %(I run `PowerShell -Command Get-Content #{file} | #{cmd} --ext='#{ext}'`)
-  else
-    step %(I run `bash -c 'cat #{file} | #{cmd} --ext="#{ext}"'`)
-  end
+  step %(I run `bash -c 'cat #{file} | #{cmd} --ext="#{ext}"'`)
 end
 
 When(/^I lint string "(.*)"$/) do |string|
   step %(I cd to "../../fixtures/formats")
-  if OS.windows?
-    # FIXME: How do we pass a string with spaces on AppVeyor?
-    step %(I run `#{cmd} "#{string}"`)
-  else
-    step %(I run `#{cmd} '#{string}'`)
-  end
+  step %(I run `#{cmd} '#{string}'`)
 end

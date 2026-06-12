@@ -74,7 +74,6 @@ GEM
     mime-types-data (3.2024.1203)
     minitest (5.25.4)
     multi_test (0.1.2)
-    os (0.9.6)
     protobuf-cucumber (3.10.8)
       activesupport (>= 3.2)
       middleware
@@ -100,7 +99,6 @@ PLATFORMS
 DEPENDENCIES
   aruba (~> 1.1.0)
   cucumber (~> 6.1.0)
-  os (~> 0.9.6)
   specific_install (~> 0.3.8)
 
 BUNDLED WITH

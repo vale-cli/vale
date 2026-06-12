@@ -2,10 +2,19 @@ package system
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestDeterminePath(t *testing.T) {
+	// These cases use Windows-style paths (drive letters, backslash
+	// separators), and DeterminePath joins with the OS-native separator. They
+	// only resolve correctly on Windows -- elsewhere `\` isn't a separator, so
+	// skip rather than fail.
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only path semantics")
+	}
+
 	tests := []struct {
 		configPath string
 		keyPath    string
