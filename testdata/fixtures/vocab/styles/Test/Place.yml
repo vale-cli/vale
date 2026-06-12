@@ -1,0 +1,5 @@
+extends: existence
+message: "Avoid 'place'."
+level: warning
+tokens:
+  - 'place'

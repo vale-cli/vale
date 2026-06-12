@@ -18,6 +18,7 @@ type Existence struct {
 	// `exceptions` (`array`): An array of strings to be ignored.
 	Exceptions []string
 	exceptRe   *regexp2.Regexp
+	phraseRe   *regexp2.Regexp
 	pattern    *regexp2.Regexp
 	Append     bool
 	IgnoreCase bool
@@ -50,6 +51,7 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}
 	rule.exceptRe = re
+	rule.phraseRe = buildPhraseRe(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab && !rule.Nonword)
 
 	regex := makeRegexp(
 		cfg.WordTemplate,
@@ -90,7 +92,7 @@ func (e Existence) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.Al
 		}
 
 		observed := strings.TrimSpace(converted)
-		if !isMatch(e.exceptRe, observed) {
+		if !isMatch(e.exceptRe, observed) && !withinPhrase(e.phraseRe, blk.Text, loc) {
 			a, erra := makeAlert(e.Definition, loc, blk.Text, cfg)
 			if erra != nil {
 				return alerts, erra

@@ -375,6 +375,53 @@ func updateExceptions(previous []string, current []string, vocab bool) (*regexp2
 	return &regexp2.Regexp{}, nil
 }
 
+// buildPhraseRe compiles a regex matching the multi-word entries among the
+// given exception terms (a rule's `exceptions` plus, when `vocab` is set, the
+// project's accepted vocabulary). It lets a rule suppress a finding that falls
+// within an accepted phrase even when the rule matched only one of the phrase's
+// component words -- e.g. `mea` within an accepted `mea culpa`. See #1035.
+//
+// Returns nil when there are no multi-word terms (or one fails to compile, in
+// which case `updateExceptions` surfaces the error).
+func buildPhraseRe(previous, current []string, vocab bool) *regexp2.Regexp {
+	terms := append([]string{}, previous...)
+	if vocab {
+		terms = append(terms, current...)
+	}
+
+	phrases := []string{}
+	for _, term := range terms {
+		if strings.ContainsAny(term, " \t") || strings.Contains(term, `\s`) {
+			phrases = append(phrases, term)
+		}
+	}
+
+	if len(phrases) == 0 {
+		return nil
+	}
+
+	re, err := regexp2.CompileStd(ignoreCase + `\b(?:` + strings.Join(phrases, "|") + `)\b`)
+	if err != nil {
+		return nil
+	}
+	return re
+}
+
+// withinPhrase reports whether the span `loc` falls entirely within a match of
+// `phraseRe` (an accepted multi-word phrase) in `txt`. Both `loc` and the
+// phrase spans are rune offsets, as returned by regexp2's FindAllStringIndex.
+func withinPhrase(phraseRe *regexp2.Regexp, txt string, loc []int) bool {
+	if phraseRe == nil {
+		return false
+	}
+	for _, span := range phraseRe.FindAllStringIndex(txt, -1) {
+		if loc[0] >= span[0] && loc[1] <= span[1] {
+			return true
+		}
+	}
+	return false
+}
+
 func decodeRule(input interface{}, output interface{}) error {
 	config := mapstructure.DecoderConfig{
 		ErrorUnused:      true,

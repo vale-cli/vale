@@ -35,6 +35,7 @@ type Spelling struct {
 	Dicpath      string
 	Threshold    int
 	exceptRe     *regexp2.Regexp
+	phraseRe     *regexp2.Regexp
 	gs           *spell.Checker
 	Custom       bool
 	Append       bool
@@ -84,6 +85,12 @@ func addExceptions(s *Spelling, generic baseCheck, cfg *core.Config) error { //n
 		s.exceptRe = regexp2.MustCompileStd(
 			ignoreCase + strings.Join(s.Exceptions, "|"))
 	}
+
+	// A multi-word term (e.g. `mea culpa`) is accepted only as a phrase; its
+	// component words are still spell-checked on their own. We mask these in
+	// `Run` via `phraseRe`, built from the same vocabulary as every other
+	// Vocab-aware rule. See #1035.
+	s.phraseRe = buildPhraseRe(nil, cfg.AcceptedTokens, true)
 
 	return nil
 }
@@ -173,8 +180,22 @@ func (s Spelling) Run(blk nlp.Block, _ *core.File, _ *core.Config) ([]core.Alert
 	// See https://github.com/errata-ai/vale/v2/issues/148.
 	txt = s.gs.Convert(txt)
 
+	// Mask any accepted multi-word phrases (e.g. `mea culpa`) so their
+	// component words aren't spell-checked individually, while the same words
+	// elsewhere still are. We replace each match with an equal-length run of
+	// spaces, which preserves the byte offsets of every other word. See #1035.
+	checkTxt := txt
+	if s.phraseRe != nil {
+		masked, err := s.phraseRe.ReplaceFunc(txt, func(m regexp2.Match) string {
+			return strings.Repeat(" ", len(m.String()))
+		}, -1, -1)
+		if err == nil {
+			checkTxt = masked
+		}
+	}
+
 OUTER:
-	for _, word := range nlp.WordTokenizer.Tokenize(txt) {
+	for _, word := range nlp.WordTokenizer.Tokenize(checkTxt) {
 		for _, filter := range s.Filters {
 			if filter.MatchString(word) {
 				continue OUTER
@@ -182,7 +203,7 @@ OUTER:
 		}
 
 		if !s.gs.Spell(word) && !isMatch(s.exceptRe, word) {
-			offset := strings.Index(txt, word)
+			offset := strings.Index(checkTxt, word)
 			loc := []int{offset, offset + len(word)}
 
 			a := core.Alert{Check: s.Name, Severity: s.Level, Span: loc,

@@ -15,6 +15,7 @@ type Conditional struct {
 	First      string
 	Second     string
 	exceptRe   *regexp2.Regexp
+	phraseRe   *regexp2.Regexp
 	Ignorecase bool
 	Vocab      bool
 }
@@ -39,6 +40,7 @@ func NewConditional(cfg *core.Config, generic baseCheck, path string) (Condition
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}
 	rule.exceptRe = re
+	rule.phraseRe = buildPhraseRe(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
 
 	re, err = regexp2.CompileStd(rule.Second)
 	if err != nil {
@@ -91,7 +93,7 @@ func (c Conditional) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.
 			return alerts, err
 		}
 
-		if !core.StringInSlice(s, f.Sequences) && !isMatch(c.exceptRe, s) {
+		if !core.StringInSlice(s, f.Sequences) && !isMatch(c.exceptRe, s) && !withinPhrase(c.phraseRe, txt, loc) {
 			// If we've found one (e.g., "WHO") and we haven't marked it as
 			// being defined previously, send an Alert.
 			a, erra := makeAlert(c.Definition, loc, txt, cfg)

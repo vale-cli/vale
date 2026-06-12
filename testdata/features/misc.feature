@@ -36,6 +36,17 @@ Feature: Misc
             test.md:19:5:Vale.Terms:Use 'MyProduct Enterprise' instead of 'MyProduct enterprise'.
             """
 
+    Scenario: Multi-word vocab phrases (#1035)
+        # An accepted phrase is exempt across every Vocab-aware rule (here both
+        # Vale.Spelling and a custom existence rule), while its component words
+        # are still flagged on their own.
+        When I use Vocab "Phrases"
+        Then the output should contain exactly:
+            """
+            test.md:3:8:Test.Place:Avoid 'place'.
+            test.md:5:3:Vale.Spelling:Did you really mean 'flooberg'?
+            """
+
     Scenario: Line Endings
         When I test "misc/line-endings"
         Then the output should contain exactly:

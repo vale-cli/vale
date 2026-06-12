@@ -19,6 +19,7 @@ type Substitution struct {
 	repl       []string
 	Swap       map[string]string
 	exceptRe   *regexp2.Regexp
+	phraseRe   *regexp2.Regexp
 	pattern    *regexp2.Regexp
 	Ignorecase bool
 	Nonword    bool
@@ -50,6 +51,7 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}
 	rule.exceptRe = re
+	rule.phraseRe = buildPhraseRe(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
 
 	regex := makeRegexp(
 		cfg.WordTemplate,
@@ -136,7 +138,7 @@ func (s Substitution) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core
 				} else {
 					same = matchToken(expected, observed, false)
 				}
-				if !same && !isMatch(s.exceptRe, observed) {
+				if !same && !isMatch(s.exceptRe, observed) && !withinPhrase(s.phraseRe, txt, loc) {
 					action := s.Fields().Action
 					if action.Name == "replace" && len(action.Params) == 0 {
 						action.Params = getOptions(expected)

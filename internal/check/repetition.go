@@ -20,6 +20,7 @@ type Repetition struct {
 	Exceptions []string
 
 	exceptRe *regexp2.Regexp
+	phraseRe *regexp2.Regexp
 	pattern  *regexp2.Regexp
 }
 
@@ -42,6 +43,7 @@ func NewRepetition(cfg *core.Config, generic baseCheck, path string) (Repetition
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}
 	rule.exceptRe = re
+	rule.phraseRe = buildPhraseRe(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
 
 	regex := ""
 	if rule.Ignorecase {
@@ -102,9 +104,8 @@ func (o Repetition) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.A
 				// I almost forgot about that. That is important.
 				//
 				// All plans except a Personal plan can use Redis. Redis ...
-				if !isMatch(o.exceptRe, converted) {
-					floc := []int{ploc[0], loc[1]}
-
+				floc := []int{ploc[0], loc[1]}
+				if !isMatch(o.exceptRe, converted) && !withinPhrase(o.phraseRe, txt, floc) {
 					a, erra := makeAlert(o.Definition, floc, txt, cfg)
 					if erra != nil {
 						return alerts, erra
