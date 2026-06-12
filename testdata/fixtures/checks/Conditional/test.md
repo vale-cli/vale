@@ -10,3 +10,5 @@ The NFL is also a sport league.
 
 The IETF: Internet Engineering Task Force does not require use of ® or ™
 for the term IETF, even though it is a trademark.
+
+The Application Programming Interface ([API](https://example.com)) is documented. Use the API often.

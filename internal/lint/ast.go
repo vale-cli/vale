@@ -107,6 +107,14 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 					txt = " " + txt
 				}
 				txt, skip = clean(txt, attr, skip || skipClass, inline)
+				// `clean` prefixes inline content with a space so it doesn't
+				// fuse with the preceding text. When that content directly
+				// follows an opening bracket (e.g., a link inside parentheses,
+				// `([HNSW](...))`), the space is spurious and breaks patterns
+				// like `(ACRONYM)`. See #1056.
+				if strings.HasPrefix(txt, " ") && endsWithOpenBracket(buf) {
+					txt = txt[1:]
+				}
 				buf.WriteString(txt)
 			}
 		}
@@ -222,8 +230,27 @@ func shouldBeSkipped(tagHistory []string, ext string) bool {
 	return false
 }
 
+// endsWithOpenBracket reports whether the buffer's last byte is an opening
+// bracket, meaning inline content that follows it shouldn't be padded with a
+// leading space. See #1056.
+func endsWithOpenBracket(buf *bytes.Buffer) bool {
+	b := buf.Bytes()
+	if len(b) == 0 {
+		return false
+	}
+	switch b[len(b)-1] {
+	case '(', '[', '{':
+		return true
+	default:
+		return false
+	}
+}
+
 func clean(txt, attr string, skip, inline bool) (string, bool) {
-	punct := []string{".", "?", "!", ",", ":", ";"}
+	// Closing brackets are included so that inline content immediately
+	// followed by one (e.g., a link inside parentheses) doesn't get a spurious
+	// space inserted before it -- "(HNSW)" rather than "(HNSW )". See #1056.
+	punct := []string{".", "?", "!", ",", ":", ";", ")", "]", "}"}
 	first, _ := utf8.DecodeRuneInString(txt)
 	starter := core.StringInSlice(string(first), punct) && !skip
 
