@@ -21,7 +21,7 @@ func TestSubInplace(t *testing.T) {
 		},
 		{
 			desc:     "only first occurrence",
-			ctx:      "foo foo",
+			ctx:      "foo foo", //nolint:dupword // intentional repeat
 			sub:      "foo",
 			want:     "@@@ foo",
 			expected: true,
