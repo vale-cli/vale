@@ -33,8 +33,10 @@ func mergeValues(shadows []string) []string {
 
 func loadVocab(root string, cfg *Config) error {
 	target := ""
+	tried := []string{}
 	for _, p := range cfg.SearchPaths() {
 		opt := filepath.Join(p, VocabDir, root)
+		tried = append(tried, opt)
 		if system.IsDir(opt) {
 			target = opt
 			break
@@ -43,7 +45,8 @@ func loadVocab(root string, cfg *Config) error {
 
 	if target == "" {
 		return NewE100("vocab", fmt.Errorf(
-			"'%s/%s' directory does not exist", VocabDir, root))
+			"'%s' vocabulary not found; searched: %s",
+			root, strings.Join(tried, ", ")))
 	}
 
 	err := system.Walk(target, func(fp string, info fs.FileInfo, err error) error {
