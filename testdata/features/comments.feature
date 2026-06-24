@@ -94,3 +94,10 @@ Feature: Comments
       """
       test.org:17:21:vale.Redundancy:'ACT test' is redundant
       """
+
+  Scenario: Inline vale off with inline markup (#1001)
+    When I test comments for "issue1001.md"
+    Then the output should contain exactly:
+      """
+      issue1001.md:5:28:demo.Ending-Preposition:Don't end a sentence with 'of.'
+      """

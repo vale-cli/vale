@@ -106,7 +106,13 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 			// (such as disallowing 'here' links) by using format-specific
 			// scopes (e.g., `text.md`).
 			walker.append(txt)
-			if !inBlock && txt != "" {
+			// Text inside an active `vale off` region is excluded from the
+			// block entirely. The whole paragraph is linted at once (on the
+			// closing tag), by which point the `off` toggle has flipped back,
+			// so gating shouldRun isn't enough to suppress inline `vale off`
+			// ... `vale on` spans -- e.g. `*Note*: <!-- vale off -->TODO<!--
+			// vale on -->`. See #1001.
+			if !inBlock && !f.Comments["off"] && txt != "" {
 				skipClass = checkClasses(parentClass, skipClasses)
 				if walker.isNestedList() && !inline {
 					txt = " " + txt
