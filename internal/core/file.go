@@ -234,7 +234,16 @@ func (f *File) assignLoc(ctx string, blk nlp.Block, pad int, a Alert) (int, []in
 		exact := len(l) > loc[1] && l[loc[0]:loc[1]] == a.Match
 		if exact || idx == blk.Line {
 			length := nlp.StrLen(l)
-			pos, substring := initialPosition(l, blk.Text, a)
+			// Mask the words preceding the match (computed in AddAlert when
+			// the token occurs more than once) so the re-search below lands
+			// on the right occurrence -- e.g. a line-final `and$` rather than
+			// an earlier `and`. FindLoc already does this; assignLoc didn't.
+			// See #892.
+			masked := l
+			for _, s := range a.Offset {
+				masked, _ = Substitute(masked, s, '@')
+			}
+			pos, substring := initialPosition(masked, blk.Text, a)
 
 			loc[0] = pos + pad
 			loc[1] = pos + nlp.StrLen(substring) - 1

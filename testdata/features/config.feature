@@ -419,6 +419,7 @@ Feature: Config
             """
             test.md:1:6:write-good.E-Prime:Avoid using "is"
             test.md:1:11:write-good.Weasel:'very' is a weasel word!
+            test.md:1:42:write-good.E-Prime:Avoid using "is"
             """
         And the exit status should be 0
 

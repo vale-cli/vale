@@ -101,6 +101,15 @@ Feature: Checks
             test.md:9:28:vale.Spacing:Use exactly one space between sentences and clauses. Check 'e.A' for spacing problems.
             """
 
+    Scenario: Existence end-of-line anchor (#892)
+        # With two `and` on a line and a `and$` token, the *line-final* one
+        # must be flagged, not the first occurrence.
+        When I test "checks/EndOfLine"
+        Then the output should contain exactly:
+            """
+            test.md:1:15:Test.EOL:Avoid ending a line with 'and'.
+            """
+
     Scenario: Substitution
         When I test "checks/Substitution"
         Then the output should contain exactly:

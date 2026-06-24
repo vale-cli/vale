@@ -1,0 +1,6 @@
+extends: existence
+message: "Avoid ending a line with '%s'."
+level: warning
+nonword: true
+tokens:
+  - 'and$|or$'
