@@ -154,6 +154,13 @@ func (s Substitution) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core
 						// NOTE: For backwards-compatibility, we need to ensure
 						// that we don't double quote.
 						s.Message = convertMessage(s.Message)
+					} else if action.Name != "replace" {
+						// For non-`replace` rules (e.g. Vale.Terms built from a
+						// vocab), the swap value may be a regex describing the
+						// term. Show the observed text re-cased to the term's
+						// canonical form instead of the raw pattern -- e.g.
+						// `OAuth2?` -> `OAuth2`. See #997.
+						expected = recaseToTerm(expected, observed)
 					}
 
 					a, aerr := makeAlert(s.Definition, loc, txt, cfg)
@@ -182,6 +189,48 @@ func (s Substitution) Fields() Definition {
 // Pattern is the internal regex pattern used by this rule.
 func (s Substitution) Pattern() string {
 	return s.pattern.String()
+}
+
+// literalSkeleton returns the literal characters of a regex pattern, in order,
+// or "" if the pattern uses constructs that can't be reduced to a single
+// fixed-length literal (character classes, groups, alternation, wildcards, or
+// `*`/`+`/`{}` repetition). A trailing `?` (optional single char) is allowed;
+// the optional char is kept, and callers fall back when the length doesn't
+// line up with the observed text.
+func literalSkeleton(pattern string) string {
+	var b strings.Builder
+	runes := []rune(pattern)
+	for i := 0; i < len(runes); i++ {
+		switch r := runes[i]; r {
+		case '\\':
+			// Escaped literal -- take the next rune verbatim.
+			if i+1 >= len(runes) {
+				return ""
+			}
+			b.WriteRune(runes[i+1])
+			i++
+		case '?':
+			// Optional previous char: already written, nothing to add.
+		case '[', ']', '(', ')', '{', '}', '|', '.', '*', '+', '^', '$':
+			return ""
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// recaseToTerm re-cases observed to a vocab term's canonical form when the term
+// is a regex describing a single fixed-length spelling (e.g. `OAuth2?` against
+// `oauth2` yields `OAuth2`). It returns term unchanged when the pattern can't
+// be cleanly aligned, so the raw regex is only ever shown as a last resort.
+// See #997.
+func recaseToTerm(term, observed string) string {
+	skel := literalSkeleton(term)
+	if skel == "" || !strings.EqualFold(skel, observed) {
+		return term
+	}
+	return skel
 }
 
 func convertMessage(s string) string {

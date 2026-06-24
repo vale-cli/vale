@@ -127,6 +127,57 @@ func TestRegexEscapedParens(t *testing.T) {
 	}
 }
 
+func TestRecaseRegexTerm(t *testing.T) {
+	// A vocab term that's a regex should be shown re-cased to its canonical
+	// form rather than as the raw pattern. See #997.
+	swap := map[string]interface{}{
+		"extends":    "substitution",
+		"name":       "Vale.Terms",
+		"level":      "error",
+		"message":    "Use '%s' instead of '%s'.",
+		"scope":      "text",
+		"ignorecase": true,
+		"swap": map[string]string{
+			"oauth2?": "OAuth2?", // mirrors loadVocabRules: lower(term) -> term
+		},
+	}
+	rule, err := makeSubstitution(swap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct{ text, want string }{
+		{"oauth2", "Use 'OAuth2' instead of 'oauth2'."},
+		{"OAUTH2", "Use 'OAuth2' instead of 'OAUTH2'."},
+	} {
+		actual, rerr := rule.Run(nlp.NewBlock(tt.text, tt.text, "text"), &core.File{}, &core.Config{})
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		if len(actual) != 1 || actual[0].Message != tt.want {
+			t.Fatalf("%q: expected %q, got %v", tt.text, tt.want, actual)
+		}
+	}
+}
+
+func TestRecaseToTerm(t *testing.T) {
+	cases := []struct {
+		term, observed, want string
+	}{
+		{"OAuth2?", "oauth2", "OAuth2"},       // optional char present
+		{"OpenAPI", "openapi", "OpenAPI"},     // plain literal
+		{`Wi\-?Fi`, "wi-fi", "Wi-Fi"},         // escaped literal hyphen, aligned
+		{"Wi-?Fi", "wifi", "Wi-?Fi"},          // optional char absent -> fall back
+		{"[Pp]ython", "python", "[Pp]ython"},  // class -> fall back
+		{"(?:foo|bar)", "foo", "(?:foo|bar)"}, // group/alternation -> fall back
+	}
+	for _, c := range cases {
+		if got := recaseToTerm(c.term, c.observed); got != c.want {
+			t.Errorf("recaseToTerm(%q, %q) = %q, want %q", c.term, c.observed, got, c.want)
+		}
+	}
+}
+
 func TestOptions(t *testing.T) {
 	cases := map[string][]string{
 		"foo|bar":     {"foo", "bar"},
