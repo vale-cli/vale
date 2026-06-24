@@ -7,6 +7,26 @@ import (
 	"github.com/errata-ai/vale/v3/internal/nlp"
 )
 
+// quoteTolerantPattern escapes s for use in a regex, but lets ASCII quotes and
+// apostrophes also match their "smart" Unicode variants. Spell-checking (and
+// other checks) normalize `’` -> `'` etc. before matching, so the resulting
+// match must still be locatable in the original, un-normalized source. See
+// #1003.
+func quoteTolerantPattern(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\'':
+			b.WriteString(`['\x{2018}\x{2019}]`)
+		case '"':
+			b.WriteString(`["\x{201c}\x{201d}]`)
+		default:
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	return b.String()
+}
+
 // initialPosition calculates the position of a match (given by the location in
 // the reference document, `loc`) in the source document (`ctx`).
 func initialPosition(ctx, txt string, a Alert) (int, string) {
@@ -25,7 +45,7 @@ func initialPosition(ctx, txt string, a Alert) (int, string) {
 	}
 
 	sub := strings.ToValidUTF8(a.Match, "")
-	pat = regexp.MustCompile(`(?:^|\b|_)` + regexp.QuoteMeta(sub) + `(?:_|\b|$)`)
+	pat = regexp.MustCompile(`(?:^|\b|_)` + quoteTolerantPattern(sub) + `(?:_|\b|$)`)
 
 	fsi := pat.FindAllStringIndex(ctx, -1)
 	if len(fsi) == 0 {
