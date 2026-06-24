@@ -208,10 +208,11 @@ func (m *Checker) readAsset(name string) (string, error) {
 			return option, nil
 		}
 
-		ln, err := os.Readlink(option)
-		if err != nil {
-			return "", err
-		} else if system.FileExists(ln) {
+		// The asset may be a symlink (e.g. a Nix store path exposed via
+		// $DICPATH). A failed Readlink just means this root doesn't have it,
+		// so keep trying the remaining roots instead of bailing out -- the
+		// early return here previously made Vale ignore $DICPATH (#1014).
+		if ln, err := os.Readlink(option); err == nil && system.FileExists(ln) {
 			return ln, nil
 		}
 	}
