@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
@@ -21,9 +22,11 @@ type wordMatch struct {
 type goSpell struct {
 	dict map[string]struct{}
 
-	ireplacer *strings.Replacer
-	compounds []*regexp.Regexp
-	splitter  *splitter
+	ireplacer   *strings.Replacer
+	compounds   []*regexp.Regexp
+	splitter    *splitter
+	canCompound bool // dictionary uses COMPOUNDFLAG/BEGIN/MIDDLE/END
+	compoundMin int
 }
 
 type dictionary struct {
@@ -159,6 +162,12 @@ func (s *goSpell) spell(word string) bool {
 		}
 	}
 
+	// Affix-flag compounding (German, Dutch, ...): accept a word that splits
+	// into dictionary segments. See #848.
+	if s.isCompound(word) {
+		return true
+	}
+
 	// Maybe a word with units? e.g. 100GB
 	units := isNumberUnits(word)
 	if units != "" {
@@ -169,6 +178,68 @@ func (s *goSpell) spell(word string) bool {
 	}
 
 	return false
+}
+
+// inDict reports whether word is a dictionary entry, trying its exact,
+// lower-cased, and title-cased forms. The latter two matter for compound
+// segments: e.g. a German compound writes interior nouns lower-case, while the
+// dictionary stores them capitalized.
+func (s *goSpell) inDict(word string) bool {
+	if _, ok := s.dict[word]; ok {
+		return true
+	}
+	if _, ok := s.dict[strings.ToLower(word)]; ok {
+		return true
+	}
+	if _, ok := s.dict[capitalize(word)]; ok {
+		return true
+	}
+	return false
+}
+
+// isCompound reports whether word can be segmented into dictionary words, for
+// dictionaries that enable affix-flag compounding. This is an approximation of
+// Hunspell's COMPOUNDFLAG/BEGIN/MIDDLE/END handling: it doesn't verify each
+// segment's position flags, but recognizing legitimate compounds (rather than
+// flagging them) is the priority. See #848.
+func (s *goSpell) isCompound(word string) bool {
+	if !s.canCompound {
+		return false
+	}
+	// Bound the work: very long inputs are unlikely to be real words and the
+	// recursion is super-linear.
+	if r := []rune(word); len(r) <= 100 {
+		return s.compoundParts(r, 0)
+	}
+	return false
+}
+
+func (s *goSpell) compoundParts(runes []rune, depth int) bool {
+	if depth > 4 { // cap the number of segments
+		return false
+	}
+	minLen := s.compoundMin
+	if minLen < 1 {
+		minLen = 1
+	}
+	n := len(runes)
+	for i := minLen; i <= n-minLen; i++ {
+		if s.inDict(string(runes[:i])) &&
+			(s.inDict(string(runes[i:])) || s.compoundParts(runes[i:], depth+1)) {
+			return true
+		}
+	}
+	return false
+}
+
+// capitalize upper-cases the first rune of s, leaving the rest unchanged.
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }
 
 // newGoSpellReader creates a speller from io.Readers for
@@ -187,9 +258,11 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 
 	gs := goSpell{
 		// TODO: Use fixed size from first list?
-		dict:      make(map[string]struct{}),
-		compounds: make([]*regexp.Regexp, 0, len(affix.CompoundRule)),
-		splitter:  newSplitter(affix.WordChars),
+		dict:        make(map[string]struct{}),
+		compounds:   make([]*regexp.Regexp, 0, len(affix.CompoundRule)),
+		splitter:    newSplitter(affix.WordChars),
+		canCompound: affix.compoundingEnabled(),
+		compoundMin: int(affix.CompoundMin),
 	}
 
 	words := []string{}

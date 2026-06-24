@@ -76,6 +76,29 @@ SFX 200 0 in .
 	}
 }
 
+func TestNoSuggestLongFlag(t *testing.T) {
+	// French dictionaries declare `FLAG long` and use `--` as the NOSUGGEST
+	// flag. This previously failed to parse ("NOSUGGEST stanza had more than
+	// one flag"). See #862.
+	affContent := `SET UTF-8
+FLAG long
+NOSUGGEST --
+
+SFX Aa Y 1
+SFX Aa 0 s .
+`
+	aff, err := newDictConfig(strings.NewReader(affContent))
+	if err != nil {
+		t.Fatalf("newDictConfig error: %v", err)
+	}
+	if aff.NoSuggestFlag != "--" {
+		t.Errorf("NoSuggestFlag = %q, want %q", aff.NoSuggestFlag, "--")
+	}
+	if _, ok := aff.AffixMap["Aa"]; !ok {
+		t.Error("AffixMap missing long flag 'Aa'")
+	}
+}
+
 func TestFlagNumExpand(t *testing.T) {
 	affContent := `SET UTF-8
 FLAG num
@@ -243,5 +266,34 @@ test/AB
 		if got != tt.want {
 			t.Errorf("spell(%q) = %v, want %v", tt.word, got, tt.want)
 		}
+	}
+}
+
+func TestCompoundSegmentation(t *testing.T) {
+	// A dictionary that enables affix-flag compounding should accept words
+	// that split into dictionary segments (e.g. German "Funktionswert"). See
+	// #848.
+	dic := "2\nfoo\nbar\n"
+
+	withFlags := "SET UTF-8\nCOMPOUNDFLAG A\nCOMPOUNDMIN 2\n"
+	gs, err := newGoSpellReader(strings.NewReader(withFlags), strings.NewReader(dic))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !gs.spell("foobar") {
+		t.Error("expected 'foobar' (foo+bar) to be accepted as a compound")
+	}
+	if gs.spell("fooqux") {
+		t.Error("expected 'fooqux' (qux not a word) to be rejected")
+	}
+
+	// Without compound flags, no segmentation happens (English behavior).
+	noFlags := "SET UTF-8\n"
+	gs2, err := newGoSpellReader(strings.NewReader(noFlags), strings.NewReader(dic))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gs2.spell("foobar") {
+		t.Error("expected 'foobar' to be rejected when compounding is disabled")
 	}
 }

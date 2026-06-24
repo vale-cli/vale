@@ -62,11 +62,23 @@ type dictConfig struct {
 	TryChars          string
 	WordChars         string
 	CompoundOnly      string
+	CompoundFlag      string
+	CompoundBegin     string
+	CompoundMiddle    string
+	CompoundEnd       string
 	AffixMap          map[string]affix
 	CamelCase         int
 	CompoundMin       int64
 	compoundMap       map[string][]string
 	NoSuggestFlag     string
+}
+
+// compoundingEnabled reports whether the dictionary uses affix-flag-based
+// compounding (COMPOUNDFLAG / COMPOUNDBEGIN / MIDDLE / END), as German, Dutch,
+// etc. do. COMPOUNDRULE is handled separately. See #848.
+func (a *dictConfig) compoundingEnabled() bool {
+	return a.CompoundFlag != "" || a.CompoundBegin != "" ||
+		a.CompoundMiddle != "" || a.CompoundEnd != ""
 }
 
 // parseFlags splits a flag string into individual flags based on the FLAG type.
@@ -255,6 +267,22 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				return nil, fmt.Errorf("NOSUGGEST stanza had %d fields, expected 2", len(parts))
 			}
 			aff.NoSuggestFlag = parts[1]
+		case "COMPOUNDFLAG":
+			if len(parts) >= 2 {
+				aff.CompoundFlag = parts[1]
+			}
+		case "COMPOUNDBEGIN":
+			if len(parts) >= 2 {
+				aff.CompoundBegin = parts[1]
+			}
+		case "COMPOUNDMIDDLE":
+			if len(parts) >= 2 {
+				aff.CompoundMiddle = parts[1]
+			}
+		case "COMPOUNDEND":
+			if len(parts) >= 2 {
+				aff.CompoundEnd = parts[1]
+			}
 		case "WORDCHARS":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("WORDCHAR stanza had %d fields, expected 2", len(parts))
