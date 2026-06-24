@@ -128,12 +128,20 @@ func installPkg(dir, name, styles string, index int) error {
 				return err
 			}
 		}
-		entry := fmt.Sprintf("%d-%s.ini", index, name)
-
-		err = os.Rename(cfg, filepath.Join(root, entry))
-		if err != nil {
+		// Copy the package's .vale.ini into the pipeline directory under its
+		// indexed name. We must not rename it in place: for a local directory
+		// package, `root` is the user's actual source directory, so renaming
+		// would clobber their original .vale.ini. See #991 (and #583).
+		dst := filepath.Join(pipe, fmt.Sprintf("%d-%s.ini", index, name))
+		if system.FileExists(dst) {
+			if err = os.RemoveAll(dst); err != nil {
+				return err
+			}
+		}
+		if err = os.MkdirAll(pipe, os.ModePerm); err != nil {
 			return err
-		} else if err = moveAsset(entry, root, pipe); err != nil {
+		}
+		if err = cp.Copy(cfg, dst); err != nil {
 			return err
 		}
 	}

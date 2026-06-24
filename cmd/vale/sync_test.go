@@ -101,6 +101,48 @@ func TestSyncDoesNotInstallPackageIntoGlobalStylesPath(t *testing.T) {
 	}
 }
 
+func TestSyncPreservesLocalPackageINI(t *testing.T) {
+	// A local directory package's own .vale.ini must not be renamed/moved out
+	// of the user's source directory during sync. See #991 (regression of
+	// #583).
+	root := t.TempDir()
+	pkgRoot := filepath.Join(root, "local-package")
+	pkgStyles := filepath.Join(pkgRoot, "styles", "TestStyle")
+	if err := os.MkdirAll(pkgStyles, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgStyles, "Rule.yml"),
+		[]byte("extends: existence\nmessage: test\nlevel: warning\ntokens: [foo]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pkgINI := filepath.Join(pkgRoot, ".vale.ini")
+	if err := os.WriteFile(pkgINI,
+		[]byte("StylesPath = styles\n[*]\nBasedOnStyles = TestStyle\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgPath := filepath.Join(root, ".vale.ini")
+	if err := os.WriteFile(cfgPath,
+		[]byte("StylesPath = missing-styles\nPackages = "+pkgRoot+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sync(nil, &core.CLIFlags{Path: cfgPath, IgnoreGlobal: true}); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	if !system.FileExists(pkgINI) {
+		t.Fatalf("sync renamed/removed the local package's .vale.ini: %s", pkgINI)
+	}
+
+	// The config should still have been installed into the pipeline directory.
+	installed := filepath.Join(root, "missing-styles", core.PipeDir, "0-local-package.ini")
+	if !system.FileExists(installed) {
+		t.Fatalf("expected package config in the pipeline directory: %s", installed)
+	}
+}
+
 func TestSyncDoesNotInstallPackageIntoConfigRoot(t *testing.T) {
 	root := t.TempDir()
 	_, cfgPath := setupLocalSyncTestPackage(t, root)
