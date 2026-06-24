@@ -101,6 +101,15 @@ Feature: Checks
             test.md:9:28:vale.Spacing:Use exactly one space between sentences and clauses. Check 'e.A' for spacing problems.
             """
 
+    Scenario: scope raw caret position past 1k bytes (#869)
+        # In a >1000-byte document, a `^`-anchored scope:raw match must report
+        # at its real line, not collapse onto an earlier substring occurrence.
+        When I test "checks/RawCaret"
+        Then the output should contain exactly:
+            """
+            test.md:26:1:Test.Indent:Bad indent "   `"
+            """
+
     Scenario: Display math is not linted (#878)
         # `$$…$$` blocks are skipped; surrounding prose (and inline `$…$` /
         # currency, which we deliberately don't treat as math) is still linted.

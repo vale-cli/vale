@@ -1,0 +1,7 @@
+extends: existence
+message: 'Bad indent "%s"'
+level: error
+nonword: true
+scope: raw
+tokens:
+  - '^[ ]{1,3}\`'

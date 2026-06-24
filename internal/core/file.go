@@ -314,13 +314,25 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 	//
 	// We use blk.Context (the original document) rather than ctx, which may
 	// have been modified by ChkToCtx substitutions from earlier alerts.
-	if a.HasByteOffsets && a.Span[0] >= 0 && a.Span[1] <= len(blk.Context) {
+	switch {
+	case a.HasByteOffsets && a.Span[0] >= 0 && a.Span[1] <= len(blk.Context):
 		a.Line, a.Span = locFromByteOffset(blk.Context, a.Span[0], a.Span[1], pad)
-	} else {
-		// NOTE: If the `ctx` document is large (as could be the case with
-		// `scope: raw`) this is *slow*. Thus, the cap at 1k.
-		//
-		// TODO: Actually fix this.
+	case strings.HasPrefix(blk.Scope, "raw") && a.Match != "" &&
+		a.Span[0] >= 0 && a.Span[1] <= len(blk.Context) &&
+		blk.Context[a.Span[0]:a.Span[1]] == a.Match:
+		// For `scope: raw` the block *is* the whole document, so the span is
+		// already an exact byte offset into it -- and the reported line needs
+		// no further translation (unlike code comments/fragments). Use it
+		// directly rather than re-searching a.Match, which can land on an
+		// earlier occurrence; this replaces the capped word-masking heuristic
+		// that mislocated `^`-anchored matches once the document exceeded 1k
+		// bytes. See #869.
+		a.Line, a.Span = locFromByteOffset(blk.Context, a.Span[0], a.Span[1], pad)
+	default:
+		// For non-raw scopes the block text differs from the source, so the
+		// span isn't a usable byte offset; fall back to a text search. When a
+		// token occurs more than once, mask the words before it to disambiguate
+		// (bounded for performance on large contexts).
 		if len(a.Offset) == 0 && strings.Count(ctx, a.Match) > 1 && len(ctx) < 1000 {
 			a.Offset = append(a.Offset, strings.Fields(ctx[0:a.Span[0]])...)
 		}
