@@ -14,7 +14,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type DaselValue = map[string]any
+// DaselValue is the decoded document root passed to dasel. It may be a map
+// (object root), a slice (array root, see #1017), or any other JSON/YAML/TOML
+// value -- dasel navigates all of them.
+type DaselValue = any
 
 var viewEngines = []string{"tree-sitter", "dasel"}
 
@@ -347,10 +350,9 @@ func fileToValue(f *File) (DaselValue, []scalarPos, error) {
 		return nil, nil, errors.New("unsupported file type")
 	}
 
-	value, isMap := raw.(map[string]any)
-	if !isMap {
-		return nil, nil, errors.New("document root is not an object")
+	if raw == nil {
+		return nil, nil, errors.New("document root is empty")
 	}
 
-	return value, scalars, nil
+	return raw, scalars, nil
 }

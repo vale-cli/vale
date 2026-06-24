@@ -64,6 +64,48 @@ func TestFileToValuePositions(t *testing.T) {
 	}
 }
 
+func TestFileToValueArrayRoot(t *testing.T) {
+	// A top-level array must be accepted as a document root, not just an
+	// object -- see issue #1017. dasel can navigate either.
+	tests := []struct {
+		name string
+		ext  string
+		src  string
+		expr string
+	}{
+		{
+			name: "json array of objects",
+			ext:  ".json",
+			src:  "[\n  {\"title\": \"first\"},\n  {\"title\": \"second\"}\n]\n",
+			expr: "all().title",
+		},
+		{
+			name: "yaml sequence of mappings",
+			ext:  ".yaml",
+			src:  "- title: first\n- title: second\n",
+			expr: "all().title",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &File{Content: tt.src, RealExt: tt.ext}
+			value, _, err := fileToValue(f)
+			if err != nil {
+				t.Fatalf("fileToValue: %v", err)
+			}
+			got, serr := selectStrings(value, tt.expr)
+			if serr != nil {
+				t.Fatalf("selectStrings: %v", serr)
+			}
+			want := []string{"first", "second"}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("selectStrings = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestScalarResolverConsumesInOrder(t *testing.T) {
 	scalars := []scalarPos{
 		{Value: "shared", Line: 1, Column: 5},
