@@ -297,3 +297,23 @@ func TestCompoundSegmentation(t *testing.T) {
 		t.Error("expected 'foobar' to be rejected when compounding is disabled")
 	}
 }
+
+func TestConditionlessAffixRule(t *testing.T) {
+	// OpenTaal's Dutch dictionary writes affix rules without the (optional)
+	// condition field, e.g. `SFX CA 0 /CaCp`. A 4-field rule must not be
+	// mistaken for a header and parsed as a cross-product flag ("CrossProduct
+	// is not Y or N: got 0"). See #776.
+	aff := "SET UTF-8\nFLAG long\nSFX Xx Y 1\nSFX Xx 0 s\n"
+	dic := "1\nkat/Xx\n"
+
+	gs, err := newGoSpellReader(strings.NewReader(aff), strings.NewReader(dic))
+	if err != nil {
+		t.Fatalf("newGoSpellReader error: %v", err)
+	}
+	if !gs.spell("kat") {
+		t.Error("expected base word 'kat' to be recognized")
+	}
+	if !gs.spell("kats") {
+		t.Error("expected suffixed 'kats' (conditionless SFX rule) to be recognized")
+	}
+}

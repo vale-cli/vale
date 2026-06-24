@@ -184,6 +184,21 @@ func (a dictConfig) expand(wordAffix string, out []string) ([]string, error) {
 	return out, nil
 }
 
+// allDigits reports whether s is non-empty and contains only ASCII digits. It
+// distinguishes a PFX/SFX header's count field from a rule's affix text when
+// both lines have four fields. See #776.
+func allDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func isCrossProduct(val string) (bool, error) {
 	switch val {
 	case "Y":
@@ -300,7 +315,25 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 			}
 
 			sections := len(parts)
-			if sections > 4 {
+			// A header line is `PFX/SFX flag Y|N count`; a rule line is
+			// `PFX/SFX flag strip affix [condition]`. They can both have four
+			// fields -- some dictionaries (e.g. OpenTaal's Dutch) omit the
+			// rule's condition -- so distinguish by the cross-product flag
+			// rather than by field count alone. See #776.
+			isHeader := sections == 4 &&
+				(parts[2] == "Y" || parts[2] == "N") && allDigits(parts[3])
+			switch {
+			case isHeader:
+				cross, err := isCrossProduct(parts[2])
+				if err != nil {
+					return nil, err
+				}
+				// this is a new Affix!
+				aff.AffixMap[parts[1]] = affix{
+					Type:         atype,
+					CrossProduct: cross,
+				}
+			case sections >= 4:
 				flag := parts[1]
 				a, ok := aff.AffixMap[flag]
 				if !ok {
@@ -312,10 +345,17 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 					strip = parts[2]
 				}
 
+				// The condition is optional; default to "." (matches anything)
+				// when a dictionary omits it. See #776.
+				cond := "."
+				if sections > 4 {
+					cond = parts[4]
+				}
+
 				var matcher *regexp.Regexp
 				var err error
-				pat := parts[4]
-				if pat != "." {
+				if cond != "." {
+					pat := cond
 					if a.Type == Prefix {
 						pat = "^" + pat
 					} else {
@@ -347,21 +387,9 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				a.Rules = append(a.Rules, rule{
 					Strip:     strip,
 					AffixText: affixText,
-					Pattern:   parts[4],
+					Pattern:   cond,
 					matcher:   matcher,
 				})
-				aff.AffixMap[flag] = a
-			} else if sections > 3 {
-				cross, err := isCrossProduct(parts[2])
-				if err != nil {
-					return nil, err
-				}
-				// this is a new Affix!
-				a := affix{
-					Type:         atype,
-					CrossProduct: cross,
-				}
-				flag := parts[1]
 				aff.AffixMap[flag] = a
 			}
 		default:

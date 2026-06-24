@@ -218,9 +218,14 @@ func (s *goSpell) compoundParts(runes []rune, depth int) bool {
 	if depth > 4 { // cap the number of segments
 		return false
 	}
+	// Enforce a sane minimum segment length. Some dictionaries set
+	// COMPOUNDMIN very low (OpenTaal's Dutch uses 0) and rely on per-segment
+	// position flags -- which this approximation doesn't check -- to constrain
+	// compounds. Without a floor, every short letter string would split into
+	// 1-2 char dictionary entries and be wrongly accepted. See #776.
 	minLen := s.compoundMin
-	if minLen < 1 {
-		minLen = 1
+	if minLen < 3 {
+		minLen = 3
 	}
 	n := len(runes)
 	for i := minLen; i <= n-minLen; i++ {
