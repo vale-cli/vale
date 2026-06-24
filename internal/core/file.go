@@ -333,7 +333,8 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 		// span isn't a usable byte offset; fall back to a text search. When a
 		// token occurs more than once, mask the words before it to disambiguate
 		// (bounded for performance on large contexts).
-		if len(a.Offset) == 0 && strings.Count(ctx, a.Match) > 1 && len(ctx) < 1000 {
+		if len(a.Offset) == 0 && a.Span[0] >= 0 && a.Span[0] <= len(ctx) &&
+			strings.Count(ctx, a.Match) > 1 && len(ctx) < 1000 {
 			a.Offset = append(a.Offset, strings.Fields(ctx[0:a.Span[0]])...)
 		}
 
