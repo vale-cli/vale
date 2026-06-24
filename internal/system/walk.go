@@ -1,6 +1,7 @@
 package system
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -16,7 +17,7 @@ func walk(filename string, linkDirname string, walkFn filepath.WalkFunc) error {
 		if err == nil && info.Mode()&os.ModeSymlink == os.ModeSymlink {
 			finalPath, ferr := filepath.EvalSymlinks(path)
 			if ferr != nil {
-				return ferr
+				return fmt.Errorf("unable to resolve symlink '%s': %w", path, ferr)
 			}
 			linfo, ierr := os.Lstat(finalPath)
 			if ierr != nil {
