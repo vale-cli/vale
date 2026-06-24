@@ -48,6 +48,12 @@ Feature: Scopes
             test.rst:24:1:vale.Annotations:'TODO' left in text
             """
 
+    Scenario: Skip inline (#1052)
+        # A skipped inline scope (`code`) must still separate the words around
+        # it: `in <code/> for` should stay two words, not fuse into `infor`.
+        When I test scope "skip-inline"
+        Then the output should not contain anything
+
     Scenario: Attr
         When I test scope "attr"
         Then the output should contain exactly:

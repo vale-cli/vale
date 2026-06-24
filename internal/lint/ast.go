@@ -66,6 +66,11 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 		} else if tokt == html.StartTagToken && (core.StringInSlice(txt, skipTags) || blockSkip) {
 			walker.setCls(txt, blockSkip)
 			inBlock = true
+			// A skipped *inline* element (e.g. `code` in SkippedScopes) still
+			// separates the words around it, so mark the following text inline
+			// to keep its leading space -- otherwise `in <code/> for` collapses
+			// to `infor`. See #1052.
+			inline = core.StringInSlice(txt, inlineTags)
 			f.Metrics[txt]++
 		} else if inBlock && (core.StringInSlice(txt, skipTags) || closed) {
 			inBlock = false
