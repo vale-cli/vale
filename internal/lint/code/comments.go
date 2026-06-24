@@ -54,22 +54,32 @@ func coalesce(comments []Comment) []Comment {
 	tBuf := bytes.Buffer{}
 	sBuf := bytes.Buffer{}
 
+	// flush merges any pending line-comment text into the most recently
+	// appended comment, which is always the one this run of lines belongs to.
+	flush := func() {
+		if tBuf.Len() > 0 {
+			last := joined[len(joined)-1]
+
+			last.Text += addSourceLine(tBuf.String(), false)
+			last.Source += addSourceLine(sBuf.String(), false)
+
+			joined[len(joined)-1] = last
+
+			tBuf.Reset()
+			sBuf.Reset()
+		}
+	}
+
 	for i, comment := range comments {
 		if comment.Scope == "text.comment.block" { //nolint:gocritic
+			// Flush first: a pending run of line comments belongs to the
+			// preceding line comment, not this block. Without this, the
+			// buffered text leaks into the block and is reported at the
+			// block's line (past EOF) under the wrong scope -- see #1020.
+			flush()
 			joined = append(joined, comment)
 		} else if i == 0 || doneMerging(comment, comments[i-1]) {
-			if tBuf.Len() > 0 {
-				// We have comments to merge ...
-				last := joined[len(joined)-1]
-
-				last.Text += addSourceLine(tBuf.String(), false)
-				last.Source += addSourceLine(sBuf.String(), false)
-
-				joined[len(joined)-1] = last
-
-				tBuf.Reset()
-				sBuf.Reset()
-			}
+			flush()
 			joined = append(joined, comment)
 		} else {
 			tBuf.WriteString(addSourceLine(comment.Text, true))
@@ -77,17 +87,7 @@ func coalesce(comments []Comment) []Comment {
 		}
 	}
 
-	if tBuf.Len() > 0 {
-		last := joined[len(joined)-1]
-
-		last.Text += addSourceLine(tBuf.String(), false)
-		last.Source += addSourceLine(sBuf.String(), false)
-
-		joined[len(joined)-1] = last
-
-		tBuf.Reset()
-		sBuf.Reset()
-	}
+	flush()
 
 	for i, comment := range joined {
 		joined[i].Text = strings.TrimLeft(comment.Text, " ")

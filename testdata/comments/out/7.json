@@ -1,0 +1,16 @@
+[
+    {
+        "Text": "\na a\n",
+        "Source": "#\n# a a\n",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "c\nd\n\n",
+        "Source": "\"\"\"c\n    d\n    \"\"\"",
+        "Line": 5,
+        "Offset": 4,
+        "Scope": "text.comment.block"
+    }
+]
