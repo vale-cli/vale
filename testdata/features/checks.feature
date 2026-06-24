@@ -101,6 +101,16 @@ Feature: Checks
             test.md:9:28:vale.Spacing:Use exactly one space between sentences and clauses. Check 'e.A' for spacing problems.
             """
 
+    Scenario: Display math is not linted (#878)
+        # `$$…$$` blocks are skipped; surrounding prose (and inline `$…$` /
+        # currency, which we deliberately don't treat as math) is still linted.
+        When I test "checks/Math"
+        Then the output should contain exactly:
+            """
+            test.md:1:6:Test.Word:Found 'FOOBAR'.
+            test.md:7:35:Test.Word:Found 'FOOBAR'.
+            """
+
     Scenario: Existence end-of-line anchor (#892)
         # With two `and` on a line and a `and$` token, the *line-final* one
         # must be flagged, not the first occurrence.

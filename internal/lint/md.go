@@ -18,6 +18,9 @@ var goldMd = goldmark.New(
 	goldmark.WithExtensions(
 		extension.GFM,
 		extension.Footnote,
+		// Treat `$$…$$` display math as a skipped block so it isn't
+		// spell-checked as prose. See #878 and math.go.
+		mathExtension{},
 	),
 	goldmark.WithRendererOptions(
 		grh.WithUnsafe(),
