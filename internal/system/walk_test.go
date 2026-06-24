@@ -7,6 +7,38 @@ import (
 	"testing"
 )
 
+// A dangling symlink (target doesn't exist) has nothing to lint and must be
+// skipped, not abort the walk. See #919.
+func TestWalkSkipsDanglingSymlink(t *testing.T) {
+	root := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(root, "real.md"), []byte("ok\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("does-not-exist.py", filepath.Join(root, "dangling.py")); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+
+	var visited []string
+	err := Walk(root, func(p string, _ os.FileInfo, _ error) error {
+		visited = append(visited, filepath.Base(p))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk failed on a dangling symlink: %v", err)
+	}
+
+	var sawReal bool
+	for _, v := range visited {
+		if v == "real.md" {
+			sawReal = true
+		}
+	}
+	if !sawReal {
+		t.Errorf("expected the walk to continue past the dangling symlink and visit real.md; visited=%v", visited)
+	}
+}
+
 // A broken/looping symlink must surface an error that names the offending
 // path, rather than a bare "EvalSymlinks: too many links". See #968.
 func TestWalkSymlinkErrorNamesPath(t *testing.T) {
