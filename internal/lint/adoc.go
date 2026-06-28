@@ -25,6 +25,8 @@ var adocSanitizer = strings.NewReplacer(
 // Convert listing blocks of the form `[source,.+]` to `[source]`
 var reSource = regexp.MustCompile(`\[source,.+\]`)
 var reComment = regexp.MustCompile(`// .+`)
+var reXref = regexp.MustCompile(`xref:([^\[]+)\[\]`)
+var reShortXref = regexp.MustCompile(`<<([^>,]+)>>`)
 
 var adocArgs = []string{
 	"-s",
@@ -63,6 +65,9 @@ func (l *Linter) lintADoc(f *core.File) error {
 		return err
 	}
 	s = adocSanitizer.Replace(s)
+
+	s = reXref.ReplaceAllString(s, "xref:$1[$1]")
+	s = reShortXref.ReplaceAllString(s, "<<$1,$1>>")
 
 	html, err = callAdoc(s, exe, l.Manager.Config.Asciidoctor)
 	if err != nil {
