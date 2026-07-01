@@ -115,6 +115,14 @@ Feature: Lint
             """
         And the exit status should be 0
 
+    Scenario: Lint an AsciiDoc sentence after a document-header attribute (#1112)
+        When I lint AsciiDoc "test4.adoc"
+        Then the output should contain exactly:
+            """
+            test4.adoc:2:283:Test.Semicolons:semicolon match
+            """
+        And the exit status should be 1
+
     Scenario: Lint a DITA file
         When I lint "test.dita"
         Then the output should contain exactly:

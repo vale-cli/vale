@@ -1,0 +1,7 @@
+extends: existence
+message: "semicolon match"
+scope: sentence
+level: error
+nonword: true
+tokens:
+  - ';'
