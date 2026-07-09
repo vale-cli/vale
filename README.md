@@ -54,6 +54,20 @@
 
 See the [documentation](https://vale.sh) for more information.
 
+## :hook: pre-commit
+
+Vale's [pre-commit](https://pre-commit.com) hook builds Vale from source with `go install`. In isolated environments where Go can't read the checkout's VCS metadata&mdash;dev containers, for instance, where Git may flag the directory as having [dubious ownership](https://git-scm.com/docs/git-config#Documentation/git-config.txt-safedirectory)&mdash;the build fails with:
+
+```
+error obtaining VCS status: exit status 128
+```
+
+Disable VCS stamping to work around it:
+
+```bash
+GOFLAGS=-buildvcs=false pre-commit run --all-files
+```
+
 ## :mag: At a Glance: Vale vs. `<...>`
 
 > **NOTE**: While all of the options listed below are open-source (CLI-based) linters for prose, their implementations and features vary significantly. And so, the "best" option will depends on your specific needs and preferences.
