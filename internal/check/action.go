@@ -79,6 +79,13 @@ func script(name string, alert core.Alert, cfg *core.Config) ([]string, error) {
 
 	file := core.FindConfigAsset(cfg, name, core.ActionDir)
 	if file == "" {
+		// Fall back to the style's own directory.
+		parts := strings.SplitN(alert.Check, ".", 2)
+		if len(parts) == 2 {
+			file = core.FindAsset(cfg, filepath.Join(parts[0], name))
+		}
+	}
+	if file == "" {
 		return suggestions, fmt.Errorf("script '%s' not found", name)
 	}
 
