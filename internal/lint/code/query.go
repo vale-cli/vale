@@ -13,10 +13,16 @@ type QueryEngine struct {
 	cutset string
 }
 
+// defaultCutset is the indentation a comment is dedented by when its language
+// doesn't name its own. Tabs belong here alongside spaces: a block comment
+// indented with tabs that keeps them reads as an indented code block in
+// Markdown, so its body is never linted -- see #1130.
+const defaultCutset = " \t"
+
 func NewQueryEngine(tree *sitter.Tree, lang *Language) *QueryEngine {
 	cutset := lang.Cutset
 	if cutset == "" {
-		cutset = " "
+		cutset = defaultCutset
 	}
 
 	return &QueryEngine{

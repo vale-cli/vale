@@ -54,3 +54,44 @@ cases:
       test2.rs:165:26:Vale.Spelling:Did you really mean 'argumet'?
       test2.rs:409:38:Vale.Spelling:Did you really mean 'RGArg'?
       test2.rs:2860:34:Vale.Spelling:Did you really mean 'conlicts'?
+
+  - name: tab-indented-block
+    about: |
+      #1130: only spaces were stripped when dedenting a block comment, so one
+      indented with tabs stayed indented and Markdown read its body as a code
+      block.
+    files:
+      .vale.ini: |
+        StylesPath = ../../styles/
+        MinAlertLevel = suggestion
+
+        [formats]
+        ts = md
+
+        [*.ts]
+        BasedOnStyles = Vale
+      test.ts: |
+        /**
+         * Top-level. Reads a Recrod.
+         */
+        function x() {}
+
+        interface A {
+        	/**
+        	 * Indented with tabs. Reads a Recrod.
+        	 */
+        	x: () => {}
+        }
+
+        interface B {
+            /**
+             * Indented with spaces. Reads a Recrod.
+             */
+            x: () => {}
+        }
+    args: test.ts
+    exit: 1
+    want: |
+      test.ts:2:23:Vale.Spelling:Did you really mean 'Recrod'?
+      test.ts:8:33:Vale.Spelling:Did you really mean 'Recrod'?
+      test.ts:15:38:Vale.Spelling:Did you really mean 'Recrod'?
