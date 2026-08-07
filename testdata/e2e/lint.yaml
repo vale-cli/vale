@@ -148,6 +148,30 @@ cases:
       test.py:35:8:vale.Annotations:'NOTE' left in text
       test.py:37:5:vale.Annotations:'TODO' left in text
 
+  - name: python/shebang
+    about: "#631 -- a shebang names an interpreter, so it isn't a comment"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.py]
+        BasedOnStyles = Test
+      styles/Test/Env.yml: |
+        extends: existence
+        message: "Use 'environment' rather than 'env'."
+        level: error
+        tokens:
+          - env
+      test.py: |
+        #!/usr/bin/env python3
+        # Read the env before starting.
+        print("hello")
+    args: test.py
+    exit: 1
+    want: |
+      test.py:2:12:Test.Env:Use 'environment' rather than 'env'.
+
   - name: cpp
     args: test.cc
     exit: 0

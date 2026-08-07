@@ -149,5 +149,26 @@ func GetComments(source []byte, lang *Language) ([]Comment, error) {
 		})
 	}
 
-	return coalesce(comments), nil
+	return coalesce(dropShebang(comments)), nil
+}
+
+// dropShebang removes a leading `#!` line.
+//
+// A shebang names the interpreter a script runs under. Languages that use `#`
+// for comments give tree-sitter no way to tell the two apart, so it arrives
+// here as a comment and is linted as prose -- a path like `/usr/bin/env` then
+// draws alerts about words the author never wrote. See #631.
+//
+// Only the very first line of the file qualifies, which is also all the kernel
+// accepts, so a `#!` written anywhere else stays a comment.
+func dropShebang(comments []Comment) []Comment {
+	for i, c := range comments {
+		if c.Line != 1 || c.Offset != 0 {
+			continue
+		} else if !strings.HasPrefix(c.Source, "#!") {
+			continue
+		}
+		return append(comments[:i:i], comments[i+1:]...)
+	}
+	return comments
 }
