@@ -50,20 +50,46 @@ func doneMerging(curr, prev Comment) bool {
 	return false
 }
 
-func addSourceLine(line string, atEnd bool) string {
+// appendLine adds one line to a pending run of line comments.
+//
+// One newline per line, so the run ends up with exactly as many lines as the
+// source it came from. A blank line comment -- `//` with nothing after it --
+// is empty and contributes only its newline; giving it two ended that line
+// twice and put a line in the extracted text that the source doesn't have.
+// See #1022.
+func appendLine(line string) string {
 	if line == "" {
-		return "\n\n"
+		return "\n"
 	}
 
-	if !strings.HasPrefix(line, "\n") && !atEnd {
-		line = strings.TrimLeft(line, " ")
-		line = fmt.Sprintf("\n%s", line)
-	} else if !strings.HasSuffix(line, "\n") && atEnd {
-		line = strings.TrimLeft(line, " ")
-		line = fmt.Sprintf("%s\n", line)
+	// The space after the delimiter belongs to the delimiter, and the padding
+	// added when an alert is mapped back already counts it. Trimming only the
+	// lines that still needed a newline left it on the ones that didn't --
+	// Rust's `///`, whose node content carries its own -- where it was then
+	// counted twice. The first line of a run is trimmed by the caller.
+	line = strings.TrimLeft(line, " ")
+
+	if !strings.HasSuffix(line, "\n") {
+		return fmt.Sprintf("%s\n", line)
 	}
 
 	return line
+}
+
+// attachRun joins a pending run of lines to the text it belongs to.
+//
+// The run needs the line above it terminated, which is a question about that
+// text and not about the run: a comment whose node content already carried its
+// newline -- Rust's `//!`, for one -- is terminated, and adding another puts a
+// blank line between the two that the source doesn't have. Keying this off the
+// run instead lost the terminator whenever the run began with a blank comment
+// line, which cost a line in the other direction.
+func attachRun(text, run string) string {
+	if !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+
+	return text + strings.TrimLeft(run, " ")
 }
 
 func coalesce(comments []Comment) []Comment {
@@ -78,8 +104,8 @@ func coalesce(comments []Comment) []Comment {
 		if tBuf.Len() > 0 {
 			last := joined[len(joined)-1]
 
-			last.Text += addSourceLine(tBuf.String(), false)
-			last.Source += addSourceLine(sBuf.String(), false)
+			last.Text = attachRun(last.Text, tBuf.String())
+			last.Source = attachRun(last.Source, sBuf.String())
 
 			joined[len(joined)-1] = last
 
@@ -100,8 +126,8 @@ func coalesce(comments []Comment) []Comment {
 			flush()
 			joined = append(joined, comment)
 		} else {
-			tBuf.WriteString(addSourceLine(comment.Text, true))
-			sBuf.WriteString(addSourceLine(comment.Source, true))
+			tBuf.WriteString(appendLine(comment.Text))
+			sBuf.WriteString(appendLine(comment.Source))
 		}
 	}
 

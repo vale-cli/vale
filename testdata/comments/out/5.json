@@ -1,6 +1,6 @@
 [
     {
-        "Text": "This Deployment runs our API component\n\nTo increase the TODO number of replicas that run,\nchange the value of the spec.replicas field.\n\n\nAlways use a value higher than 1 to ensure\nmultiple replicas are running, as this\nguarantees redundancy if one instance fails.\n",
+        "Text": "This Deployment runs our API component\n\nTo increase the TODO number of replicas that run,\nchange the value of the spec.replicas field.\n\nAlways use a value higher than 1 to ensure\nmultiple replicas are running, as this\nguarantees redundancy if one instance fails.\n",
         "Source": "# This Deployment runs our API component\n#\n# To increase the TODO number of replicas that run,\n# change the value of the spec.replicas field.\n#\n# Always use a value higher than 1 to ensure\n# multiple replicas are running, as this\n# guarantees redundancy if one instance fails.\n",
         "Line": 1,
         "Offset": 0,

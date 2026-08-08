@@ -55,6 +55,49 @@ cases:
       test2.rs:409:38:Vale.Spelling:Did you really mean 'RGArg'?
       test2.rs:2860:34:Vale.Spelling:Did you really mean 'conlicts'?
 
+  - name: blank-comment-line
+    about: |
+      #1022: a blank line comment produced two lines in the extracted text
+      where the source has one, so every alert below it was reported a line
+      too far down with its column collapsed to 1.
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.{proto,go}]
+        BasedOnStyles = T
+      styles/T/Eror.yml: |
+        extends: existence
+        message: "Found '%s'."
+        level: error
+        tokens:
+          - Eror
+      test.proto: |
+        syntax = "proto3";
+
+        // Correct.
+        // Correct.
+        // Eror.
+        //
+        // Eror.
+        message Message {}
+      test.go: |
+        package main
+
+        // Eror.
+        //
+        //
+        // Eror.
+        func main() {}
+    args: .
+    exit: 1
+    want: |
+      test.go:3:4:T.Eror:Found 'Eror'.
+      test.go:6:4:T.Eror:Found 'Eror'.
+      test.proto:5:4:T.Eror:Found 'Eror'.
+      test.proto:7:4:T.Eror:Found 'Eror'.
+
   - name: tab-indented-block
     about: |
       #1130: only spaces were stripped when dedenting a block comment, so one

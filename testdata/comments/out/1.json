@@ -1,14 +1,14 @@
 [
     {
-        "Text": "This module defines the set of command line arguments that ripgrep supports,\nincluding some light validation.\n\n\nThis module is purposely written in a bare-bones way, since it is included\nin ripgrep's build.rs file as a way to generate a man page and completion\nfiles for common shells.\n\n\nThe only other place that ripgrep deals with clap is in src/args.rs, which\nis where we read clap's configuration from the end user's arguments and turn\nit into a ripgrep-specific configuration type that is not coupled with clap.\n",
+        "Text": "This module defines the set of command line arguments that ripgrep supports,\nincluding some light validation.\n\nThis module is purposely written in a bare-bones way, since it is included\nin ripgrep's build.rs file as a way to generate a man page and completion\nfiles for common shells.\n\nThe only other place that ripgrep deals with clap is in src/args.rs, which\nis where we read clap's configuration from the end user's arguments and turn\nit into a ripgrep-specific configuration type that is not coupled with clap.\n",
         "Source": "// This module defines the set of command line arguments that ripgrep supports,\n// including some light validation.\n//\n// This module is purposely written in a bare-bones way, since it is included\n// in ripgrep's build.rs file as a way to generate a man page and completion\n// files for common shells.\n//\n// The only other place that ripgrep deals with clap is in src/args.rs, which\n// is where we read clap's configuration from the end user's arguments and turn\n// it into a ripgrep-specific configuration type that is not coupled with clap.\n",
         "Line": 1,
         "Offset": 0,
         "Scope": "text.comment.line"
     },
     {
-        "Text": "A human being is representd here\n\n A human being is representd here\n",
-        "Source": "/// A human being is representd here\n\n///\n/// A human being is representd here\n",
+        "Text": "A human being is representd here\n\nA human being is representd here\n",
+        "Source": "/// A human being is representd here\n///\n/// A human being is representd here\n",
         "Line": 13,
         "Offset": 0,
         "Scope": "text.comment.line"
@@ -21,15 +21,15 @@
         "Scope": "text.comment.line"
     },
     {
-        "Text": "Returns a person with the name given them\n\n # Arguments\n\n * `foof` - A string slice doof that holds the nme of the person\n\n # Exmples\n\n ```\n  You can have rust code between fences inside the comments\n  If you pass --test to `rustdoc`, it will even test it for you!\n use doc::Person;\n let person = Person::new(\"name\");\n ```\n",
-        "Source": "/// Returns a person with the name given them\n\n///\n/// # Arguments\n///\n/// * `foof` - A string slice doof that holds the nme of the person\n///\n/// # Exmples\n///\n/// ```\n/// // You can have rust code between fences inside the comments\n/// // If you pass --test to `rustdoc`, it will even test it for you!\n/// use doc::Person;\n/// let person = Person::new(\"name\");\n/// ```\n",
+        "Text": "Returns a person with the name given them\n\n# Arguments\n\n* `foof` - A string slice doof that holds the nme of the person\n\n# Exmples\n\n```\nYou can have rust code between fences inside the comments\nIf you pass --test to `rustdoc`, it will even test it for you!\nuse doc::Person;\nlet person = Person::new(\"name\");\n```\n",
+        "Source": "/// Returns a person with the name given them\n///\n/// # Arguments\n///\n/// * `foof` - A string slice doof that holds the nme of the person\n///\n/// # Exmples\n///\n/// ```\n/// // You can have rust code between fences inside the comments\n/// // If you pass --test to `rustdoc`, it will even test it for you!\n/// use doc::Person;\n/// let person = Person::new(\"name\");\n/// ```\n",
         "Line": 22,
         "Offset": 4,
         "Scope": "text.comment.line"
     },
     {
-        "Text": "Gives a friendly hello!\n\n Says \"Hello, [name]\" to the `Person` it is called on.\n",
-        "Source": "/// Gives a friendly hello!\n\n///\n/// Says \"Hello, [name]\" to the `Person` it is called on.\n",
+        "Text": "Gives a friendly hello!\n\nSays \"Hello, [name]\" to the `Person` it is called on.\n",
+        "Source": "/// Gives a friendly hello!\n///\n/// Says \"Hello, [name]\" to the `Person` it is called on.\n",
         "Line": 42,
         "Offset": 4,
         "Scope": "text.comment.line"
