@@ -40,6 +40,23 @@ cases:
       test.java:1:4:vale.Annotations:'XXX' left in text
       test.java:9:4:vale.Annotations:'TODO' left in text
 
+  - name: groovy
+    args: test.groovy
+    exit: 0
+    want: |
+      test.groovy:1:4:vale.Annotations:'XXX' left in text
+      test.groovy:8:4:vale.Annotations:'TODO' left in text
+      test.groovy:14:4:vale.Annotations:'NOTE' left in text
+      test.groovy:18:41:vale.Annotations:'FIXME' left in text
+
+  - name: jenkinsfile
+    about: An extensionless Jenkinsfile lints as Groovy; its shebang is skipped.
+    args: Jenkinsfile
+    exit: 0
+    want: |
+      Jenkinsfile:5:18:vale.Annotations:'XXX' left in text
+      Jenkinsfile:9:16:vale.Annotations:'TODO' left in text
+
   - name: proto
     args: test.proto
     exit: 0

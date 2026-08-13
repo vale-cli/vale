@@ -18,6 +18,16 @@ func TestFormatFromExt(t *testing.T) {
 		".rmd":   {".md", "markup"},
 		".R":     {".r", "code"},
 		".qml":   {".qml", "code"},
+
+		".groovy": {".groovy", "code"},
+		".gradle": {".groovy", "code"},
+
+		// An extensionless file is matched by its name.
+		"Jenkinsfile":            {".groovy", "code"},
+		"ci/cd/Jenkinsfile":      {".groovy", "code"},
+		"Gemfile":                {".rb", "code"},
+		"SConstruct":             {".py", "code"},
+		"no/such/format/LICENSE": {"unknown", "unknown"},
 	}
 	m := map[string]string{}
 	for ext, format := range extToFormat {

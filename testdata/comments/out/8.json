@@ -1,0 +1,37 @@
+[
+    {
+        "Text": "This is a line comment.\nIt spans two lines.\n",
+        "Source": "// This is a line comment.\n// It spans two lines.\n",
+        "Line": 2,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "\nThis is a block comment.\nIt also spans two lines.\n\n",
+        "Source": "/*\n * This is a block comment.\n * It also spans two lines.\n */",
+        "Line": 5,
+        "Offset": 0,
+        "Scope": "text.comment.block"
+    },
+    {
+        "Text": "\nThis is a Groovydoc comment.\n\nWith a second paragraph.\n\n",
+        "Source": "/**\n * This is a Groovydoc comment.\n *\n * With a second paragraph.\n */",
+        "Line": 10,
+        "Offset": 0,
+        "Scope": "text.comment.block"
+    },
+    {
+        "Text": "A trailing comment.",
+        "Source": "// A trailing comment.",
+        "Line": 17,
+        "Offset": 31,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "An inline block comment. ",
+        "Source": "/* An inline block comment. */",
+        "Line": 26,
+        "Offset": 26,
+        "Scope": "text.comment.line"
+    }
+]

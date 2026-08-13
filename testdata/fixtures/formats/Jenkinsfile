@@ -1,0 +1,15 @@
+#!/usr/bin/env groovy
+// The shebang above names an interpreter path and must not be linted.
+
+pipeline {
+    agent any // XXX: run anywhere
+
+    stages {
+        stage('Build') {
+            /* TODO: add a real build step. */
+            steps {
+                sh 'make'
+            }
+        }
+    }
+}

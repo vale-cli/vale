@@ -43,6 +43,12 @@ func (l *Linter) skipsComment(scope string) bool {
 func (l *Linter) lintCode(f *core.File) error {
 	lang, err := code.GetLanguageFromExt(f.RealExt)
 	if err != nil {
+		// The real extension names no grammar -- the file may have none at
+		// all (`Jenkinsfile`), or carry one only a `[formats]` association
+		// explains. The normed extension knows both.
+		lang, err = code.GetLanguageFromExt(f.NormedExt)
+	}
+	if err != nil {
 		// No tree-sitter grammar available for this file type.
 		return l.lintCodeOld(f)
 	}

@@ -55,10 +55,11 @@ var FormatByExtension = map[string][]string{
 	`\.(?:adoc|asciidoc|asc)$`:                 {".adoc", "markup"},
 	`\.(?:clj|cljs|cljc|cljd)$`:                {".clj", "code"},
 	`\.(?:cpp|cc|c|cp|cxx|c\+\+|h|hpp|h\+\+)$`: {".cpp", "code"},
-	`\.(?:css)$`:                             {".css", "code"},
-	`\.(?:cs|csx)$`:                          {".c", "code"},
-	`\.(?:dita)$`:                            {".dita", "markup"},
-	`\.(?:go)$`:                              {".go", "code"},
+	`\.(?:css)$`:    {".css", "code"},
+	`\.(?:cs|csx)$`: {".c", "code"},
+	`\.(?:dita)$`:   {".dita", "markup"},
+	`\.(?:go)$`:     {".go", "code"},
+	`\.(?:groovy|gvy|gy|gsh|gradle|[Jj]enkinsfile)$`: {".groovy", "code"},
 	`\.(?:hs)$`:                              {".hs", "code"},
 	`\.(?:html|htm|shtml|xhtml)$`:            {".html", "markup"},
 	`\.(?:java|bsh)$`:                        {".java", "code"},
@@ -96,6 +97,12 @@ var FormatByExtension = map[string][]string{
 // list, if supported.
 func FormatFromExt(path string, mapping map[string]string) (string, string) {
 	base := strings.Trim(filepath.Ext(path), ".")
+	if base == "" {
+		// An extensionless file is known only by its name: `Jenkinsfile`,
+		// `Gemfile`, `SConstruct`. Let the name stand in for the extension, so
+		// the table above -- which already lists such names -- can match it.
+		base = filepath.Base(path)
+	}
 	kind := getFormat("." + base)
 
 	if format, found := mapping[base]; found {
