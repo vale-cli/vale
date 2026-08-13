@@ -8,6 +8,22 @@ import (
 	"testing"
 )
 
+func TestAppendLineNormalizesTrailingNewlines(t *testing.T) {
+	tests := map[string]string{
+		"":           "\n",
+		"text":       "text\n",
+		"text\n":     "text\n",
+		"text\n\n":   "text\n",
+		"  text\n\n": "text\n",
+	}
+
+	for input, expected := range tests {
+		if actual := appendLine(input); actual != expected {
+			t.Errorf("appendLine(%q) = %q, want %q", input, actual, expected)
+		}
+	}
+}
+
 var testDir = "../../../testdata/comments"
 var binDir = "../../../bin"
 

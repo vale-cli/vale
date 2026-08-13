@@ -3,7 +3,6 @@ package code
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -58,22 +57,13 @@ func doneMerging(curr, prev Comment) bool {
 // twice and put a line in the extracted text that the source doesn't have.
 // See #1022.
 func appendLine(line string) string {
-	if line == "" {
-		return "\n"
-	}
-
 	// The space after the delimiter belongs to the delimiter, and the padding
 	// added when an alert is mapped back already counts it. Trimming only the
 	// lines that still needed a newline left it on the ones that didn't --
 	// Rust's `///`, whose node content carries its own -- where it was then
 	// counted twice. The first line of a run is trimmed by the caller.
 	line = strings.TrimLeft(line, " ")
-
-	if !strings.HasSuffix(line, "\n") {
-		return fmt.Sprintf("%s\n", line)
-	}
-
-	return line
+	return strings.TrimRight(line, "\n") + "\n"
 }
 
 // attachRun joins a pending run of lines to the text it belongs to.
@@ -89,7 +79,7 @@ func attachRun(text, run string) string {
 		text += "\n"
 	}
 
-	return text + strings.TrimLeft(run, " ")
+	return text + run
 }
 
 func coalesce(comments []Comment) []Comment {
