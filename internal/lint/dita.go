@@ -42,6 +42,11 @@ func (l *Linter) lintDITA(file *core.File) error {
 	cmd.Stderr = &out
 
 	if err = cmd.Run(); err != nil {
+		// dita's own diagnostics are far more useful than the exit status,
+		// but it doesn't always write any
+		if msg := strings.TrimSpace(out.String()); msg != "" {
+			return core.NewE100(file.Path, errors.New(msg))
+		}
 		return core.NewE100(file.Path, err)
 	}
 
