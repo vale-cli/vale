@@ -163,6 +163,13 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				}
 			}
 		} else if tokt == html.CommentToken {
+			// A comment, like a closed inline element, is a source-faithful
+			// boundary: trust the next text's own whitespace (#882). Inside a
+			// still-open inline element the opening tag remains the boundary,
+			// so leave the state alone and keep its padding (#1052).
+			if !inline {
+				closedInline = true
+			}
 			f.UpdateComments(txt)
 			walker.update(txt, tokt)
 		} else if tokt == html.TextToken {

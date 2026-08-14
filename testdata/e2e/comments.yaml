@@ -100,3 +100,10 @@ cases:
     exit: 0
     want: |
       issue1001.md:5:28:demo.Ending-Preposition:Don't end a sentence with 'of.'
+
+  - name: inline-comment-spacing
+    about: "#882 -- text after a comment keeps its own leading space instead of
+      fusing with the text before it"
+    args: issue882.md
+    exit: 0
+    want: ""
