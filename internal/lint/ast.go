@@ -2,6 +2,7 @@ package lint
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -45,6 +46,13 @@ var inlineToScope = map[string]string{
 	"tt":     "code",
 }
 
+// goldmarkFootnotes names the formats goldmark converts. Its Footnote
+// extension moves every definition into a trailing `div.footnotes`, so the
+// comment state the walker reaches there is whatever the end of the document
+// left behind rather than what governed the reference. Elsewhere -- rST,
+// AsciiDoc, HTML -- that class carries no such promise. See #1078.
+var goldmarkFootnotes = []string{".md", ".mdx", ".myst", ".qmd"}
+
 var tagToScope = map[string]string{
 	"th":         "text.table.header",
 	"td":         "text.table.cell",
@@ -87,9 +95,16 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 	}
 	var open []inlineCapture
 
+	var notes footnotes
+	relocated := core.StringInSlice(f.NormedExt, goldmarkFootnotes)
+
 	walker := newWalker(f, raw, offset)
 	for {
 		tokt, tok, txt := walker.walk()
+
+		if relocated {
+			notes.enter(f, tokt, tok, txt)
+		}
 
 		walker.addCls(txt, tokt == html.StartTagToken)
 		closed := walker.canClose()
@@ -250,6 +265,9 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 		if tokt == html.EndTagToken && !core.StringInSlice(txt, inlineTags) {
 			content := buf.String()
 			if strings.TrimSpace(content) != "" {
+				if notes.depth > 0 {
+					notes.apply(f, content)
+				}
 				err := l.lintScope(f, walker, content)
 				if err != nil {
 					return err
@@ -270,6 +288,118 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 	}
 
 	return l.lintSizedScopes(f)
+}
+
+// reSourceComment finds a comment control in the source, so that a relocated
+// footnote can be given the state its own position earned rather than the one
+// the end of the document left behind.
+var reSourceComment = regexp.MustCompile(`(?s)<!--(.*?)-->`)
+
+// footnotes restores the comment state that governs a footnote definition.
+//
+// goldmark's Footnote extension moves every definition into a trailing
+// `div.footnotes`, so by the time the walker reaches one, a `= NO` ... `= YES`
+// pair enclosing it in the source has already flipped back. Inside that div we
+// rebuild the state from the definition's own line instead. See #1078.
+type footnotes struct {
+	lines []int
+	text  []string
+
+	outer map[string]bool
+	depth int
+}
+
+// index records where each comment control sits in the source, by line.
+func (s *footnotes) index(content string) {
+	for _, m := range reSourceComment.FindAllStringSubmatchIndex(content, -1) {
+		s.lines = append(s.lines, strings.Count(content[:m[0]], "\n"))
+		s.text = append(s.text, strings.TrimSpace(content[m[2]:m[3]]))
+	}
+}
+
+// enter tracks the relocated block's nesting, keeping the state to put back
+// once it closes.
+func (s *footnotes) enter(f *core.File, tokt html.TokenType, tok html.Token, txt string) {
+	if txt != "div" {
+		return
+	} else if tokt == html.EndTagToken {
+		if s.depth > 0 && s.depth-1 == 0 {
+			f.Comments = s.outer
+		}
+		s.depth = max(s.depth-1, 0)
+	} else if s.depth > 0 {
+		s.depth++
+	} else if checkClasses(getAttribute(tok, "class"), []string{"footnotes"}) {
+		s.outer, s.depth = f.Comments, 1
+		s.index(f.Content)
+	}
+}
+
+// apply gives a relocated definition the state its own place in the source
+// had, by replaying every comment control that precedes it.
+func (s *footnotes) apply(f *core.File, text string) {
+	line := s.lineOf(f.Content, text)
+	if line < 0 {
+		return
+	}
+
+	f.Comments = map[string]bool{}
+	for i, at := range s.lines {
+		if at > line {
+			break
+		}
+		f.UpdateComments(s.text[i])
+	}
+}
+
+// reFootnoteDef finds where a definition begins in the source: always its own
+// line, opening with the label it was referenced by. The label itself is
+// starred out by `prepMarkdown`, so it's matched by shape rather than by name.
+var reFootnoteDef = regexp.MustCompile(`(?m)^[ \t]*\[[^\]\n]*\]:`)
+
+// lineOf finds the source line a definition's text came from. Like `advance`,
+// it settles for the longest word: rendering rewrites a definition -- markup
+// stripped, a backref appended -- so the block itself is rarely a substring of
+// the source.
+//
+// Only the definitions are searched, not the whole document: the same word
+// commonly appears in ordinary prose too, and the first occurrence anywhere is
+// no more the definition's line than any other. A miss returns -1, leaving the
+// state alone rather than replaying to a wrong place.
+func (s *footnotes) lineOf(content, text string) int {
+	longest := ""
+	for _, w := range strings.Fields(text) {
+		if len(w) > len(longest) {
+			longest = w
+		}
+	}
+	if longest == "" {
+		return -1
+	}
+
+	for _, m := range reFootnoteDef.FindAllStringIndex(content, -1) {
+		if strings.Contains(defBody(content, m[0]), longest) {
+			return strings.Count(content[:m[0]], "\n")
+		}
+	}
+	return -1
+}
+
+// defBody returns the source of the definition beginning at `at`: its own line,
+// plus the indented lines continuing it. It stops at the first unindented line,
+// which is where the definition ends -- the next one, or the prose after it.
+func defBody(content string, at int) string {
+	body := content[at:]
+
+	end := 0
+	for _, line := range strings.SplitAfter(body, "\n") {
+		if end > 0 && strings.TrimSpace(line) != "" && !startsWithSpace(line) {
+			break
+		}
+		end += len(line)
+	}
+
+	return body[:end]
 }
 
 func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
