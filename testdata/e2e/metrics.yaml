@@ -34,6 +34,21 @@ cases:
     want: |
       {}
 
+  - name: empty-directory
+    about: the argument only has to exist, and a directory does -- so one
+      whose every file is skipped (`node_modules` is ignored by default)
+      lints to nothing, and saying so beats indexing an empty result, which
+      used to panic
+    files:
+      empty/node_modules/test.md: |
+        # Title
+    args: ls-metrics empty
+    exit: 2
+    contains: |
+      E100 [ls-metrics] Runtime error
+
+      'empty' contains no lintable files
+
   - name: formula
     about: a `metric` rule reads the same counts -- the weighted total spells
       them out, so 221 means 2 H2s, 2 list items, and 1 blockquote

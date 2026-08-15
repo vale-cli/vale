@@ -236,6 +236,14 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 		return err
 	}
 
+	// `FileExists` is true for a directory, and a directory that holds no
+	// lintable file lints to nothing. Reporting that is better than printing
+	// `{}`, which already means "a file Vale read and found no metrics in".
+	if len(linted) == 0 {
+		return core.NewE100("ls-metrics", fmt.Errorf(
+			"'%s' contains no lintable files", args[0]))
+	}
+
 	computed, _ := linted[0].ComputeMetrics()
 	return printJSON(computed)
 }
