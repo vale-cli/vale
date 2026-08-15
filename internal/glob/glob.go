@@ -12,19 +12,22 @@ import (
 type Glob struct {
 	Pattern string
 	Negated bool
+
+	// compiled is the `gobwas/glob` form of Pattern, built once by NewGlob.
+	// It's nil for a `**` pattern, which doublestar matches instead.
+	compiled glob.Glob
 }
 
 // Match returns whether or not the Glob g matches the string query.
 func (g Glob) Match(query string) bool {
 	q := filepath.ToSlash(query)
 
-	if strings.Contains(g.Pattern, "**") {
+	if g.compiled == nil {
 		matched, _ := doublestar.Match(g.Pattern, q)
 		return matched != g.Negated
 	}
 
-	p := glob.MustCompile(g.Pattern)
-	return p.Match(q) != g.Negated
+	return g.compiled.Match(q) != g.Negated
 }
 
 // MatchAny returns whether or not the Glob g matches any of the strings in
@@ -49,7 +52,18 @@ func NewGlob(pat string) (Glob, error) {
 	if err != nil {
 		return Glob{}, err
 	}
-	return Glob{Pattern: pat, Negated: negate}, nil
+
+	if strings.Contains(pat, "**") {
+		return Glob{Pattern: pat, Negated: negate}, nil
+	}
+
+	// doublestar accepts patterns gobwas/glob rejects, and Match used to
+	// compile there with MustCompile -- so `--glob='[a-]*'` panicked mid-walk.
+	compiled, err := glob.Compile(pat)
+	if err != nil {
+		return Glob{}, err
+	}
+	return Glob{Pattern: pat, Negated: negate, compiled: compiled}, nil
 }
 
 // Compile is a wrapper around NewGlobal for backwards compatibility.

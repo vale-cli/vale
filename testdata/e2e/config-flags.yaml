@@ -94,6 +94,14 @@ cases:
       - py
     requires: asciidoctor, dita, rst2html, xsltproc
 
+  - name: glob-invalid
+    about: "a pattern gobwas/glob rejects used to panic mid-walk"
+    dir: ../glob
+    args: "--glob=[a-]* ."
+    exit: 2
+    want: |
+      expected close range character
+
   - name: no-config-found
     dir: ../../../..
     args: .

@@ -32,6 +32,20 @@ var globTests = []struct {
 	},
 }
 
+// Patterns doublestar accepts and gobwas/glob rejects. NewGlob has to report
+// them, since Match can't: it used to compile with MustCompile and panicked
+// partway through the walk.
+var invalidGlobs = []string{`[a-]`, `[a-b-c]`}
+
+func TestInvalidGlob(t *testing.T) {
+	for _, pat := range invalidGlobs {
+		g, err := NewGlob(pat)
+		if err == nil {
+			t.Errorf("%s: expected an error, got %+v", pat, g)
+		}
+	}
+}
+
 func TestGlob(t *testing.T) {
 	for _, tt := range globTests {
 		g, _ := NewGlob(tt.pattern)
