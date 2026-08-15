@@ -13,7 +13,6 @@ import (
 	"github.com/jdkato/prose/v3/summarize"
 	"github.com/jdkato/prose/v3/tag"
 
-	"github.com/errata-ai/vale/v3/internal/glob"
 	"github.com/errata-ai/vale/v3/internal/nlp"
 	"github.com/errata-ai/vale/v3/internal/system"
 )
@@ -152,24 +151,30 @@ func NewFile(src string, config *Config) (*File, error) {
 	}
 
 	lang := "en"
-	for syntax, code := range config.FormatToLang {
-		sec, err := glob.Compile(syntax)
-		if err != nil {
-			return &File{}, err
-		} else if sec.Match(path) {
-			lang = code
-			break
+	if code, found := config.FormatToLang["*"]; found && code != "" {
+		lang = code
+	}
+	for _, sec := range config.RuleKeys {
+		if pat, found := config.SecToPat[sec]; found && pat.Match(path) {
+			// Sections are visited in the order they were written, so a
+			// later one wins -- for this file, and no other. See #965.
+			if code, found := config.FormatToLang[sec]; found {
+				lang = code
+			}
 		}
 	}
 
 	transform := ""
-	for sec, p := range config.Stylesheets {
-		pat, err := glob.Compile(sec)
-		if err != nil {
-			return &File{}, NewE100(path, err)
-		} else if pat.Match(path) {
-			transform = p
-			break
+	if p, found := config.Stylesheets["*"]; found {
+		transform = p
+	}
+	for _, sec := range config.RuleKeys {
+		if pat, found := config.SecToPat[sec]; found && pat.Match(path) {
+			// Sections are visited in the order they were written, so a
+			// later one wins -- for this file, and no other. See #965.
+			if p, found := config.Stylesheets[sec]; found {
+				transform = p
+			}
 		}
 	}
 	content := Sanitize(string(fbytes))
