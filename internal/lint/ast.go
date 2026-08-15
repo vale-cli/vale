@@ -322,14 +322,17 @@ func (s *footnotes) index(content string) {
 func (s *footnotes) enter(f *core.File, tokt html.TokenType, tok html.Token, txt string) {
 	if txt != "div" {
 		return
-	} else if tokt == html.EndTagToken {
+	}
+
+	switch {
+	case tokt == html.EndTagToken:
 		if s.depth > 0 && s.depth-1 == 0 {
 			f.Comments = s.outer
 		}
 		s.depth = max(s.depth-1, 0)
-	} else if s.depth > 0 {
+	case s.depth > 0:
 		s.depth++
-	} else if checkClasses(getAttribute(tok, "class"), []string{"footnotes"}) {
+	case checkClasses(getAttribute(tok, "class"), []string{"footnotes"}):
 		s.outer, s.depth = f.Comments, 1
 		s.index(f.Content)
 	}
