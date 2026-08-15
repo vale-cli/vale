@@ -42,9 +42,9 @@ func TestNewFileSectionOrderWins(t *testing.T) {
 			key = s.name + string(rune('a'+i))
 		}
 
-		pat, err := glob.Compile(s.name)
-		if err != nil {
-			t.Fatal(err)
+		pat, cerr := glob.Compile(s.name)
+		if cerr != nil {
+			t.Fatal(cerr)
 		}
 
 		cfg.SecToPat[key] = pat
@@ -59,15 +59,15 @@ func TestNewFileSectionOrderWins(t *testing.T) {
 	wantTransform := sections[len(sections)-1].xslt
 
 	docPath := filepath.Join(t.TempDir(), "doc.md")
-	if err := os.WriteFile(docPath, []byte("# Title\n"), 0600); err != nil {
-		t.Fatal(err)
+	if werr := os.WriteFile(docPath, []byte("# Title\n"), 0600); werr != nil {
+		t.Fatal(werr)
 	}
 
 	const iterations = 50
 	for i := 0; i < iterations; i++ {
-		f, err := NewFile(docPath, cfg)
-		if err != nil {
-			t.Fatal(err)
+		f, ferr := NewFile(docPath, cfg)
+		if ferr != nil {
+			t.Fatal(ferr)
 		}
 
 		if f.NLP.Lang != wantLang {
@@ -93,8 +93,8 @@ func TestNewFileGlobalLangFallback(t *testing.T) {
 	cfg.FormatToLang["*"] = "ja"
 
 	docPath := filepath.Join(t.TempDir(), "doc.txt")
-	if err := os.WriteFile(docPath, []byte("hello\n"), 0600); err != nil {
-		t.Fatal(err)
+	if werr := os.WriteFile(docPath, []byte("hello\n"), 0600); werr != nil {
+		t.Fatal(werr)
 	}
 
 	f, err := NewFile(docPath, cfg)

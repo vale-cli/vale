@@ -158,7 +158,7 @@ func NewFile(src string, config *Config) (*File, error) {
 		if pat, found := config.SecToPat[sec]; found && pat.Match(path) {
 			// Sections are visited in the order they were written, so a
 			// later one wins -- for this file, and no other. See #965.
-			if code, found := config.FormatToLang[sec]; found {
+			if code, ok := config.FormatToLang[sec]; ok {
 				lang = code
 			}
 		}
@@ -172,7 +172,7 @@ func NewFile(src string, config *Config) (*File, error) {
 		if pat, found := config.SecToPat[sec]; found && pat.Match(path) {
 			// Sections are visited in the order they were written, so a
 			// later one wins -- for this file, and no other. See #965.
-			if p, found := config.Stylesheets[sec]; found {
+			if p, ok := config.Stylesheets[sec]; ok {
 				transform = p
 			}
 		}
