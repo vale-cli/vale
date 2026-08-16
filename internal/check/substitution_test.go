@@ -335,6 +335,12 @@ func TestOptions(t *testing.T) {
 		"foo|":        {"foo"},
 		"|":           {},
 		`\|`:          {"|"},
+
+		// A suggestion is literal replacement text, so an option that happens
+		// to contain the letters `PIPE` has to survive the split intact.
+		"PIPELINE":         {"PIPELINE"},
+		"PIPELINE|conduit": {"PIPELINE", "conduit"},
+		`PIPE\|LINE`:       {"PIPE|LINE"},
 	}
 
 	for pattern, expected := range cases {

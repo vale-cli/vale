@@ -481,15 +481,34 @@ func subMsg(s Substitution, index int, observed string) (string, error) {
 func getOptions(match string) []string {
 	options := []string{}
 
-	// We want to ignore any escaped pipes, so make a temporary substitution:
-	//
-	// TODO: Add support for `.Split` in `regexp2`.
-	temp := strings.ReplaceAll(match, `\|`, "PIPE")
-
-	for _, option := range strings.Split(temp, "|") {
-		if option != "" {
-			options = append(options, strings.ReplaceAll(option, "PIPE", `|`))
+	// Split on unescaped `|` only. We scan rather than substitute a placeholder
+	// string: any sentinel we could pick is also text a user may legitimately
+	// suggest, and rewriting it back would corrupt the suggestion -- a swap of
+	// `PIPELINE` used to come back as `|LINE`.
+	var current strings.Builder
+	for i := 0; i < len(match); i++ {
+		switch match[i] {
+		case '\\':
+			// An escaped `|` is a literal pipe; anything else escaped is kept
+			// as-is so the option reads the way it was written.
+			if i+1 < len(match) && match[i+1] == '|' {
+				current.WriteByte('|')
+				i++
+			} else {
+				current.WriteByte('\\')
+			}
+		case '|':
+			if current.Len() > 0 {
+				options = append(options, current.String())
+			}
+			current.Reset()
+		default:
+			current.WriteByte(match[i])
 		}
+	}
+
+	if current.Len() > 0 {
+		options = append(options, current.String())
 	}
 
 	return options
