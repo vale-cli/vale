@@ -86,3 +86,54 @@ func TestMathInline(t *testing.T) {
 		})
 	}
 }
+
+// TestMathBlock pins where `$$…$$` display math closes. goldmark-mathjax closed
+// only on a line of nothing but `$$`, so any other Pandoc shape left the block
+// open and, as an open block does, hid the rest of the document from linting
+// (#1148). Each case renders the equation as `pre` -- text vale skips -- and
+// keeps the paragraph after it as prose vale still checks.
+func TestMathBlock(t *testing.T) {
+	cases := []struct {
+		description string
+		content     string
+		expected    string
+	}{
+		{
+			description: "opener also closes on one line",
+			content:     "Intro.\n\n$$x=1$$\n\nAfter.\n",
+			expected:    "<p>Intro.</p>\n<pre>$$x=1$$\n</pre>\n<p>After.</p>\n",
+		},
+		{
+			description: "closing delimiter ends a content line",
+			content:     "$$\n\\begin{aligned}\nx=1\n\\end{aligned}$$\n\nAfter.\n",
+			expected:    "<pre>\\begin{aligned}\nx=1\n\\end{aligned}$$\n</pre>\n<p>After.</p>\n",
+		},
+		{
+			description: "single line with a trailing label",
+			content:     "$$ x=1 $$ {#eq-foo}\n\nAfter.\n",
+			expected:    "<pre>$$ x=1 $$ {#eq-foo}\n</pre>\n<p>After.</p>\n",
+		},
+		{
+			description: "label after the closing delimiter",
+			content:     "$$\nx=1\n$$ {#eq-foo}\n\nAfter.\n",
+			expected:    "<pre>x=1\n$$ {#eq-foo}\n</pre>\n<p>After.</p>\n",
+		},
+		{
+			description: "bare closing line still closes",
+			content:     "Intro.\n\n$$\ng_i = g(p)_i\n$$\n\nAfter.\n",
+			expected:    "<p>Intro.</p>\n<pre>g_i = g(p)_i\n</pre>\n<p>After.</p>\n",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := goldQmd.Convert([]byte(c.content), &buf); err != nil {
+				t.Fatalf("Convert returned an error: %s", err)
+			}
+			if got := buf.String(); got != c.expected {
+				t.Fatalf("Expected %q, but got %q", c.expected, got)
+			}
+		})
+	}
+}
