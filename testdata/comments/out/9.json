@@ -1,0 +1,16 @@
+[
+    {
+        "Text": "A script's leading comment.",
+        "Source": "# A script's leading comment.",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "One line of documentation.",
+        "Source": "One line of documentation.",
+        "Line": 5,
+        "Offset": 14,
+        "Scope": "text.comment.doc.line"
+    }
+]

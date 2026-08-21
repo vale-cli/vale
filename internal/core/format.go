@@ -58,6 +58,7 @@ var FormatByExtension = map[string][]string{
 	`\.(?:css)$`:                             {".css", "code"},
 	`\.(?:cs|csx)$`:                          {".c", "code"},
 	`\.(?:dita)$`:                            {".dita", "markup"},
+	`\.(?:ex|exs)$`:                          {".ex", "code"},
 	`\.(?:go)$`:                              {".go", "code"},
 	`\.(?:hs)$`:                              {".hs", "code"},
 	`\.(?:html|htm|shtml|xhtml)$`:            {".html", "markup"},

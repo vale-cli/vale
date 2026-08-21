@@ -1222,6 +1222,18 @@ cases:
       test.lua:9:6:vale.Annotations:'XXX' left in text
       test.lua:15:4:vale.Annotations:'TODO' left in text
 
+  - name: elixir
+    args: test.ex
+    exit: 0
+    want: |
+      test.ex:3:3:vale.Annotations:'NOTE' left in text
+      test.ex:8:3:vale.Annotations:'FIXME' left in text
+      test.ex:11:5:vale.Annotations:'NOTE' left in text
+      test.ex:12:5:vale.Annotations:'XXX' left in text
+      test.ex:14:9:vale.Annotations:'TODO' left in text
+      test.ex:21:3:vale.Annotations:'XXX' left in text
+      test.ex:27:12:vale.Annotations:'FIXME' left in text
+
   - name: haskell
     args: test.hs
     exit: 0

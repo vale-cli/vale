@@ -50,6 +50,16 @@ func (qe *QueryEngine) run(meta string, q *sitter.Query, source []byte) []Commen
 
 		m = qc.FilterPredicates(m, source)
 		for _, c := range m.Captures {
+			// A capture named with a leading underscore exists for a
+			// predicate to test, not to be linted -- the convention
+			// tree-sitter itself uses for internal captures. Without this,
+			// the only way to test one node and extract another is to test
+			// the node you extract, which forces a query to capture more
+			// than the prose it wants.
+			if strings.HasPrefix(q.CaptureNameForId(uint32(c.Index)), "_") {
+				continue
+			}
+
 			rText := c.Node.Content(source)
 			row := int(c.Node.StartPoint().Row)
 			offset := int(c.Node.StartPoint().Column)

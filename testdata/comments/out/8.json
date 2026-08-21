@@ -1,0 +1,37 @@
+[
+    {
+        "Text": "NOTE: a heredoc doc attribute.\n\n    iex\u003e Test.run()\n    :ok\n\nFIXME: indented content keeps its indentation.\n\n",
+        "Source": "NOTE: a heredoc doc attribute.\n\n      iex\u003e Test.run()\n      :ok\n\n  FIXME: indented content keeps its indentation.\n  ",
+        "Line": 3,
+        "Offset": 2,
+        "Scope": "text.comment.doc.block"
+    },
+    {
+        "Text": "NOTE: a line comment\nXXX: continued on the next line\n",
+        "Source": "# NOTE: a line comment\n# XXX: continued on the next line\n",
+        "Line": 11,
+        "Offset": 2,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "TODO: a single-quoted doc attribute.",
+        "Source": "TODO: a single-quoted doc attribute.",
+        "Line": 14,
+        "Offset": 8,
+        "Scope": "text.comment.doc.line"
+    },
+    {
+        "Text": "XXX: a sigil doc attribute.\n  \n",
+        "Source": "XXX: a sigil doc attribute.\n  ",
+        "Line": 21,
+        "Offset": 2,
+        "Scope": "text.comment.doc.block"
+    },
+    {
+        "Text": "FIXME: a trailing comment",
+        "Source": "# FIXME: a trailing comment",
+        "Line": 27,
+        "Offset": 9,
+        "Scope": "text.comment.line"
+    }
+]

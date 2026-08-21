@@ -45,6 +45,8 @@ func GetLanguageFromExt(ext string) (*Language, error) {
 		return Python(), nil
 	case ".rb":
 		return Ruby(), nil
+	case ".ex":
+		return Elixir(), nil
 	case ".cpp":
 		return Cpp(), nil
 	case ".c":
