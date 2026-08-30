@@ -19,8 +19,8 @@ import (
 
 var defaultFilters = []*regexp.Regexp{
 	regexp.MustCompile(`[A-Z]{1}[a-z]+[A-Z]+\w+`),
-	regexp.MustCompile(`[A-Z]+$`),
-	regexp.MustCompile(`[^a-zA-Z_']`),
+	regexp.MustCompile(`[\p{Lu}]+$`),
+	regexp.MustCompile(`[^\p{L}_']`),
 }
 
 // Spelling checks text against a Hunspell dictionary.

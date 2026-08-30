@@ -69,6 +69,35 @@ type rule struct {
 	matcher *regexp.Regexp // matcher to see if this rule applies or not
 }
 
+// hunspellConditionPattern converts the part of Hunspell's affix-condition
+// syntax that differs from Go regular expressions. A '-' inside a Hunspell
+// character group is always literal; it never introduces a range. Encoding it
+// as a hexadecimal escape preserves that meaning when regexp compiles it.
+func hunspellConditionPattern(condition string, atype affixType) string {
+	var pattern strings.Builder
+	insideGroup := false
+
+	for _, char := range condition {
+		switch char {
+		case '[':
+			insideGroup = true
+		case ']':
+			insideGroup = false
+		case '-':
+			if insideGroup {
+				pattern.WriteString(`\x2d`)
+				continue
+			}
+		}
+		pattern.WriteRune(char)
+	}
+
+	if atype == Prefix {
+		return "^" + pattern.String()
+	}
+	return pattern.String() + "$"
+}
+
 // dictConfig is a partial representation of a Hunspell AFF (Affix) file.
 const (
 	// defaultCompoundMin is Hunspell's own default for COMPOUNDMIN.
@@ -78,12 +107,15 @@ const (
 	maxCompoundMin = 100
 	// maxCompoundRules caps what a COMPOUNDRULE count may preallocate.
 	maxCompoundRules = 1 << 16
+	// maxFlagAliasCapacity caps only the initial allocation for an AF table.
+	maxFlagAliasCapacity = 1 << 14
 )
 
 type dictConfig struct {
 	IconvReplacements []string
 	Replacements      [][2]string
 	CompoundRule      []string
+	FlagAliases       []string
 	Flag              string
 	TryChars          string
 	WordChars         string
@@ -110,7 +142,7 @@ func (a *dictConfig) compoundingEnabled() bool {
 // parseFlags splits a flag string into individual flags based on the FLAG type.
 //
 // Hunspell supports several flag formats:
-//   - "ASCII" (default): each character is a flag
+//   - "ASCII" (default): each byte is a flag
 //   - "num": flags are comma-separated numbers (e.g., "14308,10482,4720")
 //   - "UTF-8": each UTF-8 character is a flag
 //   - "long": each pair of ASCII characters is a flag
@@ -124,37 +156,241 @@ func (a dictConfig) parseFlags(flagStr string) []string {
 			flags = append(flags, flagStr[i:i+2])
 		}
 		return flags
-	default: // "ASCII" or "UTF-8"
+	case "UTF-8":
 		flags := make([]string, 0, len(flagStr))
 		for _, r := range flagStr {
 			flags = append(flags, string(r))
 		}
 		return flags
+	default: // "ASCII", Hunspell's default extended 8-bit format.
+		flags := make([]string, 0, len(flagStr))
+		for i := range len(flagStr) {
+			flags = append(flags, flagStr[i:i+1])
+		}
+		return flags
 	}
+}
+
+// parseSingleFlag decodes directives that name exactly one flag. In the
+// default 8-bit mode this intentionally returns the first byte even when the
+// AFF file itself is UTF-8 encoded. Hunspell applies the same byte identifier
+// to AFF class names and DIC flag vectors.
+func (a dictConfig) parseSingleFlag(flagStr string) (string, error) {
+	flags := a.parseFlags(flagStr)
+	if len(flags) == 0 || flags[0] == "" {
+		return "", fmt.Errorf("empty flag")
+	}
+	return flags[0], nil
 }
 
 // expand expands a word/affix using dictionary/affix rules
 //
-//	This also supports CompoundRule flags
+// This is the dictionary-entry expansion path, so an AF table makes the text
+// after the slash a one-based alias index.
+//
+//	This also supports CompoundRule flags.
 func (a dictConfig) expand(wordAffix string, out []string) ([]string, error) {
-	return a.expandDepth(wordAffix, out, 0)
+	word, flags, err := a.dictionaryEntry(wordAffix)
+	if err != nil {
+		return nil, err
+	}
+	return a.expandDepth(word, flags, out, 0)
+}
+
+// dictionaryEntry separates a dictionary root from its normalized flag
+// vector. AF aliases apply only here, at the original .dic entry.
+func (a dictConfig) dictionaryEntry(wordAffix string) (string, string, error) {
+	idx := strings.Index(wordAffix, "/")
+	if idx == -1 {
+		return wordAffix, "", nil
+	}
+	if idx == 0 || idx+1 == len(wordAffix) {
+		return "", "", fmt.Errorf("slash char found in first or last position")
+	}
+
+	word, flags := wordAffix[:idx], wordAffix[idx+1:]
+	return word, a.resolveFlagAlias(flags), nil
+}
+
+// resolveFlagAlias expands the one-based AF alias used by both dictionary
+// entries and affix continuation classes. Hunspell treats an invalid alias as
+// an empty flag vector, leaving the generated word without further affixes.
+func (a dictConfig) resolveFlagAlias(flags string) string {
+	if len(a.FlagAliases) == 0 {
+		return flags
+	}
+
+	aliasIndex, err := strconv.ParseInt(flags, 10, 64)
+	if err != nil || aliasIndex < 1 || aliasIndex > int64(len(a.FlagAliases)) {
+		return ""
+	}
+	return a.FlagAliases[aliasIndex-1]
 }
 
 // expandDepth is expand, tracking how many continuation classes deep it is.
-func (a dictConfig) expandDepth(wordAffix string, out []string, depth int) ([]string, error) {
+func (a dictConfig) expandDepth(word, keyString string, out []string, depth int) ([]string, error) {
 	out = out[:0]
-	idx := strings.Index(wordAffix, "/")
+	_, err := a.walkDepth(word, keyString, depth, func(generated string) bool {
+		out = append(out, generated)
+		return false
+	})
+	return out, err
+}
 
-	// not found
-	if idx == -1 {
-		out = append(out, wordAffix)
-		return out, nil
+// expandsTo reports whether an entry can generate target. It shares the exact
+// forward traversal used by expand, but stops at the first match and does not
+// retain unrelated forms.
+func (a dictConfig) expandsTo(word, keyString, target string) bool {
+	return a.expandsToWithin(word, keyString, target, nil)
+}
+
+// expandsToWithin reports whether an entry can generate target while limiting
+// continuation traversal to forms in allowed. A nil set permits every form.
+func (a dictConfig) expandsToWithin(
+	word, keyString, target string,
+	allowed map[string]struct{},
+) bool {
+	found, _ := a.walkDepthWithin(word, keyString, 0, allowed, func(generated string) bool {
+		return generated == target
+	})
+	return found
+}
+
+// hasFlaggedForm reports whether target occurs at an expansion state carrying
+// flag. COMPOUNDRULE groups are populated from exactly these states in the
+// eager implementation, including continuation-produced forms.
+func (a dictConfig) hasFlaggedForm(word, keyString, target, flag string) bool {
+	return a.hasFlaggedFormWithin(word, keyString, target, flag, nil)
+}
+
+// hasFlaggedFormWithin reports whether target occurs at an expansion state
+// carrying flag while limiting continuation traversal to forms in allowed.
+func (a dictConfig) hasFlaggedFormWithin(
+	word, keyString, target, flag string,
+	allowed map[string]struct{},
+) bool {
+	return a.hasFlaggedFormDepth(word, keyString, target, flag, 0, allowed)
+}
+
+// hasFlaggedFormDepth recursively searches affix and continuation states for
+// target carrying wanted, stopping after the configured continuation depth.
+func (a dictConfig) hasFlaggedFormDepth(
+	word, keyString, target, wanted string,
+	depth int,
+	allowed map[string]struct{},
+) bool {
+	flags := a.parseFlags(keyString)
+	if word == target && containsFlag(flags, wanted) {
+		return true
 	}
-	if idx == 0 || idx+1 == len(wordAffix) {
-		return nil, fmt.Errorf("slash char found in first or last position")
+
+	for _, flag := range flags {
+		if flag == a.CompoundOnly {
+			return false
+		}
 	}
-	// safe
-	word, keyString := wordAffix[:idx], wordAffix[idx+1:]
+
+	prefixes := make([]affix, 0, 5)
+	suffixes := make([]affix, 0, 5)
+	for _, flag := range flags {
+		class, found := a.AffixMap[flag]
+		if !found {
+			continue
+		}
+		if !class.CrossProduct {
+			if a.formsHaveFlag(class.forms(word), target, wanted, depth, allowed) {
+				return true
+			}
+			continue
+		}
+		if class.Type == Prefix {
+			prefixes = append(prefixes, class)
+		} else {
+			suffixes = append(suffixes, class)
+		}
+	}
+
+	for _, suffix := range suffixes {
+		if a.formsHaveFlag(suffix.forms(word), target, wanted, depth, allowed) {
+			return true
+		}
+	}
+	for _, prefix := range prefixes {
+		prefixForms := prefix.forms(word)
+		if a.formsHaveFlag(prefixForms, target, wanted, depth, allowed) {
+			return true
+		}
+		for _, suffix := range suffixes {
+			for _, prefixForm := range prefixForms {
+				if !wordAllowed(prefixForm.Word, allowed) {
+					continue
+				}
+				if a.formsHaveFlag(suffix.forms(prefixForm.Word), target, wanted, depth, allowed) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// formsHaveFlag reports whether one of forms, or one of its continuation
+// expansions, produces target with wanted in its continuation flags.
+func (a dictConfig) formsHaveFlag(
+	forms []form,
+	target, wanted string,
+	depth int,
+	allowed map[string]struct{},
+) bool {
+	for _, current := range forms {
+		continuation := a.resolveFlagAlias(current.Cont)
+		if continuation == "" || depth >= maxAffixDepth {
+			continue
+		}
+		if current.Word == target && containsFlag(a.parseFlags(continuation), wanted) {
+			return true
+		}
+		if !wordAllowed(current.Word, allowed) {
+			continue
+		}
+		if a.hasFlaggedFormDepth(current.Word, continuation, target, wanted, depth+1, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+// containsFlag reports whether wanted occurs in flags.
+func containsFlag(flags []string, wanted string) bool {
+	for _, flag := range flags {
+		if flag == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+// walkDepth visits the forms of one dictionary or continuation entry. A true
+// visitor result stops the traversal.
+func (a dictConfig) walkDepth(
+	word, keyString string,
+	depth int,
+	visit func(string) bool,
+) (bool, error) {
+	return a.walkDepthWithin(word, keyString, depth, nil, visit)
+}
+
+// walkDepthWithin visits generated forms while limiting continuation and
+// cross-product traversal to forms in allowed. A nil set permits every form.
+func (a dictConfig) walkDepthWithin(
+	word, keyString string,
+	depth int,
+	allowed map[string]struct{},
+	visit func(string) bool,
+) (bool, error) {
+	if keyString == "" {
+		return visit(word), nil
+	}
 
 	flags := a.parseFlags(keyString)
 
@@ -166,19 +402,15 @@ func (a dictConfig) expandDepth(wordAffix string, out []string, depth int) ([]st
 			compoundOnly = true
 			continue
 		}
-		if _, ok := a.compoundMap[key]; !ok {
-			// the isn't a compound flag
-			continue
-		}
-		// is a compound flag
-		a.compoundMap[key] = append(a.compoundMap[key], word)
 	}
 
 	if compoundOnly {
-		return out, nil
+		return false, nil
 	}
 
-	out = append(out, word)
+	if visit(word) {
+		return true, nil
+	}
 	prefixes := make([]affix, 0, 5)
 	suffixes := make([]affix, 0, 5)
 	for _, key := range flags {
@@ -187,7 +419,9 @@ func (a dictConfig) expandDepth(wordAffix string, out []string, depth int) ([]st
 			continue
 		}
 		if !af.CrossProduct {
-			out = a.appendForms(af.forms(word), out, depth)
+			if a.walkForms(af.forms(word), depth, allowed, visit) {
+				return true, nil
+			}
 			continue
 		}
 		if af.Type == Prefix {
@@ -199,20 +433,29 @@ func (a dictConfig) expandDepth(wordAffix string, out []string, depth int) ([]st
 
 	// expand all suffixes with out any prefixes
 	for _, suf := range suffixes {
-		out = a.appendForms(suf.forms(word), out, depth)
+		if a.walkForms(suf.forms(word), depth, allowed, visit) {
+			return true, nil
+		}
 	}
 	for _, pre := range prefixes {
 		prewords := pre.forms(word)
-		out = a.appendForms(prewords, out, depth)
+		if a.walkForms(prewords, depth, allowed, visit) {
+			return true, nil
+		}
 
 		// now do cross product
 		for _, suf := range suffixes {
 			for _, w := range prewords {
-				out = a.appendForms(suf.forms(w.Word), out, depth)
+				if !wordAllowed(w.Word, allowed) {
+					continue
+				}
+				if a.walkForms(suf.forms(w.Word), depth, allowed, visit) {
+					return true, nil
+				}
 			}
 		}
 	}
-	return out, nil
+	return false, nil
 }
 
 // maxAffixDepth bounds how many times a continuation class may be followed.
@@ -223,34 +466,51 @@ func (a dictConfig) expandDepth(wordAffix string, out []string, depth int) ([]st
 // continue to itself, and following that faithfully would not terminate.
 const maxAffixDepth = 2
 
-// appendForms adds each generated form to out, then follows any continuation
-// flags it carries.
+// walkForms visits each generated form, then follows any continuation flags it
+// carries.
 //
 // This is the step Hunspell calls twofold affixation: `SFX 1 0 t/34,22 e` says
 // that after the rule builds its form, classes 34 and 22 apply to *that*. Not
 // following them leaves the further-inflected words unrecognized, which reads
 // to a user as their own dictionary not knowing an ordinary word -- most
 // visibly in Danish, Dutch and Hungarian, where inflection is built this way.
-func (a dictConfig) appendForms(forms []form, out []string, depth int) []string {
+func (a dictConfig) walkForms(
+	forms []form,
+	depth int,
+	allowed map[string]struct{},
+	visit func(string) bool,
+) bool {
 	for _, f := range forms {
-		out = append(out, f.Word)
-		if f.Cont == "" || depth >= maxAffixDepth {
+		if visit(f.Word) {
+			return true
+		}
+		continuation := a.resolveFlagAlias(f.Cont)
+		if continuation == "" || depth >= maxAffixDepth {
 			continue
 		}
-		// The continuation is expressed exactly like a dictionary entry, so
-		// it is expanded as one.
-		more, err := a.expandDepth(f.Word+"/"+f.Cont, nil, depth+1)
-		if err != nil {
+		if !wordAllowed(f.Word, allowed) {
 			continue
 		}
-		// expandDepth re-emits the word it was given; it is already in out.
-		for _, w := range more {
-			if w != f.Word {
-				out = append(out, w)
-			}
+		// walkDepth re-emits the word it was given. Filter every equal form as
+		// appendForms historically did because it is already visited above.
+		found, _ := a.walkDepthWithin(f.Word, continuation, depth+1, allowed, func(word string) bool {
+			return word != f.Word && visit(word)
+		})
+		if found {
+			return true
 		}
 	}
-	return out
+	return false
+}
+
+// wordAllowed reports whether word is in allowed, treating a nil set as
+// unrestricted.
+func wordAllowed(word string, allowed map[string]struct{}) bool {
+	if allowed == nil {
+		return true
+	}
+	_, found := allowed[word]
+	return found
 }
 
 // allDigits reports whether s is non-empty and contains only ASCII digits. It
@@ -286,6 +546,9 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 		compoundMap: make(map[string][]string),
 		CompoundMin: defaultCompoundMin,
 	}
+	// A negative value means that no AF table header has been seen. Keep the
+	// expected size separately because an alias vector may itself be numeric.
+	var flagAliasExpected int64 = -1
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -343,7 +606,11 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("ONLYINCOMPOUND stanza had %d fields, expected 2", len(parts))
 			}
-			aff.CompoundOnly = parts[1]
+			flag, err := aff.parseSingleFlag(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("ONLYINCOMPOUND stanza had invalid flag %q", parts[1])
+			}
+			aff.CompoundOnly = flag
 		case "COMPOUNDRULE":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("COMPOUNDRULE stanza had %d fields, expected 2", len(parts))
@@ -366,22 +633,42 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("NOSUGGEST stanza had %d fields, expected 2", len(parts))
 			}
-			aff.NoSuggestFlag = parts[1]
+			flag, err := aff.parseSingleFlag(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("NOSUGGEST stanza had invalid flag %q", parts[1])
+			}
+			aff.NoSuggestFlag = flag
 		case "COMPOUNDFLAG":
 			if len(parts) >= 2 {
-				aff.CompoundFlag = parts[1]
+				flag, err := aff.parseSingleFlag(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("COMPOUNDFLAG stanza had invalid flag %q", parts[1])
+				}
+				aff.CompoundFlag = flag
 			}
 		case "COMPOUNDBEGIN":
 			if len(parts) >= 2 {
-				aff.CompoundBegin = parts[1]
+				flag, err := aff.parseSingleFlag(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("COMPOUNDBEGIN stanza had invalid flag %q", parts[1])
+				}
+				aff.CompoundBegin = flag
 			}
 		case "COMPOUNDMIDDLE":
 			if len(parts) >= 2 {
-				aff.CompoundMiddle = parts[1]
+				flag, err := aff.parseSingleFlag(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("COMPOUNDMIDDLE stanza had invalid flag %q", parts[1])
+				}
+				aff.CompoundMiddle = flag
 			}
 		case "COMPOUNDEND":
 			if len(parts) >= 2 {
-				aff.CompoundEnd = parts[1]
+				flag, err := aff.parseSingleFlag(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("COMPOUNDEND stanza had invalid flag %q", parts[1])
+				}
+				aff.CompoundEnd = flag
 			}
 		case "WORDCHARS":
 			if len(parts) < 2 {
@@ -393,10 +680,40 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				return nil, fmt.Errorf("FLAG stanza had %d, expected 1", len(parts))
 			}
 			aff.Flag = parts[1]
+		case "AF":
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("AF stanza had %d fields, expected at least 2", len(parts))
+			}
+
+			if flagAliasExpected < 0 {
+				count, err := strconv.ParseInt(parts[1], 10, 64)
+				if err != nil || count < 1 {
+					return nil, fmt.Errorf("AF stanza had %q, expected positive number", parts[1])
+				}
+				flagAliasExpected = count
+				// The count comes from the file, so cap only the initial
+				// allocation. append grows the slice if a larger table is valid.
+				aff.FlagAliases = make([]string, 0, int(min(count, int64(maxFlagAliasCapacity))))
+				continue
+			}
+
+			if int64(len(aff.FlagAliases)) >= flagAliasExpected {
+				return nil, fmt.Errorf("AF table had more than %d entries", flagAliasExpected)
+			}
+			// Keep the vector in its original encoding. It is decoded according
+			// to FLAG only when a dictionary entry refers to this alias.
+			aff.FlagAliases = append(aff.FlagAliases, parts[1])
 		case "PFX", "SFX":
 			atype := Prefix
 			if parts[0] == "SFX" {
 				atype = Suffix
+			}
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("%s stanza had %d fields, expected at least 2", parts[0], len(parts))
+			}
+			flag, err := aff.parseSingleFlag(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("%s stanza had invalid flag %q", parts[0], parts[1])
 			}
 
 			sections := len(parts)
@@ -414,12 +731,11 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 					return nil, err
 				}
 				// this is a new Affix!
-				aff.AffixMap[parts[1]] = affix{
+				aff.AffixMap[flag] = affix{
 					Type:         atype,
 					CrossProduct: cross,
 				}
 			case sections >= 4:
-				flag := parts[1]
 				a, ok := aff.AffixMap[flag]
 				if !ok {
 					return nil, fmt.Errorf("got rules for flag %q but no definition", flag)
@@ -440,12 +756,7 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				var matcher *regexp.Regexp
 				var err error
 				if cond != "." {
-					pat := cond
-					if a.Type == Prefix {
-						pat = "^" + pat
-					} else {
-						pat += "$"
-					}
+					pat := hunspellConditionPattern(cond, a.Type)
 					matcher, err = regexp.Compile(pat)
 					if err != nil {
 						return nil, fmt.Errorf("unable to compile %s", pat)
@@ -489,6 +800,11 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+	if flagAliasExpected >= 0 && int64(len(aff.FlagAliases)) != flagAliasExpected {
+		return nil, fmt.Errorf(
+			"AF table had %d entries, expected %d",
+			len(aff.FlagAliases), flagAliasExpected)
 	}
 
 	return &aff, nil
