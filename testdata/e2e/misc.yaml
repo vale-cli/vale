@@ -474,3 +474,62 @@ cases:
     want: |
       doc.md:5:11:T.Hedging:Hedge: 'it's worth noting'.
       doc.md:17:20:T.Hedging:Hedge: 'it's worth noting'.
+
+  - name: fix-apply
+    about: "`fix --apply` writes every unambiguous fix -- exactly one
+      suggestion, at a span no other fix touches -- and reports the rest
+      rather than guessing: a multi-suggestion alert is skipped, and so is
+      every member of an overlapping pair"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Swap.yml: |
+        extends: substitution
+        message: "Use '%s'."
+        level: warning
+        action:
+          name: replace
+        swap:
+          utilize: use
+      styles/T/Multi.yml: |
+        extends: existence
+        message: "Vague: '%s'."
+        level: warning
+        action:
+          name: replace
+          params:
+            - alpha
+            - beta
+        tokens:
+          - vagueterm
+      styles/T/OverA.yml: |
+        extends: substitution
+        message: "Use '%s'."
+        level: warning
+        action:
+          name: replace
+        swap:
+          quite bad: poor
+      styles/T/OverB.yml: |
+        extends: substitution
+        message: "Use '%s'."
+        level: warning
+        action:
+          name: replace
+        swap:
+          bad outcome: failure
+      doc.md: |
+        We should utilize the API.
+
+        This vagueterm stays, and this was a quite bad outcome.
+    args: fix --apply doc.md
+    exit: 0
+    want: |
+      doc.md: applied 1, skipped 3
+        3:6	T.Multi	2 suggestions
+        3:38	T.OverA	overlaps T.OverB
+        3:44	T.OverB	overlaps T.OverA

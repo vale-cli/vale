@@ -66,6 +66,7 @@ func info() string {
 // switches the test suite and editor integrations set, and flags that work
 // but aren't announced yet.
 var hidden = []string{
+	"apply", // Not announced yet: `fix --apply` is still settling.
 	"built",
 	"counts", // Not announced yet: the summary shape is still settling.
 	"mode-compat",

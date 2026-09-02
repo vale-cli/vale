@@ -173,6 +173,7 @@ type CLIFlags struct {
 	Path          string
 	Sources       string
 	Filter        string
+	Apply         bool
 	Counts        bool
 	Local         bool
 	NoExit        bool

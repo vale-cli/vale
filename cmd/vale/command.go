@@ -107,13 +107,17 @@ var commands = map[string]command{
 	"run":            {Run: runRule, Summary: "Run a single rule against a file.", Hidden: true},
 	"transform":      {Run: transform, Summary: "Print a file after its transform.", Hidden: true},
 	"ls-path":        {Run: pathInfo, Summary: "Print the configuration files in scope.", Hidden: true},
-	"fix":            {Run: fix, Summary: "Attempt to automatically fix the given alert.", Hidden: true},
+	"fix":            {Run: fix, Summary: "Attempt to automatically fix the given alert.", Usage: "fix <alert> | fix --apply <path>...", Hidden: true},
 	"tag":            {Run: runTag, Summary: "Print a file's part-of-speech tags.", Hidden: true},
 	"dc":             {Run: printConfig, Summary: "Alias for `ls-config`.", Hidden: true},
 	"load":           {Run: loadConfigs, Summary: "Print a merged pair of configurations.", Hidden: true},
 }
 
 func fix(args []string, flags *core.CLIFlags) error {
+	if flags.Apply {
+		return applyFixes(args, flags)
+	}
+
 	if len(args) != 1 {
 		return core.NewE100("fix", errors.New("one argument expected"))
 	}
