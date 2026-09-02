@@ -408,3 +408,48 @@ func TestRuleParamLastWins(t *testing.T) {
 		t.Errorf("got %v; want the later value", cfg.RuleToParams["S.R"])
 	}
 }
+
+// An escaped comma stays inside its pattern; a bare one still separates
+// patterns. See #1164.
+func Test_processConfig_ignoresKeepEscapedCommas(t *testing.T) {
+	body := `[*]
+TokenIgnores = \b[a-z]{2\,}\b, (\$+[^\n$]+\$+)
+BlockIgnores = BEGIN.{2\,}END
+TokenIgnores = \\, \d{1\,3}
+
+[*.md]
+TokenIgnores = \b[a-z]{2\,}\b
+BlockIgnores = BEGIN.{2\,}END, (?s)<!--.*?-->
+`
+	uCfg, err := shadowLoad([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = processConfig(uCfg, conf, false); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"global TokenIgnores", conf.TokenIgnores["*"], []string{
+			`\b[a-z]{2,}\b`, `(\$+[^\n$]+\$+)`, `\\`, `\d{1,3}`,
+		}},
+		{"global BlockIgnores", conf.BlockIgnores["*"], []string{`BEGIN.{2,}END`}},
+		{"section TokenIgnores", conf.TokenIgnores["*.md"], []string{`\b[a-z]{2,}\b`}},
+		{"section BlockIgnores", conf.BlockIgnores["*.md"], []string{
+			`BEGIN.{2,}END`, `(?s)<!--.*?-->`,
+		}},
+	}
+	for _, c := range cases {
+		if fmt.Sprint(c.got) != fmt.Sprint(c.want) {
+			t.Errorf("%s: got %q, want %q", c.name, c.got, c.want)
+		}
+	}
+}

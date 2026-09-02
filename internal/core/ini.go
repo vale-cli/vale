@@ -52,6 +52,44 @@ func mergeValues(shadows []string) []string {
 	return values
 }
 
+// patternsWithShadows splits a key and its shadows on commas, keeping a
+// comma escaped as `\,` inside its pattern so a quantifier like `{2,}`
+// survives. Other escapes pass through untouched.
+func patternsWithShadows(key *ini.Key) []string {
+	var values []string
+	for _, v := range key.ValueWithShadows() {
+		values = append(values, splitEscaped(v, ',')...)
+	}
+	return mergeValues(values)
+}
+
+func splitEscaped(s string, delim rune) []string {
+	var vals []string
+	var buf strings.Builder
+	escape := false
+	for _, r := range s {
+		switch {
+		case escape:
+			if r != delim {
+				buf.WriteRune('\\')
+			}
+			buf.WriteRune(r)
+			escape = false
+		case r == '\\':
+			escape = true
+		case r == delim:
+			vals = append(vals, buf.String())
+			buf.Reset()
+		default:
+			buf.WriteRune(r)
+		}
+	}
+	if escape {
+		buf.WriteRune('\\')
+	}
+	return append(vals, buf.String())
+}
+
 func loadVocab(root string, cfg *Config) error {
 	target := ""
 	tried := []string{}
@@ -171,7 +209,7 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 		return nil
 	},
 	"BlockIgnores": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
-		cfg.BlockIgnores[label] = mergeValues(sec.Key("BlockIgnores").StringsWithShadows(","))
+		cfg.BlockIgnores[label] = patternsWithShadows(sec.Key("BlockIgnores"))
 		return nil
 	},
 	"CommentDelimiters": func(label string, sec *ini.Section, cfg *Config) error {
@@ -189,7 +227,7 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 
 	},
 	"TokenIgnores": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
-		cfg.TokenIgnores[label] = mergeValues(sec.Key("TokenIgnores").StringsWithShadows(","))
+		cfg.TokenIgnores[label] = patternsWithShadows(sec.Key("TokenIgnores"))
 		return nil
 	},
 	"Transform": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
@@ -229,10 +267,10 @@ var globalOpts = map[string]func(*ini.Section, *Config){
 		cfg.BlockIgnores["*"] = sec.Key("IgnorePatterns").Strings(",")
 	},
 	"BlockIgnores": func(sec *ini.Section, cfg *Config) {
-		cfg.BlockIgnores["*"] = mergeValues(sec.Key("BlockIgnores").StringsWithShadows(","))
+		cfg.BlockIgnores["*"] = patternsWithShadows(sec.Key("BlockIgnores"))
 	},
 	"TokenIgnores": func(sec *ini.Section, cfg *Config) {
-		cfg.TokenIgnores["*"] = mergeValues(sec.Key("TokenIgnores").StringsWithShadows(","))
+		cfg.TokenIgnores["*"] = patternsWithShadows(sec.Key("TokenIgnores"))
 	},
 	"Lang": func(sec *ini.Section, cfg *Config) {
 		cfg.FormatToLang["*"] = sec.Key("Lang").String()

@@ -131,6 +131,37 @@ cases:
       guides/b.md:1:15:T.Tok:'ZQX' found
       tutorials/a.md:1:27:T.Tok:'QQV' found
 
+  - name: ignores-keep-escaped-commas
+    about: "#1164 -- a comma escaped as `\\,` stays inside its pattern, so a
+      quantifier like `{2,}` survives; a bare comma still separates patterns"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*]
+        BlockIgnores = BEGIN.{2\,}END
+
+        [*.md]
+        BasedOnStyles = T
+        TokenIgnores = \b[a-z]{2\,}QQV\b, (<http[^\n]+>+?)
+      styles/T/Tok.yml: |
+        extends: existence
+        message: "'%s' found"
+        level: error
+        nonword: true
+        raw:
+          - (?:ZQX|QQV)
+      a.md: |
+        Ignored abQQV and <http://ZQX.example>, but QQV is not.
+
+        BEGIN and ZQX inside END, but ZQX outside.
+    args: a.md
+    exit: 1
+    want: |
+      a.md:1:45:T.Tok:'QQV' found
+      a.md:3:31:T.Tok:'ZQX' found
+
   - name: repeated-autolink
     about: "#847 -- an autolink's URL is one run of source, reported twice by
       the parser; masking the `href` copy used to send the text's search to the
