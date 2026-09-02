@@ -1,0 +1,42 @@
+# Ask each new contributor, once, to agree to .github/CLA.md.
+#
+# Signatures are committed to the `cla-signatures` branch, which must exist
+# and must not be protected. `pull_request_target` runs with the base
+# branch's permissions so the check works for forks; the PR's code is never
+# checked out here.
+name: cla
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    if: github.event_name == 'pull_request_target' || github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA and I agree to it'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-document: https://github.com/vale-cli/vale/blob/v3/.github/CLA.md
+          path-to-signatures: signatures/cla.json
+          branch: cla-signatures
+          allowlist: jdkato,bot*
+          create-file-commit-message: 'chore: create the CLA signature file'
+          signed-commit-message: 'chore: $contributorName agreed to the CLA in #$pullRequestNo'
+          custom-pr-sign-comment: 'I have read the CLA and I agree to it'
+          custom-notsigned-prcomment: >-
+            Before this can be merged, please read Vale's
+            [contributor license agreement]($pathToCLADocument), which is four short
+            points, and reply to this comment with the sentence below. This is once per
+            person, not per pull request.
+          custom-allsigned-prcomment: 'The license agreement is signed.'

@@ -10,6 +10,7 @@ Interested in contributing to Vale? Great&mdash;we welcome contributions of any 
 - [Benchmarking](#benchmarking)
 - [Code Contribution Guidelines](#code-contribution-guidelines)
 - [AI-Assisted Contributions](#ai-assisted-contributions)
+- [License Agreement](#license-agreement)
 - [Git Commit Message Guidelines](#git-commit-message-guidelines)
 - [Terminology](#terminology)
 
@@ -198,6 +199,14 @@ You may use whatever tools you like to write a contribution, with these conditio
 * **Undocumented options and hidden commands are out of scope.** If it isn't in the [documentation](https://docs.vale.sh/), it's an experiment and may be removed. Don't add tests or fixes that harden it.
 * **No unattended agents.** Tools must not open issues, comment on pull requests, or push commits without a person reading and approving each action.
 * **One thing at a time.** This repository uses GitHub's [pull request limits](https://github.blog/open-source/maintainers/how-pull-request-limits-are-cutting-down-the-noise/), which cap how many pull requests a contributor can have open at once. Finish one before opening the next.
+
+## License Agreement
+
+The first time you open a pull request, a bot will ask you to agree to Vale's [contributor license agreement](CLA.md). It's a few sentences, you agree by replying to a comment, and it's once per person, not per pull request.
+
+What it says: you wrote the change or have the right to contribute it, and you let the project use it under its current license and any other license it adopts later. You keep the copyright to your work.
+
+Why it exists: Vale has been MIT-licensed since 2016 and there are no plans to change that. The agreement is insurance, so that if the license ever does need to change, the project won't have to track down every past contributor for permission.
 
 ## Git Commit Message Guidelines
 
