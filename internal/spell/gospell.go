@@ -27,6 +27,37 @@ type goSpell struct {
 	splitter    *splitter
 	canCompound bool // dictionary uses COMPOUNDFLAG/BEGIN/MIDDLE/END
 	compoundMin int
+	breaks      []breakRule
+}
+
+// breakRule is one Hunspell BREAK pattern: a literal that a word may be
+// split on, or, when anchored, stripped from one end.
+type breakRule struct {
+	pattern string
+	atStart bool // written `^pattern`
+	atEnd   bool // written `pattern$`
+}
+
+// maxBreakDepth bounds how many times a word may be split by BREAK rules.
+const maxBreakDepth = 10
+
+func newBreakRules(patterns []string) []breakRule {
+	rules := make([]breakRule, 0, len(patterns))
+	for _, p := range patterns {
+		r := breakRule{pattern: p}
+		if len(r.pattern) > 1 && strings.HasPrefix(r.pattern, "^") {
+			r.atStart = true
+			r.pattern = r.pattern[1:]
+		}
+		if len(r.pattern) > 1 && strings.HasSuffix(r.pattern, "$") {
+			r.atEnd = true
+			r.pattern = r.pattern[:len(r.pattern)-1]
+		}
+		if r.pattern != "" {
+			rules = append(rules, r)
+		}
+	}
+	return rules
 }
 
 type dictionary struct {
@@ -131,6 +162,11 @@ func (s *goSpell) suggest(word string) []wordMatch {
 
 // spell checks to see if a given word is in the internal dictionaries
 func (s *goSpell) spell(word string) bool {
+	return s.spellDepth(word, 0)
+}
+
+// spellDepth is spell with a count of how many BREAK splits led here.
+func (s *goSpell) spellDepth(word string, depth int) bool {
 	_, ok := s.dict[word]
 	if ok {
 		return true
@@ -177,6 +213,49 @@ func (s *goSpell) spell(word string) bool {
 		}
 	}
 
+	return s.breakParts(word, depth)
+}
+
+// breakParts reports whether word is valid once split by the dictionary's
+// BREAK rules: an anchored rule strips its pattern from that end, and any
+// other rule splits at each occurrence, with both sides then checked on
+// their own (and split again as needed). See #1165.
+func (s *goSpell) breakParts(word string, depth int) bool {
+	if depth >= maxBreakDepth {
+		return false
+	}
+	for _, r := range s.breaks {
+		n := len(r.pattern)
+		switch {
+		case r.atStart:
+			if len(word) > n && strings.HasPrefix(word, r.pattern) &&
+				s.spellDepth(word[n:], depth+1) {
+				return true
+			}
+		case r.atEnd:
+			if len(word) > n && strings.HasSuffix(word, r.pattern) &&
+				s.spellDepth(word[:len(word)-n], depth+1) {
+				return true
+			}
+		default:
+			// Only interior occurrences: both sides must be non-empty.
+			for i := strings.Index(word[1:], r.pattern); i >= 0; {
+				at := i + 1
+				if at+n >= len(word) {
+					break
+				}
+				if s.spellDepth(word[:at], depth+1) &&
+					s.spellDepth(word[at+n:], depth+1) {
+					return true
+				}
+				next := strings.Index(word[at+1:], r.pattern)
+				if next < 0 {
+					break
+				}
+				i = at + next
+			}
+		}
+	}
 	return false
 }
 
@@ -268,6 +347,7 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 		splitter:    newSplitter(affix.WordChars),
 		canCompound: affix.compoundingEnabled(),
 		compoundMin: affix.CompoundMin,
+		breaks:      newBreakRules(affix.Break),
 	}
 
 	words := []string{}

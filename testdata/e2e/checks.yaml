@@ -95,6 +95,47 @@ cases:
       test.md:32:17:Vale.Spelling:Did you really mean 'gfm'?
       test.md:34:17:Vale.Spelling:Did you really mean 'remmark'?
 
+  - name: spelling-break-rules
+    about: "#1165 -- a dictionary's BREAK rules split a word, so `foo-bar`
+      passes when both pieces do; a piece that fails still reports the word"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = error
+
+        [*.md]
+        BasedOnStyles = Break
+      styles/Break/Spelling.yml: |
+        extends: spelling
+        message: "'%s' is not recognized."
+        level: error
+        custom: true
+        dictionaries:
+          - break
+      styles/config/dictionaries/break.aff: |
+        SET UTF-8
+
+        BREAK 1
+        BREAK -
+
+        WORDCHARS -
+      styles/config/dictionaries/break.dic: |
+        2
+        foo
+        bar
+      input.md: |
+        foo
+
+        bar
+
+        foo-bar
+
+        foo-qux
+    args: input.md
+    exit: 1
+    want: |
+      input.md:7:1:Break.Spelling:'foo-qux' is not recognized.
+
   - name: existence
     dir: Existence
     args: .

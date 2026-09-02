@@ -78,12 +78,16 @@ const (
 	maxCompoundMin = 100
 	// maxCompoundRules caps what a COMPOUNDRULE count may preallocate.
 	maxCompoundRules = 1 << 16
+	// maxBreakRules caps how many BREAK patterns are kept; a real
+	// dictionary declares a handful.
+	maxBreakRules = 64
 )
 
 type dictConfig struct {
 	IconvReplacements []string
 	Replacements      [][2]string
 	CompoundRule      []string
+	Break             []string
 	Flag              string
 	TryChars          string
 	WordChars         string
@@ -286,6 +290,8 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 		compoundMap: make(map[string][]string),
 		CompoundMin: defaultCompoundMin,
 	}
+	sawBreakCount := false
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -387,6 +393,19 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				return nil, fmt.Errorf("WORDCHAR stanza had %d fields, expected 2", len(parts))
 			}
 			aff.WordChars = parts[1]
+		case "BREAK":
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("BREAK stanza had %d fields, expected 2", len(parts))
+			}
+			// The first BREAK line is a count, which only preallocates; the
+			// rest are patterns. See #1165.
+			if !sawBreakCount && allDigits(parts[1]) {
+				sawBreakCount = true
+				continue
+			}
+			if len(aff.Break) < maxBreakRules {
+				aff.Break = append(aff.Break, parts[1])
+			}
 		case "FLAG":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("FLAG stanza had %d, expected 1", len(parts))

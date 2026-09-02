@@ -412,3 +412,72 @@ func TestCompoundRuleCapacityIsBounded(t *testing.T) {
 		t.Errorf("capacity = %d, want <= %d", cap(aff.CompoundRule), maxCompoundRules)
 	}
 }
+
+// A dictionary's BREAK rules let a word pass when each piece does. See
+// #1165.
+func TestBreakRules(t *testing.T) {
+	dic := "2\nfoo\nbar\n"
+	load := func(aff string) *goSpell {
+		t.Helper()
+		gs, err := newGoSpellReader(strings.NewReader(aff), strings.NewReader(dic))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return gs
+	}
+
+	plain := load("SET UTF-8\nBREAK 1\nBREAK -\nWORDCHARS -\n")
+	for word, want := range map[string]bool{
+		"foo-bar":     true,
+		"foo-bar-foo": true, // split more than once
+		"foo-qux":     false,
+		"qux-bar":     false,
+		"-foo":        false, // an interior rule needs both sides
+		"foo-":        false,
+		"foo--bar":    false,
+	} {
+		if got := plain.spell(word); got != want {
+			t.Errorf("BREAK -: spell(%q) = %v, want %v", word, got, want)
+		}
+	}
+
+	anchored := load("SET UTF-8\nBREAK 2\nBREAK ^-\nBREAK -$\n")
+	for word, want := range map[string]bool{
+		"-foo":    true,
+		"foo-":    true,
+		"-foo-":   true,
+		"foo-bar": false, // no interior rule
+		"-":       false,
+	} {
+		if got := anchored.spell(word); got != want {
+			t.Errorf("anchored BREAK: spell(%q) = %v, want %v", word, got, want)
+		}
+	}
+
+	none := load("SET UTF-8\n")
+	if none.spell("foo-bar") {
+		t.Error("expected 'foo-bar' to be rejected without BREAK rules")
+	}
+}
+
+func TestBreakRulesParse(t *testing.T) {
+	tests := map[string][]string{
+		"BREAK 0":                    nil,
+		"BREAK 2\nBREAK -\nBREAK ^-": {"-", "^-"},
+		"BREAK -\nBREAK --":          {"-", "--"}, // count is optional
+		"BREAK 1\nBREAK 3":           {"3"},       // only the first number is a count
+	}
+	for src, want := range tests {
+		aff, err := newDictConfig(strings.NewReader(src))
+		if err != nil {
+			t.Errorf("%q: %v", src, err)
+			continue
+		}
+		if strings.Join(aff.Break, ",") != strings.Join(want, ",") {
+			t.Errorf("%q: Break = %q, want %q", src, aff.Break, want)
+		}
+	}
+	if _, err := newDictConfig(strings.NewReader("BREAK")); err == nil {
+		t.Error("expected a bare BREAK line to be rejected")
+	}
+}
