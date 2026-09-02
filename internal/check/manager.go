@@ -336,6 +336,13 @@ func (mgr *Manager) compileCheck(file []byte, chkName, path string) (Rule, bool,
 	} else if _, ok = generic["level"]; !ok {
 		generic["level"] = "warning"
 	}
+
+	// Scalar overrides from the configuration -- `Std.SentenceLength[max] =
+	// 30` -- land after inheritance and before the decoder, which coerces the
+	// string and rejects a parameter the rule does not have.
+	for param, val := range mgr.Config.RuleToParams[chkName] {
+		generic[param] = val
+	}
 	if scope, ok := generic["scope"]; scope == nil || !ok {
 		// Not for `sequence`, which needs to tell an unset scope from an
 		// explicit `text` one: it runs on sentences, and has to know whether

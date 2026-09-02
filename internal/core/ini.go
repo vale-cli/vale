@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/errata-ai/ini"
@@ -92,6 +93,50 @@ func loadVocab(root string, cfg *Config) error {
 // a single map made the last section in the file decide the level everywhere,
 // so `Vale.Spelling = warning` for Markdown quietly downgraded HTML too. See
 // #965.
+// ruleParam matches a php.ini-style parameter key: `Std.SentenceLength[max]`.
+// The name half must be a rule (contain a dot) and must not itself contain
+// brackets, which rule names are forbidden to hold.
+var ruleParam = regexp.MustCompile(`^([^\[\]]+\.[^\[\]]+)\[([A-Za-z][A-Za-z0-9]*)\]$`)
+
+// structuralKeys are the fields an ini value cannot express or should not
+// own: lists, mappings, identity, and the rule's own prose. Changing these is
+// authoring, which is what extending a rule in a style is for.
+var structuralKeys = []string{
+	"extends", "name", "path", "tests", "message", "description", "link",
+	"tokens", "swap", "exceptions", "filters", "ignore", "raw", "either",
+}
+
+// asRuleParam intercepts a parameter key, storing it on cfg and reporting
+// whether it was one. Parameters apply when the rule compiles, so unlike
+// levels they hold wherever the rule runs. A later configuration file wins;
+// within one file, the ini library keeps a duplicated key's first value.
+func asRuleParam(key, val string, cfg *Config) (bool, error) {
+	groups := ruleParam.FindStringSubmatch(key)
+	if groups == nil {
+		return false, nil
+	}
+
+	name, param := groups[1], strings.ToLower(groups[2])
+	if param == "level" {
+		// The classic key already says this, and has for a decade; a second
+		// spelling that shadows it helps nobody.
+		return true, NewE201FromTarget(fmt.Sprintf(
+			"set a level with '%s = %s'", name, val), key, cfg.RootINI)
+	}
+	if StringInSlice(param, structuralKeys) {
+		return true, NewE201FromTarget(fmt.Sprintf(
+			"'%s' is not adjustable from configuration; extend '%s' in a style instead",
+			param, name), key, cfg.RootINI)
+	}
+
+	if _, ok := cfg.RuleToParams[name]; !ok {
+		cfg.RuleToParams[name] = map[string]string{}
+	}
+	cfg.RuleToParams[name][param] = val
+
+	return true, nil
+}
+
 func validateLevel(key, val string, levels map[string]string) bool {
 	options := []string{"YES", "suggestion", "warning", "error"}
 	if val == "NO" || !StringInSlice(val, options) {
@@ -425,7 +470,9 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 		} else if _, found = syntaxOpts[k]; found {
 			msg := fmt.Sprintf("'%s' is a syntax-specific option", k)
 			return nil, NewE201FromTarget(msg, k, cfg.RootINI)
-		} else {
+		} else if isParam, pErr := asRuleParam(k, global.Key(k).String(), cfg); pErr != nil {
+			return nil, pErr
+		} else if !isParam {
 			cfg.GChecks[k] = validateLevel(k, global.Key(k).String(), cfg.RuleToLevel)
 			cfg.Checks = append(cfg.Checks, k)
 		}
@@ -452,7 +499,9 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 				if err = f(sec, uCfg.Section(sec), cfg); err != nil && !dry {
 					return nil, err
 				}
-			} else {
+			} else if isParam, pErr := asRuleParam(k, uCfg.Section(sec).Key(k).String(), cfg); pErr != nil {
+				return nil, pErr
+			} else if !isParam {
 				syntaxMap[k] = validateLevel(k, uCfg.Section(sec).Key(k).String(), levelMap)
 				cfg.Checks = append(cfg.Checks, k)
 			}

@@ -225,7 +225,13 @@ func CheckName(styleRoot, rulePath string) (string, error) {
 	base := strings.Split(parts[len(parts)-1], ".")[0]
 	parts[len(parts)-1] = base
 
-	return filepath.Base(styleRoot) + "." + strings.Join(parts, "."), nil
+	name := filepath.Base(styleRoot) + "." + strings.Join(parts, ".")
+	if strings.ContainsAny(name, "[]") {
+		// `Style.Rule[param]` is configuration syntax; a name holding
+		// brackets would make every such key ambiguous.
+		return "", fmt.Errorf("'%s' contains brackets, which rule names cannot", name)
+	}
+	return name, nil
 }
 
 func StyleName(rule string) string {

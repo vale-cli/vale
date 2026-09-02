@@ -203,6 +203,7 @@ type Config struct {
 	MinAlertLevel     int                          // Lowest alert level to display
 	Vocab             []string                     // The active project
 	RuleToLevel       map[string]string            // Single-rule level changes
+	RuleToParams      map[string]map[string]string // Single-rule scalar overrides
 	SBaseStyles       map[string][]string          // Syntax-specific base styles
 	SChecks           map[string]map[string]bool   // Syntax-specific checks
 	SLevels           map[string]map[string]string // Syntax-specific level changes
@@ -243,6 +244,7 @@ func NewConfig(flags *CLIFlags) (*Config, error) {
 	cfg.GChecks = make(map[string]bool)
 	cfg.MinAlertLevel = 0
 	cfg.RuleToLevel = make(map[string]string)
+	cfg.RuleToParams = make(map[string]map[string]string)
 	cfg.SBaseStyles = make(map[string][]string)
 	cfg.SChecks = make(map[string]map[string]bool)
 	cfg.SLevels = make(map[string]map[string]string)

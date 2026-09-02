@@ -352,3 +352,59 @@ func TestFileLevel(t *testing.T) {
 		})
 	}
 }
+
+// `Style.Rule[param]` is the php.ini-style parameter key; anything else is
+// left for the level/toggle path, and structural fields are refused with a
+// pointer at inheritance.
+func TestAsRuleParam(t *testing.T) {
+	cfg, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		key, val string
+		isParam  bool
+	}{
+		{"Std.SentenceLength[max]", "30", true},
+		{"Std.dates.TimeFormat[ignorecase]", "true", true},
+		{"Std.SentenceLength", "error", false},
+		{"BasedOnStyles", "Std", false},
+		{"NoDot[max]", "1", false},
+	} {
+		got, pErr := asRuleParam(tt.key, tt.val, cfg)
+		if pErr != nil {
+			t.Fatalf("%s: %v", tt.key, pErr)
+		}
+		if got != tt.isParam {
+			t.Errorf("asRuleParam(%q) = %v; want %v", tt.key, got, tt.isParam)
+		}
+	}
+
+	if cfg.RuleToParams["Std.SentenceLength"]["max"] != "30" {
+		t.Errorf("param not stored: %v", cfg.RuleToParams)
+	}
+
+	if _, pErr := asRuleParam("Std.Passive[tokens]", "x", cfg); pErr == nil ||
+		!strings.Contains(pErr.Error(), "extend") {
+		t.Errorf("structural param: got %v; want the extend guidance", pErr)
+	}
+
+	// One spelling per setting: the classic key owns levels.
+	if _, pErr := asRuleParam("S.R[level]", "error", cfg); pErr == nil ||
+		!strings.Contains(pErr.Error(), "S.R = error") {
+		t.Errorf("bracketed level: got %v; want a pointer at the classic key", pErr)
+	}
+}
+
+// A later *configuration* wins -- package fragments and the local ini load
+// sequentially, each calling this once per key. Within one file the ini
+// library collapses duplicate keys to the first before this layer runs.
+func TestRuleParamLastWins(t *testing.T) {
+	cfg, _ := NewConfig(&CLIFlags{})
+	_, _ = asRuleParam("S.R[max]", "10", cfg)
+	_, _ = asRuleParam("S.R[max]", "20", cfg)
+	if cfg.RuleToParams["S.R"]["max"] != "20" {
+		t.Errorf("got %v; want the later value", cfg.RuleToParams["S.R"])
+	}
+}

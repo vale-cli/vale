@@ -243,6 +243,10 @@ func TestCheckName(t *testing.T) {
 		{"styles/Std", "styles/Std/Terms.custom.yml", "Std.Terms"},
 	}
 
+	if _, err := CheckName("styles/Std", "styles/Std/Weird[max].yml"); err == nil {
+		t.Error("a bracketed rule name must be rejected")
+	}
+
 	for _, tt := range cases {
 		got, err := CheckName(tt.root, tt.path)
 		if err != nil {
