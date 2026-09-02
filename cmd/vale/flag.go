@@ -34,6 +34,8 @@ func init() {
 		"Log each step instead of drawing a progress bar.")
 	pflag.BoolVar(&Flags.Wrap, "no-wrap", false, "Don't wrap CLI output.")
 	pflag.BoolVar(&Flags.NoExit, "no-exit", false, "Don't return a nonzero exit code on errors.")
+	pflag.BoolVar(&Flags.Counts, "counts", false,
+		"Include per-check alert counts, zeros included, in JSON output.")
 	pflag.BoolVar(&Flags.Simple, "ignore-syntax", false, "Lint all files line-by-line.")
 	pflag.BoolVarP(&Flags.Version, "version", "v", false, "Print the current version.")
 	pflag.BoolVarP(&Flags.Help, "help", "h", false, "Print this help message.")

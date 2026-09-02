@@ -375,3 +375,59 @@ cases:
       test.md:3:25:T.Tok:'ZQX' left in text
       test.md:3:58:T.Tok:'ZQX' left in text
       test.md:5:22:T.Tok:'ZQX' left in text
+
+  - name: json-counts
+    about: "--counts adds a per-check tally to JSON output, zeros included: an
+      enabled check that never fires is otherwise invisible, so a dead rule is
+      indistinguishable from a working one"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Live.yml: |
+        extends: existence
+        message: "'%s' left in text"
+        level: error
+        tokens:
+          - TODO
+      styles/T/Dead.yml: |
+        extends: existence
+        message: "should never fire"
+        level: error
+        tokens:
+          - zzzz-nothing
+      doc.md: |
+        A TODO left here.
+    args: --output=JSON --counts doc.md
+    exit: 1
+    want: |
+      {
+        "files": {
+          "doc.md": [
+            {
+              "Action": {
+                "Name": "",
+                "Params": null
+              },
+              "Span": [
+                3,
+                6
+              ],
+              "Check": "T.Live",
+              "Description": "",
+              "Link": "",
+              "Message": "'TODO' left in text",
+              "Severity": "error",
+              "Match": "TODO",
+              "Line": 1
+            }
+          ]
+        },
+        "counts": {
+          "T.Dead": 0,
+          "T.Live": 1
+        }
+      }

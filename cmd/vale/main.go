@@ -180,6 +180,15 @@ func main() {
 		handleError(err)
 	}
 
+	if config.Flags.Counts && config.Flags.Output == "JSON" {
+		hasErrors := PrintJSONAlertsWithCounts(linted, countAlerts(linter.Manager, linted))
+		stopProfiling()
+		if hasErrors && !Flags.NoExit {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	hasErrors, err := PrintAlerts(linted, config)
 	if err != nil {
 		handleError(err)

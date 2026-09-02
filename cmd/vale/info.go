@@ -62,10 +62,12 @@ func info() string {
 		toCodeStyle("vale --help"))
 }
 
-// hidden names the flags the listing leaves out: compatibility shims and the
-// switches the test suite and editor integrations set.
+// hidden names the flags the listing leaves out: compatibility shims, the
+// switches the test suite and editor integrations set, and flags that work
+// but aren't announced yet.
 var hidden = []string{
 	"built",
+	"counts", // Not announced yet: the summary shape is still settling.
 	"mode-compat",
 	"mode-rev-compat",
 	"normalize",
