@@ -9,6 +9,7 @@ Interested in contributing to Vale? Great&mdash;we welcome contributions of any 
 - [Testing](#testing)
 - [Benchmarking](#benchmarking)
 - [Code Contribution Guidelines](#code-contribution-guidelines)
+- [AI-Assisted Contributions](#ai-assisted-contributions)
 - [Git Commit Message Guidelines](#git-commit-message-guidelines)
 - [Terminology](#terminology)
 
@@ -185,6 +186,18 @@ To make the contribution process as seamless as possible, we ask for the followi
     * Run `gofmt` (or `go fmt ./...`) on anything you've touched.
     * Squash your commits into a single commit with `git rebase -i`. It's okay to force update your pull request with `git push -f`.
     * Follow the **Git Commit Message Guidelines** below.
+
+## AI-Assisted Contributions
+
+You may use whatever tools you like to write a contribution, with these conditions:
+
+* **You are the author.** You must understand every line you submit and be able to answer questions about it in review without going back to the tool. If you can't, don't open the pull request.
+* **Say so.** If a substantial part of the code or text was tool-generated, note the tool in the pull request description or a commit trailer such as `Assisted-by: Claude Code`. This helps review; it isn't a mark against the change.
+* **Write the description yourself.** State the problem and the fix in a few sentences. A long, sectioned write-up for a small change costs more review time than the change.
+* **Don't sweep the tree.** A pull request should fix a bug you hit or build a feature that was agreed in an issue first. Standalone cleanups, dead-code removal, and refactors found by running a tool over the codebase will be closed; fold them into the change that needs them.
+* **Undocumented options and hidden commands are out of scope.** If it isn't in the [documentation](https://docs.vale.sh/), it's an experiment and may be removed. Don't add tests or fixes that harden it.
+* **No unattended agents.** Tools must not open issues, comment on pull requests, or push commits without a person reading and approving each action.
+* **One thing at a time.** This repository uses GitHub's [pull request limits](https://github.blog/open-source/maintainers/how-pull-request-limits-are-cutting-down-the-noise/), which cap how many pull requests a contributor can have open at once. Finish one before opening the next.
 
 ## Git Commit Message Guidelines
 
