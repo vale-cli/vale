@@ -148,6 +148,35 @@ cases:
     exit: 0
     want: ""
 
+  - name: skip-inline-mask
+    about: "#1173 -- an inline element in SkippedScopes is masked, not
+      dropped, so the words around it keep their distance"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+        SkippedScopes = code
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Contractions.yml: |
+        extends: substitution
+        message: "Use '%s' instead of '%s'."
+        level: error
+        ignorecase: true
+        swap:
+          'where is(?!\.)': where's
+      test.md: |
+        Something where `some_param` is `false`.
+
+        Something where `x` is set.
+
+        Something where is it.
+    args: test.md
+    exit: 1
+    want: |
+      test.md:5:11:T.Contractions:Use 'where's' instead of 'where is'.
+
   - name: inline-spacing
     about: "#1111, #1119. The adoc headings are #502: a token that markup
       extraction introduced fails the strict threshold, and the alert is placed

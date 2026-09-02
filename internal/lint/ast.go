@@ -107,14 +107,10 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 		blockSkip := skipClass && !core.StringInSlice(txt, inlineTags)
 		if tokt == html.ErrorToken { //nolint:gocritic
 			break
-		} else if tokt == html.StartTagToken && (core.StringInSlice(txt, skipTags) || blockSkip) {
+		} else if tokt == html.StartTagToken && !core.StringInSlice(txt, inlineTags) &&
+			(core.StringInSlice(txt, skipTags) || blockSkip) {
 			walker.setCls(txt, blockSkip)
 			inBlock = true
-			// A skipped *inline* element (e.g. `code` in SkippedScopes) still
-			// separates the words around it, so mark the following text inline
-			// to keep its leading space -- otherwise `in <code/> for` collapses
-			// to `infor`. See #1052.
-			inline = core.StringInSlice(txt, inlineTags)
 			f.Metrics[txt]++
 		} else if inBlock && (core.StringInSlice(txt, skipTags) || closed) {
 			inBlock = false
@@ -141,13 +137,16 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				txt = "code"
 			}
 			inline = core.StringInSlice(txt, inlineTags)
-			skip = core.StringInSlice(txt, skipped)
+			// An inline element named in SkippedScopes is masked like an
+			// ignored one, rather than dropped: `where <code>x</code> is`
+			// must not read as `where is` (#1173), nor `in <code/> for` as
+			// `infor` (#1052).
+			skip = core.StringInSlice(txt, skipped) || core.StringInSlice(txt, skipTags)
 			closedInline = false
 			if scope, ok := wanted[txt]; ok {
 				// A skipped element's text is masked out of the block, so its
 				// capture has to read the text as it arrived instead.
-				open = append(open, inlineCapture{
-					tag: txt, scope: scope, masked: core.StringInSlice(txt, skipped)})
+				open = append(open, inlineCapture{tag: txt, scope: scope, masked: skip})
 			}
 			walker.addTag(txt, class)
 		} else if tokt == html.EndTagToken && core.StringInSlice(txt, inlineTags) {
