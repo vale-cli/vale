@@ -609,11 +609,15 @@ func sentenceScope(declared []string) []string {
 			scopes = append(scopes, s)
 			continue
 		}
-		// Negation applies to the part being excluded, so it stays in front:
-		// `~list` narrows to sentences outside a list, not to something
-		// outside `sentence.list`.
-		if neg, found := strings.CutPrefix(s, "~"); found {
-			scopes = append(scopes, "~"+neg)
+		// A bare negated term names only what to exclude and never mentions
+		// `sentence` itself, so asksForSentence (scope.go) skips every
+		// `sentence.*` fragment block for it and the rule matched the whole
+		// unsegmented block instead -- narrowing to `~list` alone was a
+		// no-op. AND-ing `sentence` in front keeps the exclusion and still
+		// narrows: `sentence&~list` is "sentences outside a list", which is
+		// what the rule actually needs.
+		if strings.HasPrefix(s, "~") {
+			scopes = append(scopes, "sentence&"+s)
 			continue
 		}
 		// `paragraph` names no block of its own. Splitting wraps every block

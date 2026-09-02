@@ -71,7 +71,15 @@ func TestSentenceScope(t *testing.T) {
 		{"a block scope is narrowed", []string{"list"}, []string{"sentence.list"}},
 		{"already a sentence scope", []string{"sentence"}, []string{"sentence"}},
 		{"already narrowed", []string{"sentence.list"}, []string{"sentence.list"}},
-		{"negation stays in front", []string{"~list"}, []string{"~list"}},
+		// A bare negated term never mentions `sentence`, so asksForSentence
+		// (scope.go) skipped every `sentence.*` fragment block for it and the
+		// rule matched the whole unsegmented block instead: `~list` alone left
+		// `s` unchanged. `sentence&~list` still excludes list items, but only
+		// within sentence-fragment blocks.
+		{"negation is AND-ed with sentence",
+			[]string{"~list"}, []string{"sentence&~list"}},
+		{"a chained negation is AND-ed the same way",
+			[]string{"~list&text"}, []string{"sentence&~list&text"}},
 		{"several at once",
 			[]string{"heading", "list"},
 			[]string{"sentence.heading", "sentence.list"}},
@@ -100,6 +108,65 @@ func TestSentenceScope(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The real, dispatched consequence of the negation bug above: a plain rule
+// with a bare negated scope matched the same real-world sentence through two
+// different blocks at once. `~list` narrowed to nothing, so Scope.Matches
+// treated the rule as if it had no scope at all and matched both
+// `paragraph.text.md` and its own whole-block copy `text.md` -- the same
+// underlying text, dispatched to Run twice, once for each block. One real
+// match produced two identical alerts.
+//
+// Dispatched the way the real linter dispatches a `sequence` check: through
+// the same block splitting (nlp.Info.Compute) and scope matching
+// (Scope.Matches) it uses, instead of handing text to Run directly. A block
+// built by hand and passed straight to Run bypasses that dispatch entirely,
+// so it cannot see this bug at all.
+func TestSequenceNegatedScopeDoesNotDoubleReport(t *testing.T) {
+	rule, err := NewSequence(testConfig(), baseCheck{
+		"extends":    "sequence",
+		"name":       "Test.WidgetArrivedNegatedScope",
+		"level":      "error",
+		"ignorecase": true,
+		"message":    "matched",
+		"scope":      []string{"~list"},
+		"tokens": []interface{}{
+			map[string]interface{}{"pattern": "widget"},
+			map[string]interface{}{"pattern": "arrived", "skip": 1},
+		},
+	}, "Test.WidgetArrivedNegatedScope")
+	if err != nil {
+		t.Fatalf("building rule: %v", err)
+	}
+
+	text := "I bought a widget that arrived promptly, said the courier."
+
+	f := &core.File{NLP: nlp.Info{Segmentation: true, Splitting: true}}
+	paragraph := nlp.NewLinedBlock("", text, "text.md", 1)
+
+	blocks, cerr := f.NLP.Compute(&paragraph, true)
+	if cerr != nil {
+		t.Fatalf("computing blocks: %v", cerr)
+	}
+
+	scope := NewScope(rule.Fields().Scope)
+
+	var alerts []core.Alert
+	for _, blk := range blocks {
+		if !scope.Matches(blk) {
+			continue
+		}
+		got, rerr := rule.Run(blk, f, testConfig())
+		if rerr != nil {
+			t.Fatalf("running rule: %v", rerr)
+		}
+		alerts = append(alerts, got...)
+	}
+
+	if len(alerts) != 1 {
+		t.Errorf("produced %d alerts for one real match, want exactly 1", len(alerts))
 	}
 }
 
