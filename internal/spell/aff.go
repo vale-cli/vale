@@ -334,11 +334,10 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 			// rather than refusing the dictionary; a `.aff` is data we are given,
 			// so an absurd length is not worth failing over. Bounding it here is
 			// also what keeps the value safe to use as a length below.
-			if val < 1 || val > maxCompoundMin {
-				val = defaultCompoundMin
+			aff.CompoundMin = defaultCompoundMin
+			if val >= 1 && val <= maxCompoundMin {
+				aff.CompoundMin = int(val)
 			}
-			// Safe to narrow: the bounds above are well inside an int.
-			aff.CompoundMin = int(val)
 		case "ONLYINCOMPOUND":
 			if len(parts) < 2 {
 				return nil, fmt.Errorf("ONLYINCOMPOUND stanza had %d fields, expected 2", len(parts))
