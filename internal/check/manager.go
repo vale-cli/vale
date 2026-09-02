@@ -315,6 +315,13 @@ func (mgr *Manager) compileCheck(file []byte, chkName, path string) (Rule, bool,
 		return nil, false, err
 	}
 
+	// An `extends` naming a rule rather than an extension point starts from
+	// that rule's definition; see inherit.go.
+	generic, err = mgr.flatten(generic, path, nil)
+	if err != nil {
+		return nil, false, err
+	}
+
 	// Set default values, if necessary.
 	generic["name"] = chkName
 	generic["path"] = path

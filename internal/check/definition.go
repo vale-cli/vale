@@ -269,8 +269,9 @@ func validateDefinition(generic map[string]interface{}, path string) error {
 			"Missing the required 'extends' key.",
 			path,
 			1)
-	} else if !core.StringInSlice(point.(string), extensionPoints) {
-		key, _ := point.(string)
+	} else if key, _ := point.(string); !core.StringInSlice(key, extensionPoints) && !isRuleRef(key) {
+		// A dotted value names another rule to extend; inherit.go resolves it
+		// before buildRule, which only ever sees an extension point.
 		return core.NewE201FromTarget(
 			fmt.Sprintf("'extends' key must be one of %v.", extensionPoints),
 			key,
@@ -278,10 +279,14 @@ func validateDefinition(generic map[string]interface{}, path string) error {
 	}
 
 	if _, ok := generic["message"]; !ok {
-		return core.NewE201FromPosition(
-			"Missing the required 'message' key.",
-			path,
-			1)
+		// A rule extending another rule inherits its message unless it says
+		// otherwise; the chain's root is still held to this when it parses.
+		if key, _ := generic["extends"].(string); !isRuleRef(key) {
+			return core.NewE201FromPosition(
+				"Missing the required 'message' key.",
+				path,
+				1)
+		}
 	}
 
 	if level, ok := generic["level"]; ok {

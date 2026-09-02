@@ -141,6 +141,12 @@ func isolate(c Case, search []string) (*lint.Linter, error) {
 	cfg.MinAlertLevel = 0
 	cfg.GBaseStyles = []string{style}
 
+	// A rule that extends another rule resolves its parent against the search
+	// paths; isolation changes what runs, not what a reference means.
+	for _, sp := range search {
+		cfg.AddStylesPath(sp)
+	}
+
 	linter, err := lint.NewLinter(cfg)
 	if err != nil {
 		return nil, err
