@@ -41,8 +41,11 @@ func (a affix) forms(word string) []form {
 			continue
 		}
 		if a.Type == Prefix {
-			out = append(out, form{Word: r.AffixText + word, Cont: r.Cont})
-			// TODO is does Strip apply to prefixes too?
+			stripWord := word
+			if r.Strip != "" && strings.HasPrefix(word, r.Strip) {
+				stripWord = word[len(r.Strip):]
+			}
+			out = append(out, form{Word: r.AffixText + stripWord, Cont: r.Cont})
 		} else {
 			stripWord := word
 			if r.Strip != "" && strings.HasSuffix(word, r.Strip) {
@@ -767,9 +770,7 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 				//
 				// TODO: Is this safe to do in all cases?
 				affixText, cont := parts[3], ""
-				if affixText == "0" {
-					affixText = ""
-				} else if text, flags, found := strings.Cut(affixText, "/"); found {
+				if text, flags, found := strings.Cut(affixText, "/"); found {
 					// Split off the affix's own continuation flags, e.g. the
 					// "/34,22" in `SFX 1 0 t/34,22 e`. Left in place they would
 					// be appended to the generated word ("stavet/34,22"), so
@@ -780,6 +781,11 @@ func newDictConfig(file io.Reader) (*dictConfig, error) { //nolint:funlen
 					// is how Hunspell builds a word like `stavets` from
 					// `stave` in two steps. See expand.
 					affixText, cont = text, flags
+				}
+				// Hunspell uses 0 for an empty affix, including when it carries
+				// continuation flags such as `0/L`.
+				if affixText == "0" {
+					affixText = ""
 				}
 
 				a.Rules = append(a.Rules, rule{

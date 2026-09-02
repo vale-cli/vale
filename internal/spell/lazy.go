@@ -64,7 +64,9 @@ func (i reverseAffixIndex) predecessors(word string, out map[string]struct{}) {
 		}
 		text := word[:length]
 		for _, current := range i.prefixes[text] {
-			candidate := word[length:]
+			// Reverse the forward prefix transformation by removing the added
+			// prefix and restoring the text stripped from the dictionary root.
+			candidate := current.Strip + word[length:]
 			if current.matcher == nil || current.matcher.MatchString(candidate) {
 				out[candidate] = struct{}{}
 			}

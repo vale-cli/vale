@@ -239,6 +239,74 @@ root/1
 	}
 }
 
+// TestZeroAffixWithContinuationFlags verifies that a zero affix is normalized
+// to empty text before its continuation flags are applied.
+func TestZeroAffixWithContinuationFlags(t *testing.T) {
+	affContent := `SET UTF-8
+PFX L Y 1
+PFX L 0 l' .
+
+SFX F Y 1
+SFX F 0 0/L .
+`
+	dicContent := `1
+ordinateur/F
+`
+
+	gs, err := newGoSpellReader(
+		strings.NewReader(affContent),
+		strings.NewReader(dicContent),
+	)
+	if err != nil {
+		t.Fatalf("newGoSpellReader error: %v", err)
+	}
+
+	tests := []struct {
+		word string
+		want bool
+	}{
+		{"l'ordinateur", true},
+		{"ordinateur0", false},
+		{"l'ordinateur0", false},
+	}
+	for _, tt := range tests {
+		if got := gs.spell(tt.word); got != tt.want {
+			t.Errorf("spell(%q) = %v, want %v", tt.word, got, tt.want)
+		}
+	}
+}
+
+func TestPrefixStrip(t *testing.T) {
+	affContent := `SET UTF-8
+PFX A N 1
+PFX A a l'A a
+`
+	dicContent := `1
+ami/A
+`
+
+	gs, err := newGoSpellReader(
+		strings.NewReader(affContent),
+		strings.NewReader(dicContent),
+	)
+	if err != nil {
+		t.Fatalf("newGoSpellReader error: %v", err)
+	}
+
+	tests := []struct {
+		word string
+		want bool
+	}{
+		{"l'Ami", true},
+		{"l'Aami", false},
+	}
+	for _, tt := range tests {
+		if got := gs.spell(tt.word); got != tt.want {
+			t.Errorf("spell(%q) = %v, want %v", tt.word, got, tt.want)
+		}
+	}
+}
+
 func TestFlagNumAffixParsing(t *testing.T) {
 	// Minimal FLAG num AFF file
 	affContent := `SET UTF-8
