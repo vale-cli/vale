@@ -20,7 +20,14 @@ type wordMatch struct {
 }
 
 type goSpell struct {
-	dict map[string]struct{}
+	dict               map[string]struct{}
+	roots              map[string][]dictionaryFlags
+	affix              *dictConfig
+	reverse            reverseAffixIndex
+	cache              *spellCache
+	compoundFlagCache  *spellCache
+	compoundMatchCache *spellCache
+	lazyCompoundRules  bool
 
 	ireplacer   *strings.Replacer
 	compounds   []*regexp.Regexp
@@ -107,18 +114,92 @@ func (s *goSpell) keys() []string {
 
 func (s *goSpell) suggest(word string) []wordMatch {
 	metric := metrics.NewLevenshtein()
+	matches := make([]wordMatch, 0, maxSuggestionMatches)
+	seen := make(map[string]struct{})
+	checked := make(map[string]struct{})
+	checks := 0
+	consider := func(candidate string) bool {
+		if candidate == word {
+			return true
+		}
+		if _, found := checked[candidate]; found {
+			return true
+		}
+		if checks >= maxSuggestionChecks || len(matches) >= maxSuggestionMatches {
+			return false
+		}
+		checked[candidate] = struct{}{}
+		checks++
+		if s.inLexicon(candidate) || s.inLexicon(strings.ToLower(candidate)) {
+			seen[candidate] = struct{}{}
+			matches = append(matches, wordMatch{
+				word:  candidate,
+				score: strutil.Similarity(candidate, word, metric),
+			})
+		}
+		return true
+	}
 
-	matches := []wordMatch{}
-	for _, option := range s.keys() {
-		sim := strutil.Similarity(option, word, metric)
-		matches = append(matches, wordMatch{option, sim})
+	runes := []rune(word)
+mutationLoop:
+	for i := range runes {
+		candidate := string(append(append([]rune{}, runes[:i]...), runes[i+1:]...))
+		if !consider(candidate) {
+			break mutationLoop
+		}
+		if i+1 < len(runes) {
+			swapped := append([]rune{}, runes...)
+			swapped[i], swapped[i+1] = swapped[i+1], swapped[i]
+			if !consider(string(swapped)) {
+				break mutationLoop
+			}
+		}
+	}
+
+	tryChars := uniqueRunes(s.affix.TryChars)
+	for i := 0; i < len(runes) && checks < maxSuggestionChecks && len(matches) < maxSuggestionMatches; i++ {
+		for _, char := range tryChars {
+			replaced := append([]rune{}, runes...)
+			replaced[i] = char
+			if !consider(string(replaced)) {
+				break
+			}
+		}
+	}
+	for i := 0; i <= len(runes) && checks < maxSuggestionChecks && len(matches) < maxSuggestionMatches; i++ {
+		for _, char := range tryChars {
+			inserted := make([]rune, 0, len(runes)+1)
+			inserted = append(inserted, runes[:i]...)
+			inserted = append(inserted, char)
+			inserted = append(inserted, runes[i:]...)
+			if !consider(string(inserted)) {
+				break
+			}
+		}
+	}
+
+	// Mutations preserve derived suggestions without materializing every
+	// surface. Roots remain a bounded-memory fallback for more distant typos.
+	if len(matches) < 5 {
+		for _, option := range s.keys() {
+			if _, found := seen[option]; found {
+				continue
+			}
+			matches = append(matches, wordMatch{
+				word:  option,
+				score: strutil.Similarity(option, word, metric),
+			})
+		}
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].score == matches[j].score {
+			return matches[i].word < matches[j].word
+		}
 		return matches[i].score > matches[j].score
 	})
 
-	hits := matches[:5]
+	hits := matches[:min(5, len(matches))]
 	if word == strings.Title(word) { //nolint:staticcheck
 		// Capitalized word, so capitalize the suggestions
 		for i := range hits {
@@ -129,14 +210,31 @@ func (s *goSpell) suggest(word string) []wordMatch {
 	return hits
 }
 
+const (
+	maxSuggestionChecks  = 4096
+	maxSuggestionMatches = 256
+)
+
+// uniqueRunes returns the runes in text once each, preserving first-seen order.
+func uniqueRunes(text string) []rune {
+	seen := make(map[rune]struct{})
+	result := make([]rune, 0, len(text))
+	for _, char := range text {
+		if _, found := seen[char]; found {
+			continue
+		}
+		seen[char] = struct{}{}
+		result = append(result, char)
+	}
+	return result
+}
+
 // spell checks to see if a given word is in the internal dictionaries
 func (s *goSpell) spell(word string) bool {
-	_, ok := s.dict[word]
-	if ok {
+	if s.inLexicon(word) {
 		return true
 	}
-	_, ok = s.dict[strings.ToLower(word)]
-	if ok {
+	if s.inLexicon(strings.ToLower(word)) {
 		return true
 	}
 
@@ -161,6 +259,9 @@ func (s *goSpell) spell(word string) bool {
 			return true
 		}
 	}
+	if s.matchesLazyCompoundRule(word) {
+		return true
+	}
 
 	// Affix-flag compounding (German, Dutch, ...): accept a word that splits
 	// into dictionary segments. See #848.
@@ -172,11 +273,170 @@ func (s *goSpell) spell(word string) bool {
 	units := isNumberUnits(word)
 	if units != "" {
 		// dictionary appears to have list of units
-		if _, ok = s.dict[units]; ok {
+		if s.inLexicon(units) {
 			return true
 		}
 	}
 
+	return false
+}
+
+// inLexicon reports whether word is an explicit dictionary entry or can be
+// derived through affixes, caching derived lookups.
+func (s *goSpell) inLexicon(word string) bool {
+	if _, ok := s.dict[word]; ok {
+		return true
+	}
+	if value, found := s.cache.get(word); found {
+		return value
+	}
+	value := s.isDerived(word)
+	s.cache.set(word, value)
+	return value
+}
+
+// isDerived reports whether an indexed dictionary root can generate target.
+func (s *goSpell) isDerived(target string) bool {
+	return s.matchesRoot(target, func(
+		root string,
+		entry dictionaryFlags,
+		allowed map[string]struct{},
+	) bool {
+		return s.affix.expandsToWithin(root, entry.text, target, allowed)
+	})
+}
+
+// matchesRoot walks reverse-affix candidates for target and invokes match for
+// every dictionary root found along the way.
+func (s *goSpell) matchesRoot(
+	target string,
+	match func(string, dictionaryFlags, map[string]struct{}) bool,
+) bool {
+	current := map[string]struct{}{target: {}}
+	tested := make(map[string]struct{})
+	for depth := 0; depth <= maxReverseAffixes; depth++ {
+		next := make(map[string]struct{})
+		for candidate := range current {
+			if _, seen := tested[candidate]; !seen {
+				tested[candidate] = struct{}{}
+				for _, entry := range s.roots[candidate] {
+					if match(candidate, entry, tested) {
+						return true
+					}
+				}
+			}
+			if depth < maxReverseAffixes {
+				s.reverse.predecessors(candidate, next)
+			}
+		}
+		current = next
+	}
+	return false
+}
+
+// hasCompoundFlag reports whether word can be generated in a state carrying
+// flag, caching results separately for each word-and-flag pair.
+func (s *goSpell) hasCompoundFlag(word, flag string) bool {
+	cacheKey := flag + "\x00" + word
+	if value, found := s.compoundFlagCache.get(cacheKey); found {
+		return value
+	}
+	value := s.matchesRoot(word, func(
+		root string,
+		entry dictionaryFlags,
+		allowed map[string]struct{},
+	) bool {
+		return s.affix.hasFlaggedFormWithin(root, entry.text, word, flag, allowed)
+	})
+	s.compoundFlagCache.set(cacheKey, value)
+	return value
+}
+
+// matchesLazyCompoundRule reports whether word satisfies any COMPOUNDRULE that
+// depends on lazily generated affix forms.
+func (s *goSpell) matchesLazyCompoundRule(word string) bool {
+	if !s.lazyCompoundRules {
+		return false
+	}
+	if value, found := s.compoundMatchCache.get(word); found {
+		return value
+	}
+
+	boundaries := []int{0}
+	for index := range word {
+		if index > 0 {
+			boundaries = append(boundaries, index)
+		}
+	}
+	boundaries = append(boundaries, len(word))
+	for _, compoundRule := range s.affix.CompoundRule {
+		var pattern strings.Builder
+		pattern.WriteByte('^')
+		for _, flag := range s.affix.parseFlags(compoundRule) {
+			if len(flag) == 1 && strings.ContainsRune("()+?*", rune(flag[0])) {
+				// Preserve the existing COMPOUNDRULE regexp construction: these
+				// characters are treated as literal rule tokens by Vale.
+				pattern.WriteString(regexp.QuoteMeta(flag))
+				continue
+			}
+
+			alternatives := make(map[string]struct{})
+			for start := 0; start+1 < len(boundaries); start++ {
+				for end := start + 1; end < len(boundaries); end++ {
+					part := word[boundaries[start]:boundaries[end]]
+					if s.hasCompoundFlag(part, flag) {
+						alternatives[part] = struct{}{}
+					}
+				}
+			}
+			pattern.WriteString("(?:")
+			if len(alternatives) == 0 {
+				// A NUL cannot occur in a token produced by Vale's splitters.
+				pattern.WriteString(`\x00`)
+			} else {
+				parts := make([]string, 0, len(alternatives))
+				for part := range alternatives {
+					parts = append(parts, part)
+				}
+				sort.Slice(parts, func(i, j int) bool {
+					return len(parts[i]) > len(parts[j])
+				})
+				for index, part := range parts {
+					if index > 0 {
+						pattern.WriteByte('|')
+					}
+					pattern.WriteString(regexp.QuoteMeta(part))
+				}
+			}
+			pattern.WriteByte(')')
+		}
+		pattern.WriteByte('$')
+		compiled, err := regexp.Compile(pattern.String())
+		if err == nil && compiled.MatchString(word) {
+			s.compoundMatchCache.set(word, true)
+			return true
+		}
+	}
+	s.compoundMatchCache.set(word, false)
+	return false
+}
+
+// hasLazyCompoundForms reports whether an affix continuation can attach a flag
+// referenced by a COMPOUNDRULE.
+func hasLazyCompoundForms(affix *dictConfig) bool {
+	if len(affix.CompoundRule) == 0 {
+		return false
+	}
+	for _, class := range affix.AffixMap {
+		for _, current := range class.Rules {
+			continuation := affix.resolveFlagAlias(current.Cont)
+			for _, flag := range affix.parseFlags(continuation) {
+				if _, found := affix.compoundMap[flag]; found {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }
 
@@ -185,13 +445,13 @@ func (s *goSpell) spell(word string) bool {
 // segments: e.g. a German compound writes interior nouns lower-case, while the
 // dictionary stores them capitalized.
 func (s *goSpell) inDict(word string) bool {
-	if _, ok := s.dict[word]; ok {
+	if s.inLexicon(word) {
 		return true
 	}
-	if _, ok := s.dict[strings.ToLower(word)]; ok {
+	if s.inLexicon(strings.ToLower(word)) {
 		return true
 	}
-	if _, ok := s.dict[capitalize(word)]; ok {
+	if s.inLexicon(capitalize(word)) {
 		return true
 	}
 	return false
@@ -263,14 +523,20 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 
 	gs := goSpell{
 		// TODO: Use fixed size from first list?
-		dict:        make(map[string]struct{}),
-		compounds:   make([]*regexp.Regexp, 0, len(affix.CompoundRule)),
-		splitter:    newSplitter(affix.WordChars),
-		canCompound: affix.compoundingEnabled(),
-		compoundMin: affix.CompoundMin,
+		dict:               make(map[string]struct{}),
+		roots:              make(map[string][]dictionaryFlags),
+		affix:              affix,
+		reverse:            newReverseAffixIndex(affix.AffixMap),
+		cache:              newSpellCache(),
+		compoundFlagCache:  newSpellCache(),
+		compoundMatchCache: newSpellCache(),
+		lazyCompoundRules:  hasLazyCompoundForms(affix),
+		compounds:          make([]*regexp.Regexp, 0, len(affix.CompoundRule)),
+		splitter:           newSplitter(affix.WordChars),
+		canCompound:        affix.compoundingEnabled(),
+		compoundMin:        affix.CompoundMin,
 	}
 
-	words := []string{}
 	for scanner.Scan() {
 		line := scanner.Text()
 		// A .dic entry is `word/flags` optionally followed by whitespace-
@@ -290,7 +556,8 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 		}
 		line = fields[0]
 
-		words, err = affix.expand(line, words)
+		word, flags, entryErr := affix.dictionaryEntry(line)
+		err = entryErr
 		if err != nil {
 			// Skip malformed entries (e.g., a line with flags but no word)
 			// rather than abandoning the entire dictionary, which would leave
@@ -298,11 +565,17 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 			continue
 		}
 
-		if len(words) == 0 {
-			continue
+		gs.roots[word] = append(gs.roots[word], dictionaryFlags{text: flags})
+		compoundOnly := false
+		for _, flag := range affix.parseFlags(flags) {
+			if flag == affix.CompoundOnly {
+				compoundOnly = true
+			}
+			if _, found := affix.compoundMap[flag]; found {
+				affix.compoundMap[flag] = append(affix.compoundMap[flag], word)
+			}
 		}
-
-		for _, word := range words {
+		if !compoundOnly {
 			gs.dict[word] = struct{}{}
 		}
 	}

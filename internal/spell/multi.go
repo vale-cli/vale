@@ -167,7 +167,9 @@ func (m *Checker) Suggest(word string) []string {
 	return suggestions
 }
 
-// Dict returns the underlying dictionary for the provided index.
+// Dict returns the stored roots and explicit word-list entries for the
+// provided index. Derived affix forms are resolved lazily and are not
+// materialized in this map.
 func (m *Checker) Dict(i int) map[string]struct{} {
 	return m.checkers[i].dict
 }

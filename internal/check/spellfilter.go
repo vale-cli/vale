@@ -1,5 +1,10 @@
 package check
 
+import (
+	"unicode"
+	"unicode/utf8"
+)
+
 // The default spelling filters, hand-written.
 //
 // A spelling rule runs these against every word of every block, and blocks
@@ -7,35 +12,41 @@ package check
 // tested several times over. Profiling a spell-check of a 120 KB file put 72%
 // of the run inside regexp.(*machine).match, all of it here.
 //
-// The three patterns are simple enough to read directly, and the regexes are
-// ASCII-only, so a byte scan answers each of them exactly. Order matters:
+// The three patterns are simple enough to read directly. Order matters:
 // skipsNonWord is both the cheapest and the most often true, so it goes first.
 
 // skipsNonWord reports whether a word contains anything outside the pattern
-// `[^a-zA-Z_']` -- that is, whether that pattern would match.
-//
-// Bytes above ASCII count, as they do for the regex: a rune outside the class
-// is a rune the class does not contain.
+// `[^\p{L}_']` -- that is, whether that pattern would match.
 func skipsNonWord(word string) bool {
 	for i := 0; i < len(word); i++ {
-		c := word[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_', c == '\'':
-		default:
+		char := word[i]
+		if isUpper(char) || isLower(char) || char == '_' || char == '\'' {
+			continue
+		}
+		if char < utf8.RuneSelf {
 			return true
 		}
+
+		// Preserve the byte-scan fast path for ASCII words, then decode only
+		// the suffix that actually contains Unicode.
+		for _, r := range word[i:] {
+			if !unicode.IsLetter(r) && r != '_' && r != '\'' {
+				return true
+			}
+		}
+		return false
 	}
 	return false
 }
 
-// skipsTrailingCaps reports whether `[A-Z]+$` would match: the word ends in at
-// least one capital.
+// skipsTrailingCaps reports whether `[\p{Lu}]+$` would match: the word ends in
+// at least one Unicode uppercase letter.
 func skipsTrailingCaps(word string) bool {
 	if word == "" {
 		return false
 	}
-	c := word[len(word)-1]
-	return c >= 'A' && c <= 'Z'
+	r, _ := utf8.DecodeLastRuneInString(word)
+	return unicode.IsUpper(r)
 }
 
 // skipsCamel reports whether `[A-Z]{1}[a-z]+[A-Z]+\w+` would match: a capital,
