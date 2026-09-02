@@ -23,6 +23,30 @@ var commentStyleRE = regexp.MustCompile(`^vale styles? = (.*)$`)
 
 var commentControlMatchesRE = regexp.MustCompile(`^vale (.+\..+)(\[.+\]) = (YES|NO)$`)
 
+// invalidTengoIdentCharRE matches any character that can't appear in a Tengo
+// identifier. An f.Metrics key isn't necessarily one already: it may be an
+// HTML tag name (e.g. a hyphenated custom element like "my-component") or a
+// "text.heading.h1"-derived scope. Per-check alert counters live in their
+// own field (f.checkCounts, not f.Metrics at all -- see AddAlert), so an
+// arbitrary, user-authored check name never needs to survive being
+// flattened into an identifier, or even pass through this sanitizer, at
+// all; a `metric` formula reads one through a separate indexable object
+// keyed by the check's real, unflattened name instead (see
+// check.checkCounts).
+var invalidTengoIdentCharRE = regexp.MustCompile(`[^A-Za-z0-9_]`)
+
+// sanitizeMetricKey turns an f.Metrics key into a valid Tengo identifier for
+// use as a `metric` formula parameter name: every character that isn't a
+// letter, digit, or underscore becomes "_", and a leading digit -- which
+// Tengo doesn't allow to start an identifier -- is prefixed with "_".
+func sanitizeMetricKey(k string) string {
+	k = invalidTengoIdentCharRE.ReplaceAllString(k, "_")
+	if k != "" && k[0] >= '0' && k[0] <= '9' {
+		k = "_" + k
+	}
+	return k
+}
+
 // A File represents a linted text file.
 type File struct {
 	NLP        nlp.Info          // -
@@ -54,17 +78,42 @@ type File struct {
 
 	// sanShifts records, per line, where the sanitizer's `&rsquo;` rewrite
 	// shortened the text, so spans can be mapped back to the file's bytes.
-	sanShifts  map[int][]int
-	Comments   map[string]bool            // comment control statements
-	Metrics    map[string]int             // count-based metrics
-	history    map[string]int             // -
-	limits     map[string]int             // -
-	tags       map[string]*nlp.TokenCache // tagging shared by every rule, per model
-	lineIdx    []int                      // byte offset of each line start in lineIdxCtx
-	lineIdxCtx string                     // the context lineIdx was built from
-	simple     bool                       // -
-	Lookup     bool                       // -
-	MetaScope  string                     // extra scope context, e.g. a YAML key or comment
+	sanShifts map[int][]int
+	Comments  map[string]bool // comment control statements
+	Metrics   map[string]int  // count-based metrics, written by ast.go from document content (HTML tag names, structural counts, ...)
+
+	// checkCounts holds the per-check alert count AddAlert records, keyed by
+	// the check's real, unflattened name (e.g. "Style.Rule"). This is
+	// deliberately its own field, not a "check."-prefixed entry sharing
+	// f.Metrics with ast.go's structural bookkeeping: f.Metrics's other
+	// writer takes tag names straight out of document content (an HTML/XML
+	// tag literally named e.g. "check.Style.Rule" would land in f.Metrics
+	// too, indistinguishable by prefix alone from a genuine counter), so a
+	// shared map with only a naming convention for a boundary is forgeable
+	// -- confirmed directly: a crafted `<check.Style.Rule class="...">` tag,
+	// paired with a configured or default skip class, incremented the
+	// shared key without the check ever actually firing. A dedicated field
+	// that only AddAlert ever writes to makes that structurally impossible,
+	// not just unlikely by convention. See ComputeMetrics, which returns
+	// this alongside params, and check.checkCounts, which wraps it in the
+	// indexable object a `metric` formula reads as check["Style.Rule"].
+	checkCounts map[string]int
+
+	// LoadedChecks is the set of check names loaded for this run (populated
+	// by lint.lintFile from Manager.Rules() right after NewFile). It's what
+	// lets check.checkCounts -- the object a `metric` formula indexes as
+	// check["Style.Rule"] -- tell a check that's genuinely loaded but never
+	// fired on this document (reads as 0) apart from a typo'd check name
+	// that was never loaded at all (a real error).
+	LoadedChecks map[string]bool
+	history      map[string]int             // -
+	limits       map[string]int             // -
+	tags         map[string]*nlp.TokenCache // tagging shared by every rule, per model
+	lineIdx      []int                      // byte offset of each line start in lineIdxCtx
+	lineIdxCtx   string                     // the context lineIdx was built from
+	simple       bool                       // -
+	Lookup       bool                       // -
+	MetaScope    string                     // extra scope context, e.g. a YAML key or comment
 }
 
 // lineStarts returns the byte offset at which each line of ctx begins.
@@ -269,32 +318,52 @@ func (f *File) SortedAlerts() []Alert {
 	return f.Alerts
 }
 
-// ComputeMetrics returns all of f's metrics.
-func (f *File) ComputeMetrics() (map[string]interface{}, error) {
+// ComputeMetrics returns all of f's metrics, plus f's raw per-check alert
+// counts (f.checkCounts, populated by AddAlert -- see its own doc comment
+// for why this lives in a field of its own rather than sharing f.Metrics
+// with ast.go's document-content-derived bookkeeping), plus whether f's
+// Summary has any prose at all.
+//
+// The caller -- check.Metric.Run -- builds a separate indexable
+// check.checkCounts object from the returned counts and adds it to the
+// formula's parameters under "check", so a formula reads a check's count as
+// check["Style.Rule"] by its real, unflattened name, rather than as a
+// sanitized Tengo identifier that a second, differently-named check could
+// collide on (e.g. "Foo-Bar.Baz" and "Foo.Bar-Baz" both sanitizing to
+// "check_Foo_Bar_Baz" -- see sanitizeMetricKey).
+//
+// hasProse reports whether f.Summary contains any prose "words" at all (a
+// heading-and-code-fence-only document has none); the built-in readability
+// values (words, characters, sentences, ...) mean nothing without real prose
+// and are never computed in that case. A caller that needs to know "is there
+// anything readability-relevant to compute here" -- e.g. Metric.Run,
+// deciding whether to skip a formula entirely rather than fail it with an
+// unhelpful Tengo "unresolved reference" error -- asks for that explicitly
+// rather than inferring it from params being non-empty.
+func (f *File) ComputeMetrics() (map[string]interface{}, map[string]int, bool, error) {
 	params := map[string]interface{}{}
 
 	doc := summarize.NewDocument(f.Summary.String())
 	if doc.NumWords == 0 {
-		return params, nil
+		return params, f.checkCounts, false, nil
 	}
 
 	for k, v := range f.Metrics {
 		if strings.HasPrefix(k, "table") {
 			continue
 		}
-		k = strings.ReplaceAll(k, ".", "_")
-		params[k] = float64(v)
+		params[sanitizeMetricKey(k)] = float64(v)
 	}
 
-	params["complex_words"] = doc.NumComplexWords
-	params["long_words"] = doc.NumLongWords
-	params["sentences"] = doc.NumSentences
-	params["characters"] = doc.NumCharacters
-	params["words"] = doc.NumWords
-	params["polysyllabic_words"] = doc.NumPolysylWords
-	params["syllables"] = doc.NumSyllables
+	params["complex_words"] = float64(doc.NumComplexWords)
+	params["long_words"] = float64(doc.NumLongWords)
+	params["sentences"] = float64(doc.NumSentences)
+	params["characters"] = float64(doc.NumCharacters)
+	params["words"] = float64(doc.NumWords)
+	params["polysyllabic_words"] = float64(doc.NumPolysylWords)
+	params["syllables"] = float64(doc.NumSyllables)
 
-	return params, nil
+	return params, f.checkCounts, true, nil
 }
 
 // FindLoc calculates the line and span of an Alert.
@@ -516,6 +585,23 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 					if a.Limit > 0 {
 						f.limits[a.Check]++
 					}
+
+					// Unconditional per-check alert counter, exposed to
+					// `metric` formulas through ComputeMetrics's checkCounts
+					// return value. This is its own field (f.checkCounts),
+					// not a "check."-namespaced f.Metrics entry: f.Metrics
+					// is also where ast.go writes document-content-derived
+					// keys (HTML tag names, ...), so a shared map guarded
+					// only by a prefix convention is forgeable by a crafted
+					// tag literally named e.g. "check.Style.Rule" -- a
+					// dedicated field this is the only writer of has no such
+					// keyspace to inject into. Unlike f.limits above, this
+					// counts every alert actually reported, not just those
+					// from a rule opting into `limit:`. See #1163.
+					if f.checkCounts == nil {
+						f.checkCounts = make(map[string]int)
+					}
+					f.checkCounts[a.Check]++
 				}
 			}
 		}

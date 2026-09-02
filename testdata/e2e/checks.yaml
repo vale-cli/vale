@@ -19,6 +19,46 @@ cases:
     want: |
       test.md:1:1:Checks.MetricValue:This topic has 1.00 H2s in it.
 
+  - name: metric/check-counts
+    about: "#1163 -- a `metric` formula reads other checks' per-document
+      alert counts as check[\"Style.Rule\"], so a rule combining several
+      independent signals becomes expressible."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/WordA.yml: |
+        extends: existence
+        message: "found an A-word"
+        level: suggestion
+        scope: paragraph
+        tokens:
+          - foo
+      styles/T/WordB.yml: |
+        extends: existence
+        message: "found a B-word"
+        level: suggestion
+        scope: paragraph
+        tokens:
+          - bar
+      styles/T/Combined.yml: |
+        extends: metric
+        message: "combined signal too high (%s)"
+        level: warning
+        formula: check["T.WordA"] + check["T.WordB"]
+        condition: "> 1"
+      test.md: |
+        A paragraph mentioning foo and bar together.
+    args: test.md
+    exit: 0
+    want: |
+      test.md:1:1:T.Combined:combined signal too high (2.00)
+      test.md:1:24:T.WordA:found an A-word
+      test.md:1:32:T.WordB:found a B-word
+
   - name: conditional
     dir: Conditional
     args: .

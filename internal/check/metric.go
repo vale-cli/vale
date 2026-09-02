@@ -59,11 +59,19 @@ func (o Metric) Run(_ nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, er
 	ctx, cancel := context.WithTimeout(context.Background(), tengoTimeout)
 	defer cancel()
 
-	parameters, err := f.ComputeMetrics()
+	parameters, rawCheckCounts, hasProse, err := f.ComputeMetrics()
 	if err != nil {
 		return alerts, err
-	} else if len(parameters) == 0 {
-		// empty file.
+	}
+
+	if !hasProse {
+		// A heading-and-code-fence-only document, or any other one with no
+		// prose "words" at all, has nothing for a readability-style formula
+		// to compute: the built-in values it would need (words, characters,
+		// sentences, ...) are never populated in that case (see
+		// ComputeMetrics). Evaluating anyway would fail with an opaque Tengo
+		// "unresolved reference" compile error instead of the graceful no-op
+		// this rule has always had for such a document.
 		return alerts, nil
 	}
 
@@ -74,6 +82,14 @@ func (o Metric) Run(_ nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, er
 			parameters[k] = 0.0
 		}
 	}
+
+	// Every loaded check's per-document alert count is exposed under the
+	// "check" parameter as an indexable object, rather than flattened into
+	// individual Tengo identifiers -- see checkCounts. A formula reads it as
+	// check["Style.Rule"], which resolves a never-fired check to 0 and a
+	// name that isn't genuinely loaded to a real error, without any risk of
+	// two distinct check names colliding on the same identifier. See #1163.
+	parameters["check"] = newCheckCounts(rawCheckCounts, f.LoadedChecks)
 
 	// The actual result of our formula.
 	//

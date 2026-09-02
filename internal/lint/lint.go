@@ -232,8 +232,39 @@ func (l *Linter) lintFile(src string) lintResult {
 		return lintResult{err: err}
 	} else if len(file.Checks) == 0 && len(file.BaseStyles) == 0 {
 		if len(l.Manager.Config.GBaseStyles) == 0 && len(l.Manager.Config.GChecks) == 0 {
-			// There's nothing to do; bail early.
+			// There's nothing to do; bail early. No rule could apply to this
+			// file either way (see the LoadedChecks comment below), so this
+			// also saves the shouldRun pass over every loaded rule that
+			// would otherwise just produce an empty map.
 			return lintResult{file: file}
+		}
+	}
+
+	// The set of check names that can actually run against THIS file, not
+	// every check loaded anywhere in the merged config: l.Manager.Rules()
+	// covers every style loaded across every section/extension, but a
+	// per-section or per-extension override (f.Checks/GChecks) can turn a
+	// given check off for this file specifically. Using the raw, unfiltered
+	// rule set here would let check["Style.Rule"] read a
+	// structurally-impossible check as a silent 0 instead of the real error
+	// it deserves -- the exact class of bug this object exists to prevent,
+	// just narrower.
+	//
+	// This deliberately uses checkApplies, not the fuller shouldRun a
+	// block-scoped rule is gated by below: shouldRun also excludes a check
+	// disabled via an in-text comment (a mid-document runtime toggle, not a
+	// fact about this file, and always a no-op here regardless since
+	// f.Comments is still empty at this point -- block-scoped in-text
+	// comments aren't parsed until the walk below) and one below
+	// --minAlertLevel (a display filter on severity, not a fact about
+	// whether the check runs at all -- conflating the two used to make a
+	// check["..."] reference to a fully-loaded, enabled check that simply
+	// sits below the run's alert-level filter hard-error instead of
+	// correctly reading 0). See checkApplies's own doc comment.
+	file.LoadedChecks = make(map[string]bool, len(l.Manager.Rules()))
+	for name := range l.Manager.Rules() {
+		if l.checkApplies(name, file) {
+			file.LoadedChecks[name] = true
 		}
 	}
 
@@ -566,29 +597,40 @@ func (l *Linter) inScopeFor(blk nlp.Block) []scopedRule {
 	return found
 }
 
-func (l *Linter) shouldRun(name string, f *core.File, chk check.Rule) bool {
-	minLevel := l.Manager.Config.MinAlertLevel
-	run := false
-
-	details := chk.Fields()
+// consistencyBaseName strips a consistency check's variant suffix down to
+// its base "Style.Rule" name -- see #129 -- so lookups keyed by the plain
+// check name (f.Checks, GChecks, f.Comments, f.Levels) find the entry the
+// user actually wrote rather than missing it over an internal, dotted
+// sub-variant name. A name with at most one dot is returned unchanged.
+func consistencyBaseName(name string) string {
 	if strings.Count(name, ".") > 1 {
-		// NOTE: This fixes the loading issue with consistency checks.
-		//
-		// See #129.
 		list := strings.Split(name, ".")
-		name = strings.Join([]string{list[0], list[1]}, ".")
+		return strings.Join([]string{list[0], list[1]}, ".")
 	}
+	return name
+}
 
-	if f.QueryComments(name) {
-		// It has been disabled via an in-text comment.
-		return false
-	} else if core.LevelToInt[f.Level(name, details.Level)] < minLevel {
-		// The level this file gives the rule, which a section may have changed
-		// for this format alone. See #965.
-		return false
-	}
-
+// checkApplies reports whether name could ever run against f at all, based
+// solely on structural applicability -- which extensions/sections/styles
+// it's enabled for (f.Checks, GChecks, f.BaseStyles) -- deliberately
+// excluding two things shouldRun also weighs that aren't structural facts
+// about this check and this file: f.QueryComments (an in-text opt-out,
+// evaluated per-block at lint time, not a property of the file as a whole)
+// and MinAlertLevel (a display filter on alert severity -- see its doc
+// comment in config.go -- not a fact about whether the check runs at all).
+//
+// This exists for lintFile's LoadedChecks: a check["Style.Rule"] formula
+// needs to know whether Style.Rule is capable of firing on this file, not
+// whether today's --minAlertLevel would end up hiding its alerts if it did
+// -- conflating the two would make a check["..."] reference to a check
+// that's fully loaded and enabled, just below the run's alert-level filter,
+// hard-error as "not a known check" instead of correctly reading 0. See
+// shouldRun, which layers both of those exclusions back on top of this for
+// the per-block gate a rule actually needs.
+func (l *Linter) checkApplies(name string, f *core.File) bool {
+	name = consistencyBaseName(name)
 	style := core.StyleName(name)
+	run := false
 
 	// Has the check been disabled for this extension?
 	//
@@ -615,6 +657,23 @@ func (l *Linter) shouldRun(name string, f *core.File, chk check.Rule) bool {
 	}
 
 	return true
+}
+
+func (l *Linter) shouldRun(name string, f *core.File, chk check.Rule) bool {
+	minLevel := l.Manager.Config.MinAlertLevel
+	details := chk.Fields()
+	name = consistencyBaseName(name)
+
+	if f.QueryComments(name) {
+		// It has been disabled via an in-text comment.
+		return false
+	} else if core.LevelToInt[f.Level(name, details.Level)] < minLevel {
+		// The level this file gives the rule, which a section may have changed
+		// for this format alone. See #965.
+		return false
+	}
+
+	return l.checkApplies(name, f)
 }
 
 func (l *Linter) match(s string) bool {

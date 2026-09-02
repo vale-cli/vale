@@ -244,7 +244,16 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 			"'%s' contains no lintable files", args[0]))
 	}
 
-	computed, _ := linted[0].ComputeMetrics()
+	return printMetricsResult(linted[0])
+}
+
+// printMetricsResult reports f's computed metrics as JSON.
+func printMetricsResult(f *core.File) error {
+	computed, _, _, err := f.ComputeMetrics()
+	if err != nil {
+		return err
+	}
+
 	return printJSON(computed)
 }
 
