@@ -52,7 +52,10 @@ func NewConsistency(cfg *core.Config, generic baseCheck, path string) (Consisten
 		func() bool { return !rule.Nonword },
 		func() string { return "" }, true)
 
-	chkKey := strings.Split(name, ".")[1]
+	// The capture-group stem is the rule's base name -- the last segment,
+	// since the rule may sit in a subdirectory.
+	parts := strings.Split(name, ".")
+	chkKey := parts[len(parts)-1]
 	count := 0
 	for v1, v2 := range rule.Either {
 		count += 2

@@ -87,25 +87,56 @@ func (c Case) validate(seen map[string]bool) error {
 }
 
 // Load reads the cases in one file.
+//
+// A `.test.yml` holds a sequence of cases and is validated strictly -- it
+// exists for no other reason. Any other YAML file is considered only if it is
+// a rule carrying its own cases: a mapping with `extends` and a `tests`
+// sequence. Everything else -- workflows, configs, data files -- is silently
+// not ours, so `vale test` can walk a whole repository without tripping on
+// YAML it has no business reading.
 func Load(path string) ([]Case, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cases []Case
-	if err = yaml.Unmarshal(b, &cases); err != nil {
-		return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
+	if core.IsTestFile(filepath.Base(path)) {
+		var cases []Case
+		if err = yaml.Unmarshal(b, &cases); err != nil {
+			return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
+		}
+		return finish(cases, path, "")
 	}
 
+	var rule struct {
+		Extends string `yaml:"extends"`
+		Tests   []Case `yaml:"tests"`
+	}
+	if uErr := yaml.Unmarshal(b, &rule); uErr != nil {
+		// Not even a mapping -- a stray sequence, or YAML in name only. That
+		// is a fact about the file, not a failure of the run.
+		return nil, nil //nolint:nilerr // foreign YAML is skipped, not failed
+	}
+	if rule.Extends == "" || len(rule.Tests) == 0 {
+		return nil, nil
+	}
+
+	// An in-source case tests the rule it lives in: `rule` defaults to the
+	// file itself, which also makes it isolated -- the doctest reading.
+	return finish(rule.Tests, path, filepath.Base(path))
+}
+
+func finish(cases []Case, path, defaultRule string) ([]Case, error) {
 	seen := map[string]bool{}
 	for i := range cases {
 		cases[i].Path = path
-		if err = cases[i].validate(seen); err != nil {
+		if cases[i].Rule == "" {
+			cases[i].Rule = defaultRule
+		}
+		if err := cases[i].validate(seen); err != nil {
 			return nil, err
 		}
 	}
-
 	return cases, nil
 }
 
@@ -156,7 +187,8 @@ func walk(root string, found *[]string) error {
 			return nil
 		}
 
-		if core.IsTestFile(name) {
+		if core.IsTestFile(name) || strings.HasSuffix(name, ".yml") ||
+			strings.HasSuffix(name, ".yaml") {
 			*found = append(*found, path)
 		}
 

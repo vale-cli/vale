@@ -73,12 +73,7 @@ func filter(mgr *Manager) (map[string]Rule, error) {
 	for _, entry := range output.([]interface{}) {
 		rule, _ := entry.(Definition)
 
-		name := rule.Name
-		if strings.Count(name, ".") > 1 {
-			// TODO: See lint.go#249.
-			list := strings.Split(name, ".")
-			name = strings.Join([]string{list[0], list[1]}, ".")
-		}
+		name := mgr.RuleForAlert(rule.Name)
 
 		// NOTE: We can't simply assume that what the filter returns should be
 		// run -- it depends on the *intent* of the filter.

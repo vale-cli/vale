@@ -140,6 +140,9 @@ func buildRule(cfg *core.Config, generic baseCheck) (Rule, error) {
 	}
 
 	delete(generic, "path")
+	// A rule may carry its own cases (see internal/testsuite); they are for
+	// `vale test`, not the compiler.
+	delete(generic, "tests")
 	switch name {
 	case "existence":
 		return NewExistence(cfg, generic, path)

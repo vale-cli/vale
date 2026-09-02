@@ -87,3 +87,29 @@ func TestFormatMessage(t *testing.T) {
 		}
 	}
 }
+
+// RuleForAlert resolves an alert name to its defining rule by longest known
+// prefix: a consistency alert carries a matched term, and a nested rule's own
+// name spans subdirectories, so neither dot-count nor position can say where
+// the rule ends.
+func TestRuleForAlert(t *testing.T) {
+	mgr := Manager{rules: map[string]Rule{
+		"Std.OxfordComma":      Existence{},
+		"Std.dates.TimeFormat": Existence{},
+		"S.Consistency":        Existence{},
+	}}
+
+	cases := []struct{ in, want string }{
+		{"Std.OxfordComma", "Std.OxfordComma"},
+		{"Std.dates.TimeFormat", "Std.dates.TimeFormat"},
+		{"S.Consistency.center", "S.Consistency"},
+		{"Std.dates.TimeFormat.term", "Std.dates.TimeFormat"},
+		{"Un.Known.deep.name", "Un.Known"},
+		{"Un.Known", "Un.Known"},
+	}
+	for _, tt := range cases {
+		if got := mgr.RuleForAlert(tt.in); got != tt.want {
+			t.Errorf("RuleForAlert(%q) = %q; want %q", tt.in, got, tt.want)
+		}
+	}
+}

@@ -207,6 +207,27 @@ func Indent(text, indent string) string {
 //
 // A config may name either, so that a setting can be given once for a style and
 // then overridden for a rule within it.
+// CheckName derives a rule's name from where it sits under its style root:
+// the directory's base, then each subdirectory, then the file's base, joined
+// with dots. `Std/dates/TimeFormat.yml` is `Std.dates.TimeFormat` -- the tree
+// is part of the name, so organizing a style never silently renames or drops
+// a rule, and disabling one names the path you see on disk.
+//
+// The file's base keeps its historical reading: everything before the first
+// dot. `Terms.custom.yml` has always loaded as `Terms`.
+func CheckName(styleRoot, rulePath string) (string, error) {
+	rel, err := filepath.Rel(styleRoot, rulePath)
+	if err != nil {
+		return "", err
+	}
+
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	base := strings.Split(parts[len(parts)-1], ".")[0]
+	parts[len(parts)-1] = base
+
+	return filepath.Base(styleRoot) + "." + strings.Join(parts, "."), nil
+}
+
 func StyleName(rule string) string {
 	if style, _, found := strings.Cut(rule, "."); found {
 		return style

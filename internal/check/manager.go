@@ -61,14 +61,15 @@ func NewManager(config *core.Config) (*Manager, error) {
 		parts := strings.Split(chk, ".")
 		if !mgr.hasStyle(parts[0]) {
 			// If this rule isn't part of an already-loaded style, we load it
-			// individually.
-			fName := parts[1] + ".yml"
+			// individually. Every segment after the style is a path
+			// component: `Std.dates.TimeFormat` is `Std/dates/TimeFormat.yml`.
+			fName := filepath.Join(parts[1:]...) + ".yml"
 			for _, p := range mgr.Config.SearchPaths() {
 				path = filepath.Join(p, parts[0], fName)
 				if !system.FileExists(path) {
 					continue
 				}
-				if err = mgr.addRuleFromSource(fName, path); err != nil {
+				if err = mgr.addCheckFile(chk, path); err != nil {
 					return &mgr, err
 				}
 			}
@@ -86,6 +87,31 @@ func (mgr *Manager) AddRule(name string, rule Rule) error {
 		return nil
 	}
 	return fmt.Errorf("the rule '%s' has already been added", name)
+}
+
+// RuleForAlert maps an alert's check name back to the rule that defines it.
+//
+// Most alerts carry their rule's name already. A `consistency` rule names its
+// alerts `Style.Rule.<term>`, and a rule may itself sit in a subdirectory
+// (`Std.dates.TimeFormat`), so neither dot-counting nor position says where
+// the rule ends: the longest known prefix does. An unknown name falls back to
+// its first two segments, which is the historical reading (see #129).
+func (mgr *Manager) RuleForAlert(name string) string {
+	if _, ok := mgr.rules[name]; ok {
+		return name
+	}
+
+	for prefix := name; strings.Contains(prefix, "."); {
+		prefix = prefix[:strings.LastIndex(prefix, ".")]
+		if _, ok := mgr.rules[prefix]; ok {
+			return prefix
+		}
+	}
+
+	if parts := strings.Split(name, "."); len(parts) > 2 {
+		return parts[0] + "." + parts[1]
+	}
+	return name
 }
 
 // AddRuleFromFile adds the given rule to the manager.
@@ -159,6 +185,13 @@ func (mgr *Manager) addStyle(path string) error {
 		switch {
 		case err != nil:
 			return err
+		case info.IsDir() && fp != path &&
+			(strings.HasPrefix(info.Name(), ".") || strings.HasPrefix(info.Name(), "_")):
+			// A subdirectory joins its rules' names, which means YAML parked
+			// under a style -- drafts, retired rules -- now loads. A dot or
+			// underscore prefix keeps a directory inert, the same convention
+			// the Go toolchain and the test-file walk use.
+			return filepath.SkipDir
 		case info.IsDir() || !strings.HasSuffix(info.Name(), ".yml"):
 			return nil
 		case core.IsTestFile(info.Name()):
@@ -167,7 +200,13 @@ func (mgr *Manager) addStyle(path string) error {
 			// whole configuration stops. See #1122.
 			return nil
 		}
-		sources = append(sources, source{name: info.Name(), path: fp})
+
+		chkName, nErr := core.CheckName(path, fp)
+		if nErr != nil {
+			return nErr
+		}
+
+		sources = append(sources, source{name: chkName, path: fp})
 		return nil
 	})
 	if err != nil {
@@ -194,8 +233,7 @@ func (mgr *Manager) addStyle(path string) error {
 	sem := make(chan struct{}, compileWorkers())
 
 	for i, src := range sources {
-		style := filepath.Base(filepath.Dir(src.path))
-		chkName := style + "." + strings.Split(src.name, ".")[0]
+		chkName := src.name
 
 		// A rule already loaded under this name is not re-read: the first
 		// search path to define it wins, as before.
@@ -245,20 +283,14 @@ func (mgr *Manager) addStyle(path string) error {
 	return nil
 }
 
-func (mgr *Manager) addRuleFromSource(name, path string) error {
-	if strings.HasSuffix(name, ".yml") {
-		f, err := os.ReadFile(path)
-		if err != nil {
-			return core.NewE201FromPosition(err.Error(), path, 1)
-		}
+func (mgr *Manager) addCheckFile(chkName, path string) error {
+	f, err := os.ReadFile(path)
+	if err != nil {
+		return core.NewE201FromPosition(err.Error(), path, 1)
+	}
 
-		style := filepath.Base(filepath.Dir(path))
-		chkName := style + "." + strings.Split(name, ".")[0]
-		if _, ok := mgr.rules[chkName]; !ok {
-			if err = mgr.addCheck(f, chkName, path); err != nil {
-				return err
-			}
-		}
+	if _, ok := mgr.rules[chkName]; !ok {
+		return mgr.addCheck(f, chkName, path)
 	}
 	return nil
 }

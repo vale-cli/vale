@@ -108,15 +108,14 @@ func TestFind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, want := range []string{beside, grouped, spelled} {
+	// A rule is a candidate now too -- it may carry in-source cases, and
+	// Load, not Find, is what decides. Only the dot directory stays out.
+	for _, want := range []string{beside, grouped, spelled, rule} {
 		if !slices.Contains(found, want) {
 			t.Errorf("did not find %s", want)
 		}
 	}
-	if slices.Contains(found, rule) {
-		t.Error("a rule was collected as a test file")
-	}
-	if len(found) != 3 {
+	if len(found) != 4 {
 		t.Errorf("found %v; a dot directory should have been skipped", found)
 	}
 
@@ -207,5 +206,105 @@ func TestDiff(t *testing.T) {
 				t.Errorf("Diff() =\n%q\nwant\n%q", got, tt.rendered)
 			}
 		})
+	}
+}
+
+// A rule file with a `tests:` sequence is its own test file -- the doctest
+// reading -- and each case defaults to isolating the rule it lives in.
+func TestLoadInSourceCases(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "Ellipses.yml"), `extends: existence
+message: "Ellipsis."
+tokens: ['\.\.\.']
+tests:
+  - name: fires
+    input: "Wait... done."
+    contains: Ellipsis
+  - name: clean
+    input: "Wait. Done."
+    want: ""
+`)
+
+	cases, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cases) != 2 {
+		t.Fatalf("got %d cases; want 2", len(cases))
+	}
+	for _, c := range cases {
+		if c.Rule != "Ellipses.yml" {
+			t.Errorf("case %q: rule = %q; want the file itself", c.Name, c.Rule)
+		}
+		if c.Path != path {
+			t.Errorf("case %q: path = %q; want %q", c.Name, c.Path, path)
+		}
+	}
+}
+
+// YAML that is neither a case file nor a rule with cases is silently not
+// ours: `vale test` walks whole repositories, and a workflow file or a rule
+// without a `tests` key must not read as an error or as coverage.
+func TestLoadSkipsForeignYAML(t *testing.T) {
+	dir := t.TempDir()
+
+	for name, body := range map[string]string{
+		"workflow.yml": "on: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n",
+		"rule.yml":     "extends: existence\nmessage: 'x'\ntokens: ['y']\n",
+		"list.yml":     "- one\n- two\n",
+	} {
+		path := writeFile(t, filepath.Join(dir, name), body)
+		cases, err := Load(path)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", name, err)
+		}
+		if len(cases) != 0 {
+			t.Errorf("%s: got %d cases; want none", name, len(cases))
+		}
+	}
+}
+
+// In-source cases get the same strictness as a sidecar: one that asserts
+// nothing is a broken file, not quiet coverage.
+func TestLoadInSourceRejectsUnusableCases(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "Rule.yml"), `extends: existence
+message: "x"
+tokens: ['y']
+tests:
+  - name: no assertion
+    input: "Some prose."
+`)
+
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "needs one of") {
+		t.Fatalf("got %v; want the no-assertion error", err)
+	}
+}
+
+// The name an isolated rule reports must match the one a project run gives
+// it, or a case's `want` changes depending on how it was invoked. Under a
+// search path that name includes any subdirectories; outside one, the parent
+// directory is the style, as before.
+func TestIsolatedName(t *testing.T) {
+	sp := t.TempDir()
+	nested := filepath.Join(sp, "Std", "dates", "TimeFormat.yml")
+	flat := filepath.Join(sp, "Std", "OxfordComma.yml")
+	loose := filepath.Join(t.TempDir(), "House", "Length.yml")
+
+	cases := []struct {
+		path   string
+		search []string
+		want   string
+	}{
+		{nested, []string{sp}, "Std.dates.TimeFormat"},
+		{flat, []string{sp}, "Std.OxfordComma"},
+		{nested, nil, "dates.TimeFormat"},
+		{loose, []string{sp}, "House.Length"},
+	}
+
+	for _, tt := range cases {
+		if got := isolatedName(tt.path, tt.search); got != tt.want {
+			t.Errorf("isolatedName(%q, %v) = %q; want %q", tt.path, tt.search, got, tt.want)
+		}
 	}
 }

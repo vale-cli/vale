@@ -35,6 +35,12 @@ type Runner struct {
 	// built once and reused: loading a configuration costs more than linting
 	// the handful of lines a case holds.
 	project *lint.Linter
+
+	// paths is the configuration's StylesPath search list, read once and only
+	// for naming isolated rules. Empty when there is no configuration, which
+	// is fine: isolation never needed one before and still doesn't.
+	paths    []string
+	pathsSet bool
 }
 
 // NewRunner prepares to run cases against the configuration in `flags`.
@@ -79,7 +85,7 @@ func (r *Runner) lint(c Case) (string, error) {
 // linterFor returns the linter a case runs under.
 func (r *Runner) linterFor(c Case) (*lint.Linter, error) {
 	if c.Rule != "" {
-		return isolate(c)
+		return isolate(c, r.searchPaths())
 	}
 
 	if r.project == nil {
@@ -97,19 +103,33 @@ func (r *Runner) linterFor(c Case) (*lint.Linter, error) {
 	return r.project, nil
 }
 
+// searchPaths reads the configuration's StylesPath list, once, and swallows
+// the error: a directory of cases with no .vale.ini anywhere is a supported
+// way to run, and naming falls back to the rule's parent directory there.
+func (r *Runner) searchPaths() []string {
+	if !r.pathsSet {
+		r.pathsSet = true
+		if cfg, err := core.ReadPipeline(r.flags, false); err == nil {
+			r.paths = cfg.SearchPaths()
+		}
+	}
+	return r.paths
+}
+
 // isolate builds a linter holding one rule and nothing else.
 //
-// The rule keeps the name a project run would give it -- the style is the
-// directory it sits in -- so a case can be moved between the two modes without
-// its `want` changing.
-func isolate(c Case) (*lint.Linter, error) {
+// The rule keeps the name a project run would give it -- found under a search
+// path, that is its full path under the style root (`Std.dates.TimeFormat`);
+// otherwise the parent directory is the style, as before. Either way a case
+// can be moved between the two modes without its `want` changing.
+func isolate(c Case, search []string) (*lint.Linter, error) {
 	path := c.Rule
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(filepath.Dir(c.Path), path)
 	}
 
-	style := filepath.Base(filepath.Dir(path))
-	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	name := isolatedName(path, search)
+	style := core.StyleName(name)
 
 	cfg, err := core.NewConfig(&core.CLIFlags{})
 	if err != nil {
@@ -126,11 +146,39 @@ func isolate(c Case) (*lint.Linter, error) {
 		return nil, err
 	}
 
-	if err = linter.Manager.AddRuleFromFile(style+"."+name, path); err != nil {
+	if err = linter.Manager.AddRuleFromFile(name, path); err != nil {
 		return nil, err
 	}
 
 	return linter, nil
+}
+
+// isolatedName names the rule at path the way a project run would.
+func isolatedName(path string, search []string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		for _, sp := range search {
+			spAbs, aErr := filepath.Abs(sp)
+			if aErr != nil {
+				continue
+			}
+
+			rel, rErr := filepath.Rel(spAbs, abs)
+			if rErr != nil || strings.HasPrefix(rel, "..") || !strings.ContainsRune(rel, filepath.Separator) {
+				// Not under this search path, or sitting directly in it with
+				// no style directory to take a name from.
+				continue
+			}
+
+			root := filepath.Join(spAbs, strings.Split(filepath.ToSlash(rel), "/")[0])
+			if name, cErr := core.CheckName(root, abs); cErr == nil {
+				return name
+			}
+		}
+	}
+
+	style := filepath.Base(filepath.Dir(path))
+	base := strings.Split(filepath.Base(path), ".")[0]
+	return style + "." + base
 }
 
 // compare returns why a case failed, or "" if it passed.

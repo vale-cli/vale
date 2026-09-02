@@ -229,3 +229,27 @@ func TestStyleName(t *testing.T) {
 		}
 	}
 }
+
+// CheckName is what makes a subdirectory part of a rule's identity: the tree
+// under the style root joins the name, and the file's base keeps its
+// historical first-dot reading.
+func TestCheckName(t *testing.T) {
+	cases := []struct {
+		root, path, want string
+	}{
+		{"styles/Std", "styles/Std/OxfordComma.yml", "Std.OxfordComma"},
+		{"styles/Std", "styles/Std/dates/TimeFormat.yml", "Std.dates.TimeFormat"},
+		{"styles/Std", "styles/Std/a/b/Deep.yml", "Std.a.b.Deep"},
+		{"styles/Std", "styles/Std/Terms.custom.yml", "Std.Terms"},
+	}
+
+	for _, tt := range cases {
+		got, err := CheckName(tt.root, tt.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != tt.want {
+			t.Errorf("CheckName(%q, %q) = %q; want %q", tt.root, tt.path, got, tt.want)
+		}
+	}
+}

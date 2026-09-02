@@ -571,13 +571,12 @@ func (l *Linter) shouldRun(name string, f *core.File, chk check.Rule) bool {
 	run := false
 
 	details := chk.Fields()
-	if strings.Count(name, ".") > 1 {
-		// NOTE: This fixes the loading issue with consistency checks.
-		//
-		// See #129.
-		list := strings.Split(name, ".")
-		name = strings.Join([]string{list[0], list[1]}, ".")
-	}
+
+	// Configuration addresses the defining rule: a `consistency` alert's
+	// name carries a matched term, and a rule's own name may span
+	// subdirectories, so the rule is found by name, not by dot-count.
+	// See #129.
+	name = l.Manager.RuleForAlert(name)
 
 	if f.QueryComments(name) {
 		// It has been disabled via an in-text comment.

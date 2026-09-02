@@ -47,16 +47,28 @@ func runTests(args []string, flags *core.CLIFlags) error {
 
 	runner := testsuite.NewRunner(flags)
 
+	// Find casts a wide net -- any YAML file might be a rule with in-source
+	// cases -- so the files worth reporting are the ones that held cases, not
+	// the ones considered.
+	files := 0
+
 	var results []testsuite.Result
 	for _, path := range paths {
 		cases, lErr := testsuite.Load(path)
 		if lErr != nil {
 			return core.NewE100("test", lErr)
 		}
+		if len(cases) > 0 {
+			files++
+		}
 
 		for _, c := range cases {
 			results = append(results, runner.Run(c))
 		}
+	}
+
+	if len(results) == 0 {
+		return core.NewE100("test", errors.New("no test cases found"))
 	}
 
 	// A case that could not be run at all is a broken configuration, not a
@@ -71,7 +83,7 @@ func runTests(args []string, flags *core.CLIFlags) error {
 		return reportTestsJSON(results)
 	}
 
-	return reportTests(results, len(paths))
+	return reportTests(results, files)
 }
 
 func reportTests(results []testsuite.Result, files int) error {

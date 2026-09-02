@@ -131,7 +131,7 @@ cases:
         Nothing to test here.
     args: test
     exit: 2
-    contains: no test files found
+    contains: no test cases found
 
   - name: a case has to assert something
     about: "a case with no `want`, `contains` or `absent` reads as coverage
