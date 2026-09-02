@@ -45,13 +45,18 @@ var inlineToScope = map[string]string{
 	"tt":     "code",
 }
 
+// tagToScope's values are built from core.ProseContainerScopes' own family
+// names (core.ScopeTable and so on) rather than repeating them as literal
+// strings, so a rename or removal there is a compile error here instead of a
+// silent drift -- the same family names internal/check's sequence.go reads
+// from the same constants for an undeclared `max`/`min` rule's default scope.
 var tagToScope = map[string]string{
-	"th":         "text.table.header",
-	"td":         "text.table.cell",
-	"caption":    "text.table.caption",
-	"li":         "text.list",
-	"blockquote": "text.blockquote",
-	"figcaption": "text.figure.caption",
+	"th":         "text." + core.ScopeTable + ".header",
+	"td":         "text." + core.ScopeTable + ".cell",
+	"caption":    "text." + core.ScopeTable + ".caption",
+	"li":         "text." + core.ScopeList,
+	"blockquote": "text." + core.ScopeBlockquote,
+	"figcaption": "text." + core.ScopeFigure + ".caption",
 }
 
 func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //nolint:unparam
@@ -297,12 +302,12 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 	for _, tag := range state.tagHistory {
 		scope, match := tagToScope[tag]
 		if (match && !core.StringInSlice(tag, inlineTags)) || heading.MatchString(tag) {
-			if scope == "text.blockquote" || scope == "text.list" {
+			if scope == "text."+core.ScopeBlockquote || scope == "text."+core.ScopeList {
 				f.Summary.WriteString(txt + "\n\n")
 			}
 
 			if !match {
-				scope = "text.heading." + tag
+				scope = "text." + core.ScopeHeading + "." + tag
 			}
 			f.Metrics[strings.TrimPrefix(scope, "text.")]++
 

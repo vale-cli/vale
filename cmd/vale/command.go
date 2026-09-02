@@ -258,8 +258,11 @@ func runTag(args []string, _ *core.CLIFlags) error {
 		return err
 	}
 
-	out := core.TextToContext(
+	out, err := core.TextToContext(
 		string(text), &nlp.Info{Lang: args[1], Endpoint: args[2]})
+	if err != nil {
+		return err
+	}
 
 	return printJSON(out)
 }

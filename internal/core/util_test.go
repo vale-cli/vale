@@ -1,11 +1,14 @@
 package core
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/vale-cli/vale/v3/internal/nlp"
 	"github.com/vale-cli/vale/v3/internal/system"
 )
 
@@ -36,6 +39,39 @@ func TestFormatFromExt(t *testing.T) {
 		if normExt != ".qdoc" || f != "fragment" {
 			t.Errorf("expected = [.qdoc fragment], got = [%v %v]", normExt, f)
 		}
+	}
+}
+
+// TextToContext is the production caller of nlp.TextToTokens (reached from
+// the `tag` CLI command, cmd/vale/command.go's runTag) -- it used to panic
+// when a configured remote endpoint's /tag request failed, crashing the
+// whole vale process instead of letting runTag's already-existing `if err
+// != nil { return err }` handling report it normally, the same way
+// Info.Compute's fix reused lintProse's own pre-existing error handling.
+// This confirms TextToContext now returns a clean error instead.
+func TestTextToContextReturnsErrorOnTagEndpointFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"Tokens":[]}`))
+	}))
+	defer server.Close()
+
+	var out []nlp.TaggedWord
+	var err error
+	func() {
+		defer func() {
+			if p := recover(); p != nil {
+				t.Fatalf("TextToContext panicked instead of returning an error: %v", p)
+			}
+		}()
+		out, err = TextToContext("some text", &nlp.Info{Lang: "id", Endpoint: server.URL})
+	}()
+
+	if err == nil {
+		t.Fatalf("TextToContext returned a nil error for a failed /tag request, want a non-nil error")
+	}
+	if out != nil {
+		t.Errorf("context = %v, want nil alongside the error", out)
 	}
 }
 

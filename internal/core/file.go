@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jdkato/prose/v3/segment"
 	"github.com/jdkato/prose/v3/summarize"
 	"github.com/jdkato/prose/v3/tag"
 
@@ -223,6 +224,34 @@ func (f *File) TokensWith(model, text string) ([]tag.Token, error) {
 	}
 
 	return cache.TokensWith(model, text, &f.NLP)
+}
+
+// Sentences returns the sentence spans of text -- each one's byte offset
+// included -- computed once per document however many rules ask for it.
+//
+// Segmentation does not depend on a tagger model, unlike TokensWith, so this
+// always reads the default model's cache regardless of which model a rule
+// names; a second, model-keyed cache of the same segmentation would just
+// repeat it once per model for no reason.
+//
+// Routed through f.NLP the same way TokensWith is, so a file configured with
+// a non-English remote endpoint gets that endpoint's own sentence
+// boundaries, not always local Punkt's (see nlp.SegmentWith).
+//
+// A non-nil error means segmentation itself failed -- a remote endpoint's
+// request errored -- the same as TokensWith already reports for tagging.
+func (f *File) Sentences(text string) ([]segment.Sentence, error) {
+	if f.tags == nil {
+		f.tags = map[string]*nlp.TokenCache{}
+	}
+
+	cache, ok := f.tags[""]
+	if !ok {
+		cache = &nlp.TokenCache{}
+		f.tags[""] = cache
+	}
+
+	return cache.Sentences(text, &f.NLP)
 }
 
 // StartBlock resets the per-block alert state: the masked contexts, and the

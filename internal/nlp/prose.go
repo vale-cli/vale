@@ -3,6 +3,7 @@ package nlp
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/jdkato/prose/v3/segment"
@@ -166,23 +167,81 @@ func tagTextWith(model, text string) ([]tag.Token, error) {
 	return tokens, nil
 }
 
+// SegmentWith splits text into sentences, making the same local-vs-remote
+// choice Info.Compute already makes for structural paragraph splitting (see
+// usesRemoteSegmentation in provider.go): local Punkt for English text, or
+// when info names no remote endpoint at all, and otherwise the endpoint's own
+// `/segment` response for non-English text.
+//
+// Local Punkt's own Sentence values already carry accurate offsets (see
+// segment.Sentence). A remote `/segment` response does not -- it is text
+// only -- so each returned piece is located by searching text for it,
+// advancing a cursor past every earlier piece so a sentence that recurs
+// verbatim resolves to its own occurrence rather than always the first (the
+// same technique offsetOf, in provider.go, uses for structural splitting).
+//
+// A remote endpoint's request can fail -- a network error, a timeout, a
+// non-JSON body -- so this reports that as a real error rather than
+// panicking: there is no recover() anywhere in Vale, so a panic here would
+// crash the whole run instead of surfacing as one file's lint error.
+func SegmentWith(text string, info *Info) ([]segment.Sentence, error) {
+	if !usesRemoteSegmentation(info) {
+		return punktSegmenter().Segment(text), nil
+	}
+
+	ret, err := doSegment(text, info.Lang, info.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	var sents []segment.Sentence
+	cursor := 0
+	for _, piece := range ret.Sents {
+		piece = strings.TrimSpace(piece)
+		if piece == "" || cursor > len(text) {
+			continue
+		}
+		i := strings.Index(text[cursor:], piece)
+		if i < 0 {
+			// A remote segmenter can rewrite text (normalize whitespace,
+			// say) so that a piece is no longer a literal substring; there
+			// is no honest span to report for it, so it is dropped rather
+			// than guessed at.
+			continue
+		}
+		start := cursor + i
+		cursor = start + len(piece)
+		sents = append(sents, segment.Sentence{Text: piece, Start: start})
+	}
+	return sents, nil
+}
+
 // TextToTokens converts a string to a slice of tagged tokens.
 //
 // Tokens from the built-in tagger carry their byte offset within text, so
 // text[tok.Start:tok.Start+len(tok.Text)] == tok.Text. Tokens from a remote
 // NLP endpoint do not: that API returns text and tags only, so Start is zero
 // throughout and callers needing positions must locate the tokens themselves.
-func TextToTokens(text string, nlp *Info) []tag.Token {
+//
+// A remote endpoint's request can fail -- a network error, a timeout, a
+// non-2xx status (see post, in http.go) -- so this reports that as a real
+// error rather than panicking: there is no recover() anywhere in Vale, so a
+// panic here would crash the whole run instead of surfacing as a normal,
+// reportable error. TextToContext (internal/core/util.go) and its own
+// caller, the `tag` CLI command (cmd/vale/command.go's runTag), already
+// return errors the same way; both are updated to thread this one through
+// rather than let it panic.
+func TextToTokens(text string, nlp *Info) ([]tag.Token, error) {
 	// Determine if (and how) we need to do POS tagging.
 	if nlp == nil || nlp.Endpoint == "" {
 		// Fall back to our internal library (English-only).
-		return tagText(text)
+		return tagText(text), nil
 	}
 	result, err := pos(text, nlp.Lang, nlp.Endpoint)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return result.Tokens
+	return result.Tokens, nil
 }
 
 // textToTokensWith converts text to tagged tokens with the named tagger.
@@ -210,7 +269,45 @@ func textToTokensWith(model, text string, info *Info) ([]tag.Token, error) {
 // has ever seen, and one shared between documents would need locking on a path
 // that is otherwise free of it.
 type TokenCache struct {
-	tagged map[string][]tag.Token
+	tagged    map[string][]tag.Token
+	sentences map[string][]segment.Sentence
+}
+
+// Sentences returns the sentence spans of text -- each one's byte offset
+// included, not just its bytes -- segmenting it only the first time.
+//
+// Segmentation does not depend on which tagger a rule names, unlike
+// TokensWith, so there is only one cache for it rather than one per model:
+// two rules asking for the same block's sentences, whatever tagger either of
+// them uses, get the same segmentation pass.
+//
+// info drives the same local-vs-remote dispatch Info.Compute already makes
+// (see SegmentWith): a file configured with a non-English remote endpoint
+// gets that endpoint's own sentence boundaries here too, not always local
+// Punkt's.
+//
+// A non-nil error means segmentation itself failed (a remote endpoint's
+// request errored); the caller reports that rather than proceeding with a
+// partial or stale result.
+func (c *TokenCache) Sentences(text string, info *Info) ([]segment.Sentence, error) {
+	if c == nil {
+		return SegmentWith(text, info)
+	}
+
+	if sents, ok := c.sentences[text]; ok {
+		return sents, nil
+	}
+
+	sents, err := SegmentWith(text, info)
+	if err != nil {
+		return nil, err
+	}
+	if c.sentences == nil {
+		c.sentences = map[string][]segment.Sentence{}
+	}
+	c.sentences[text] = sents
+
+	return sents, nil
 }
 
 // Tokens returns the tagged tokens of text, tagging it only the first time.

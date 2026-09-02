@@ -2,6 +2,7 @@ package nlp
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -17,6 +18,15 @@ type TagResult struct {
 	Tokens []tag.Token
 }
 
+// post sends the request and returns its body, but only for a successful
+// (2xx) response.
+//
+// Without this check, a remote endpoint returning e.g. `500 {"sents":[]}` --
+// an error status with a technically-valid-but-degenerate JSON body -- was
+// decoded exactly as if it had succeeded: doSegment or pos would hand back a
+// zero-value result and a nil error, and a caller reading that as "no
+// sentences" or "no tokens" rather than "the request failed" would silently
+// carry on with wrong data instead of surfacing the real problem.
 func post(url string) ([]byte, error) {
 	var body []byte
 
@@ -29,6 +39,10 @@ func post(url string) ([]byte, error) {
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return body, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("nlp: request to %s failed: %s", url, resp.Status)
 	}
 
 	return body, nil
