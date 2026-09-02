@@ -1,6 +1,8 @@
 package nlp
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -78,6 +80,55 @@ func TestComputeSplit(t *testing.T) {
 			t.Errorf("paragraph blocks = %d, want 2", count)
 		}
 	})
+}
+
+// Compute used to panic when a configured remote endpoint's /segment request
+// failed -- a network error, a non-2xx status, a malformed response -- which
+// crashed the whole vale process rather than reporting a normal lint error.
+// Compute runs during block construction, ahead of any rule's own Run, so any
+// sentence-scoped rule reaches this exact path just from being dispatched at
+// all against a non-English document under a remote endpoint -- there is no
+// rule-level error handling downstream to catch a panic here.
+//
+// A mocked /segment endpoint returning a non-2xx status confirms Compute now
+// returns a normal error instead of panicking. Its caller, lintProse
+// (internal/lint/lint.go), already wraps any error Compute returns as
+// core.NewE100("NLP.Compute", err) -- that handling was already in place,
+// only ever unreachable because Compute could not previously return an error
+// on this path.
+func TestComputeReturnsErrorOnSegmentEndpointFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"Sents":[]}`))
+	}))
+	defer server.Close()
+
+	// A non-English language, so Compute reaches the remote branch rather
+	// than local Punkt.
+	info := Info{
+		Segmentation: true,
+		Lang:         "id",
+		Endpoint:     server.URL,
+	}
+	blk := NewLinedBlock("", "I bought a widget. Arrived promptly.", "text.md", 1)
+
+	var blks []Block
+	var err error
+	func() {
+		defer func() {
+			if p := recover(); p != nil {
+				t.Fatalf("Compute panicked instead of returning an error: %v", p)
+			}
+		}()
+		blks, err = info.Compute(&blk, false)
+	}()
+
+	if err == nil {
+		t.Fatalf("Compute returned a nil error for a failed /segment request, want a non-nil error")
+	}
+	if blks != nil {
+		t.Errorf("blocks = %v, want nil alongside the error", blks)
+	}
 }
 
 // A block that inline markup has rewritten is nowhere in its context, so a

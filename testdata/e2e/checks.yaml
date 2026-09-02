@@ -338,3 +338,31 @@ cases:
       test.txt:21:5:LanguageTool.APOS_ARE:Did you mean "endpoints" instead of "endpoint's"?
       test.txt:25:1:LanguageTool.Metadata:Use data and metadata as plural nouns.
       test.txt:29:1:LanguageTool.Metadata:Use data and metadata as plural nouns.
+
+  - name: remote-segment-endpoint-failure-reports-cleanly
+    about: "a failed /segment request during block construction (Info.Compute,
+      which runs ahead of every rule -- not just sequence's own -- ahead of
+      any rule) used to panic instead of surfacing as a normal lint error.
+      The endpoint is a closed local port, so the failure (connection
+      refused) is deterministic and needs no network or mock server."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+        NLPEndpoint = http://127.0.0.1:1/
+
+        [*.md]
+        Lang = id
+        T.Seq = YES
+      styles/T/Seq.yml: |
+        extends: sequence
+        message: "matched"
+        level: error
+        tokens:
+          - pattern: foo
+      test.md: |
+        This is a test sentence. Here is another one.
+    args: test.md
+    exit: 2
+    contains: |
+      E100 [NLP.Compute] Runtime error

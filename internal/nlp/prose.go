@@ -172,17 +172,26 @@ func tagTextWith(model, text string) ([]tag.Token, error) {
 // text[tok.Start:tok.Start+len(tok.Text)] == tok.Text. Tokens from a remote
 // NLP endpoint do not: that API returns text and tags only, so Start is zero
 // throughout and callers needing positions must locate the tokens themselves.
-func TextToTokens(text string, nlp *Info) []tag.Token {
+//
+// A remote endpoint's request can fail -- a network error, a timeout, a
+// non-2xx status (see post, in http.go) -- so this reports that as a real
+// error rather than panicking: there is no recover() anywhere in Vale, so a
+// panic here would crash the whole run instead of surfacing as a normal,
+// reportable error. TextToContext (internal/core/util.go) and its own
+// caller, the `tag` CLI command (cmd/vale/command.go's runTag), already
+// return errors the same way; both are updated to thread this one through
+// rather than let it panic.
+func TextToTokens(text string, nlp *Info) ([]tag.Token, error) {
 	// Determine if (and how) we need to do POS tagging.
 	if nlp == nil || nlp.Endpoint == "" {
 		// Fall back to our internal library (English-only).
-		return tagText(text)
+		return tagText(text), nil
 	}
 	result, err := pos(text, nlp.Lang, nlp.Endpoint)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return result.Tokens
+	return result.Tokens, nil
 }
 
 // textToTokensWith converts text to tagged tokens with the named tagger.

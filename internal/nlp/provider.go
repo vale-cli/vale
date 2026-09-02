@@ -175,18 +175,42 @@ type Info struct {
 // must not reach them. See #1132.
 func (n *Info) Compute(block *Block, split bool) ([]Block, error) {
 	seg := SentenceTokenizer.Segment
+
+	// A remote endpoint's segmentation request can fail -- a network error,
+	// a timeout, a non-2xx status (see post, in http.go) -- and Compute runs
+	// during block construction, ahead of every rule's own Run. There is no
+	// recover() anywhere in Vale, so panicking here would crash the whole
+	// run instead of surfacing as this one file's lint error the way
+	// lintProse already reports any other error Compute returns (wrapped in
+	// core.NewE100; see internal/lint/lint.go). seg itself has to keep
+	// returning []string -- it is also the plain, error-free local
+	// segmenter -- so a remote failure is captured here and turned into
+	// Compute's own returned error once doNLP is done calling it, rather
+	// than changing seg's signature for this one caller.
+	var segErr error
 	if n.Endpoint != "" && n.Lang != "en" {
 		// We only use external segmentation for non-English text since prose
 		// (our native library) is more efficient.
 		seg = func(text string) []string {
 			ret, err := doSegment(text, n.Lang, n.Endpoint)
 			if err != nil {
-				panic(err)
+				segErr = err
+				return nil
 			}
 			return ret.Sents
 		}
 	}
-	return n.doNLP(block, seg, split)
+
+	blks := n.doNLP(block, seg, split)
+	if segErr != nil {
+		// The request failed partway through block construction: whatever
+		// doNLP built around the failed call is incomplete, not merely
+		// missing a few sentences, so it is discarded rather than returned
+		// alongside the error.
+		return nil, segErr
+	}
+
+	return blks, nil
 }
 
 // offsetOf locates piece within blk.Text and returns its offset in blk's
@@ -218,7 +242,7 @@ func offsetOf(blk *Block, base int, piece string, cursor *int) (int, int) {
 	return start, base + start
 }
 
-func (n *Info) doNLP(blk *Block, seg segmenter, split bool) ([]Block, error) {
+func (n *Info) doNLP(blk *Block, seg segmenter, split bool) []Block {
 	blks := []Block{}
 
 	ctx := blk.Context
@@ -252,5 +276,5 @@ func (n *Info) doNLP(blk *Block, seg segmenter, split bool) ([]Block, error) {
 	blks = append(
 		blks, NewLinedBlock(ctx, blk.Text, blk.Scope, idx).at(base).withRuns(blk.Runs, 0))
 
-	return blks, nil
+	return blks
 }
