@@ -71,6 +71,12 @@ type walker struct {
 	spans     []nlp.Run
 	srcCursor int
 
+	// cmtCursor is how far the search for the next comment directive has
+	// gone. Comments arrive in document order but ahead of the block holding
+	// them -- `cursor` moves only when a block is placed -- so they need a
+	// cursor of their own, floored at the block cursor.
+	cmtCursor int
+
 	// inline holds the inline elements captured within the current block --
 	// link text, bold, and so on -- to be linted once the block itself is,
 	// since their position is derived from its own. Reset with the block.
@@ -336,6 +342,33 @@ func (w *walker) locate(text string) int {
 
 	off := w.cursor + i
 	w.cursor = off + len(text)
+
+	return off
+}
+
+// commentAt returns where the comment's text begins in the source, or -1 if
+// it cannot be found -- a format whose comment syntax rewrites the text, or a
+// directive quoted earlier in a way the search cannot tell apart.
+func (w *walker) commentAt(txt string) int {
+	if txt == "" {
+		return -1
+	}
+	if w.cmtCursor < w.cursor {
+		w.cmtCursor = w.cursor
+	}
+
+	ctx := w.getCtx()
+	if w.cmtCursor > len(ctx) {
+		return -1
+	}
+
+	i := strings.Index(ctx[w.cmtCursor:], txt)
+	if i < 0 {
+		return -1
+	}
+
+	off := w.cmtCursor + i
+	w.cmtCursor = off + len(txt)
 
 	return off
 }

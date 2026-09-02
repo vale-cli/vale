@@ -55,6 +55,7 @@ type File struct {
 	// sanShifts records, per line, where the sanitizer's `&rsquo;` rewrite
 	// shortened the text, so spans can be mapped back to the file's bytes.
 	sanShifts  map[int][]int
+	regions    map[string][]commentRegion // spans covered by comment directives
 	Comments   map[string]bool            // comment control statements
 	Metrics    map[string]int             // count-based metrics
 	history    map[string]int             // -
@@ -487,6 +488,14 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 		}
 	}
 
+	// A directive inside the block has already cancelled out of the toggles
+	// shouldRun reads, but its recorded region still covers this location.
+	// Hidden rather than dropped: the masking below must still consume the
+	// occurrence, or the next alert from this check finds it again.
+	if !a.Hide && f.RegionDisabled(a.Check, a.Match, a.Line, a.Span[0]) {
+		a.Hide = true
+	}
+
 	if a.Span[0] > 0 {
 		// Masking the text we just reported keeps the *next* alert from this
 		// check finding the same occurrence again. An alert located by byte
@@ -522,8 +531,31 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 	}
 }
 
+// commentRegion is the span of the source between a comment directive that
+// turned a check off and the one that turned it back on. Positions are the
+// 1-based (line, column) pairs alerts carry, so a located alert compares
+// directly; an open region runs to the end of the file.
+type commentRegion struct {
+	begin [2]int
+	end   [2]int
+	open  bool
+}
+
 // UpdateComments sets a new status based on comment.
 func (f *File) UpdateComments(comment string) {
+	f.UpdateCommentsAt(comment, -1)
+}
+
+// UpdateCommentsAt sets a new status based on comment, which begins at byte
+// offset `off` of the file's content, or -1 when its position isn't known.
+//
+// The position is what lets a directive work inside a block. The toggles are
+// read once per block, so a NO/YES pair inside one paragraph -- which is what
+// a deep continuation indent makes of them, since an indent of four or more
+// past the list's content column fails CommonMark's HTML-block test and
+// leaves the comments inline -- has cancelled out by the time the paragraph
+// is linted. The recorded region suppresses the located alerts instead.
+func (f *File) UpdateCommentsAt(comment string, off int) {
 	if comment == "vale off" { //nolint:gocritic
 		f.Comments["off"] = true
 	} else if comment == "vale on" {
@@ -534,14 +566,14 @@ func (f *File) UpdateComments(comment string) {
 			var parts []string
 			if err := json.Unmarshal([]byte(check[2]), &parts); err == nil {
 				for i := range parts {
-					f.Comments[check[1]+"["+parts[i]+"]"] = check[3] == "NO"
+					f.setComment(check[1]+"["+parts[i]+"]", check[3] == "NO", off)
 				}
 			}
 		}
 	} else if commentControlRE.MatchString(comment) {
 		check := commentControlRE.FindStringSubmatch(comment)
 		if len(check) == 3 {
-			f.Comments[check[1]] = (check[2] == "NO" || check[2] == "off")
+			f.setComment(check[1], check[2] == "NO" || check[2] == "off", off)
 		}
 	} else if commentStyleRE.MatchString(comment) {
 		for _, style := range f.BaseStyles {
@@ -552,6 +584,62 @@ func (f *File) UpdateComments(comment string) {
 			f.Comments[style] = false
 		}
 	}
+}
+
+// setComment flips one directive key and, when the directive's position is
+// known, opens or closes the region it covers.
+func (f *File) setComment(key string, disabled bool, off int) {
+	f.Comments[key] = disabled
+	if off < 0 {
+		return
+	}
+	if off > len(f.Content) {
+		off = len(f.Content)
+	}
+
+	line, span := locFromByteOffset(f.Content, f.lineStarts(f.Content), off, off, 0)
+	at := [2]int{line, span[0]}
+
+	if disabled {
+		if n := len(f.regions[key]); n > 0 && f.regions[key][n-1].open {
+			return
+		}
+		if f.regions == nil {
+			f.regions = map[string][]commentRegion{}
+		}
+		f.regions[key] = append(f.regions[key], commentRegion{begin: at, open: true})
+	} else if n := len(f.regions[key]); n > 0 && f.regions[key][n-1].open {
+		f.regions[key][n-1].end = at
+		f.regions[key][n-1].open = false
+	}
+}
+
+// RegionDisabled reports whether a comment directive covers check at the
+// given location -- a 1-based line and column, as alerts carry them.
+func (f *File) RegionDisabled(check, match string, line, col int) bool {
+	if len(f.regions) == 0 {
+		return false
+	}
+
+	keys := []string{check}
+	if style := StyleName(check); style != check {
+		keys = append(keys, style)
+	}
+	if match != "" {
+		keys = append(keys, check+"["+match+"]")
+	}
+
+	at := [2]int{line, col}
+	for _, key := range keys {
+		for _, r := range f.regions[key] {
+			after := r.begin[0] < at[0] || (r.begin[0] == at[0] && r.begin[1] <= at[1])
+			before := r.open || at[0] < r.end[0] || (at[0] == r.end[0] && at[1] < r.end[1])
+			if after && before {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // QueryComments checks if there has been an in-text comment for this check.

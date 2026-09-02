@@ -431,3 +431,46 @@ cases:
           "T.Live": 1
         }
       }
+
+  - name: deep-indent-directive
+    about: "a directive comment on a six-space continuation indent fails
+      CommonMark's HTML-block test and lands inline, inside the paragraph; the
+      block-level toggle has cancelled out by the time the paragraph is
+      linted, so the directive's recorded region suppresses the alert instead"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Hedging.yml: |
+        extends: existence
+        message: "Hedge: '%s'."
+        level: error
+        ignorecase: true
+        tokens:
+          - it's worth noting
+      doc.md: |
+        - [ ] **Bold lead.** Six-space continuation indent.
+              <!-- vale T.Hedging = NO -->
+              Here it's worth noting is quoted.
+              <!-- vale T.Hedging = YES -->
+              And it's worth noting this follows the YES.
+
+        - [ ] Checkbox, two-space indent.
+          <!-- vale T.Hedging = NO -->
+          Here it's worth noting is quoted.
+          <!-- vale T.Hedging = YES -->
+
+        - Plain bullet, six-space indent.
+              <!-- vale T.Hedging = NO -->
+              Here it's worth noting is quoted.
+              <!-- vale T.Hedging = YES -->
+
+        - No directive, so it's worth noting this must fire.
+    args: --output=line doc.md
+    exit: 1
+    want: |
+      doc.md:5:11:T.Hedging:Hedge: 'it's worth noting'.
+      doc.md:17:20:T.Hedging:Hedge: 'it's worth noting'.

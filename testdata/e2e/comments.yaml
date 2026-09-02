@@ -11,7 +11,6 @@ cases:
       test.mdx:19:19:vale.Redundancy:'ACT test' is redundant
       test.mdx:25:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
       test.mdx:77:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
-      test.mdx:87:16:demo.Raw:Link "[must not use `.html`](../index.html)" must use the .md file extension.
 
   - name: mdx-config
     args: test2.mdx
@@ -21,7 +20,6 @@ cases:
       test2.mdx:19:19:vale.Redundancy:'ACT test' is redundant
       test2.mdx:25:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
       test2.mdx:77:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
-      test2.mdx:87:16:demo.Raw:Link "[must not use `.html`](../index.html)" must use the .md file extension.
 
   - name: markdown
     args: test.md
@@ -32,7 +30,6 @@ cases:
       test.md:37:19:vale.Redundancy:'ACT test' is redundant
       test.md:43:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
       test.md:95:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
-      test.md:105:16:demo.Raw:Link "[must not use `.html`](../index.html)" must use the .md file extension.
       test.md:109:48:demo.Ending-Preposition:Don't end a sentence with 'for.'
       test.md:111:20:demo.Ending-Preposition:Don't end a sentence with 'of.'
       test.md:121:19:vale.Redundancy:'ACT test' is redundant

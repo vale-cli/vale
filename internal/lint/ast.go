@@ -175,7 +175,8 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 			if !inline {
 				closedInline = true
 			}
-			f.UpdateComments(txt)
+			// Found before `update` masks it out of the context.
+			f.UpdateCommentsAt(txt, walker.commentAt(txt))
 			walker.update(txt, tokt)
 		} else if tokt == html.TextToken {
 			skip = skip || shouldBeSkipped(walker.tagHistory, f.NormedExt)

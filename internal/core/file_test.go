@@ -106,3 +106,46 @@ func TestNewFileGlobalLangFallback(t *testing.T) {
 		t.Fatalf("expected global Lang fallback %q, got %q", "ja", f.NLP.Lang)
 	}
 }
+
+// TestDirectiveRegions verifies the position-aware half of comment handling:
+// a directive whose offset is known records a region, and a located alert
+// inside it is suppressed -- by its own name, its style, or a match key --
+// while one before the NO, after the YES, or from another check is not.
+func TestDirectiveRegions(t *testing.T) {
+	f := &File{Comments: map[string]bool{}}
+	f.SetText("one\ntwo <!-- vale T.Rule = NO -->\nthree\n<!-- vale T.Rule = YES --> four\n")
+
+	noAt := len("one\ntwo <!-- ")
+	yesAt := len("one\ntwo <!-- vale T.Rule = NO -->\nthree\n<!-- ")
+
+	f.UpdateCommentsAt("vale T.Rule = NO", noAt)
+	f.UpdateCommentsAt("vale T.Rule = YES", yesAt)
+
+	if f.RegionDisabled("T.Rule", "", 1, 1) {
+		t.Error("suppressed before the NO")
+	}
+	if !f.RegionDisabled("T.Rule", "", 3, 1) {
+		t.Error("not suppressed inside the region")
+	}
+	if f.RegionDisabled("T.Rule", "", 4, 30) {
+		t.Error("suppressed after the YES")
+	}
+	if f.RegionDisabled("T.Other", "", 3, 1) {
+		t.Error("suppressed another rule")
+	}
+
+	// A style-level directive covers every rule in the style, and an
+	// unclosed region runs to the end of the file.
+	f.UpdateCommentsAt("vale T = NO", yesAt+40)
+	if !f.RegionDisabled("T.Other", "", 99, 1) {
+		t.Error("style-level region did not cover the rule")
+	}
+
+	// An unknown position records nothing.
+	g := &File{Comments: map[string]bool{}}
+	g.SetText("text\n")
+	g.UpdateCommentsAt("vale T.Rule = NO", -1)
+	if g.RegionDisabled("T.Rule", "", 1, 1) {
+		t.Error("recorded a region without a position")
+	}
+}
