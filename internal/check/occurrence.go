@@ -9,6 +9,9 @@ import (
 	"github.com/vale-cli/vale/v3/internal/nlp"
 )
 
+// reFirstWord finds the word a zero-occurrence shortfall is anchored to.
+var reFirstWord = rx.MustCompile(`\S+`)
+
 // Occurrence counts the number of times Token appears.
 type Occurrence struct {
 	Definition `mapstructure:",squash"`
@@ -61,15 +64,22 @@ func (o Occurrence) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.A
 	occurrences := len(locs)
 	if (o.Max > 0 && occurrences > o.Max) || (o.Min > 0 && occurrences < o.Min) {
 		if occurrences == 0 {
-			// NOTE: We might not have a location to report -- i.e., by
-			// definition, having zero instances of a token may break a rule.
-			//
-			// In a case like this, the check essentially becomes
-			// document-scoped (like `readability`), so we mark the issue at
-			// the first line.
+			// Zero matches leave no occurrence to point at, but the scope
+			// that fell short has a position of its own. Anchored to its
+			// first word, the alert lands on the deficient paragraph;
+			// unlocated, it collapsed onto line one, where one report hid
+			// every other scope that fell short too.
 			a = core.Alert{
 				Check: o.Name, Severity: o.Level, Span: []int{1, 1},
 				Link: o.Link}
+
+			if word := reFirstWord.FindAllStringIndex(txt, 1); len(word) == 1 {
+				a, err = makeAlert(o.Definition, word[0], txt, cfg)
+				if err != nil {
+					return alerts, err
+				}
+				anchor(&a, blk)
+			}
 		} else {
 			span := []int{}
 

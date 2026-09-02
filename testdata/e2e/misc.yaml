@@ -533,3 +533,34 @@ cases:
         3:6	T.Multi	2 suggestions
         3:38	T.OverA	overlaps T.OverB
         3:44	T.OverB	overlaps T.OverA
+
+  - name: occurrence-min-position
+    about: "an `occurrence` shortfall with zero matches lands on the scope
+      that fell short, anchored to its first word: reported at 1:1, one
+      alert also hid every other deficient scope in the file"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Presence.yml: |
+        extends: occurrence
+        message: "A paragraph here has no slang (found %d)."
+        level: warning
+        scope: paragraph
+        min: 1
+        ignorecase: true
+        token: '\b(?:no cap|cooked|rizz)\b'
+      doc.md: |
+        This rollout is cooked, no cap.
+
+        This paragraph has none of it at all.
+
+        Neither does this one, which is plain corporate prose.
+    args: --output=line doc.md
+    exit: 0
+    want: |
+      doc.md:3:1:T.Presence:A paragraph here has no slang (found 0).
+      doc.md:5:1:T.Presence:A paragraph here has no slang (found 0).
