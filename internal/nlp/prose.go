@@ -213,13 +213,8 @@ type TokenCache struct {
 	tagged map[string][]tag.Token
 }
 
-// Tokens returns the tagged tokens of text, tagging it only the first time.
-func (c *TokenCache) Tokens(text string, info *Info) []tag.Token {
-	toks, _ := c.TokensWith("", text, info)
-	return toks
-}
-
-// TokensWith is Tokens, read with the named tagger.
+// TokensWith returns the tagged tokens of text, read with the named tagger,
+// tagging it only the first time.
 func (c *TokenCache) TokensWith(model, text string, info *Info) ([]tag.Token, error) {
 	if c == nil {
 		return textToTokensWith(model, text, info)

@@ -201,14 +201,8 @@ func NewFile(src string, config *Config) (*File, error) {
 	return &file, nil
 }
 
-// Tokens returns the tagged tokens of text, tagging it only once per document
-// however many rules ask for it.
-func (f *File) Tokens(text string) []tag.Token {
-	toks, _ := f.TokensWith("", text)
-	return toks
-}
-
-// TokensWith is Tokens, read with the named tagger.
+// TokensWith returns the tagged tokens of text, read with the named tagger,
+// tagging it only once per document however many rules ask for it.
 //
 // Two models disagree about the same sentence -- that is why a rule names
 // one -- so each is cached separately.
