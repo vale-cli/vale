@@ -343,6 +343,42 @@ cases:
     want: |
       test.md:1:30:T.Ambiguous:Avoid ambiguous pronouns.
 
+  - name: sequence/max
+    about: "#1161 -- `max` counts repeated occurrences of a *tagged* pattern
+      within a scope, the same way `min` already does above. A `sequence`
+      rule's declared scope used to always collapse to one sentence at a
+      time, so a paragraph with two real matches split across two sentences
+      never tripped a density alert; each sentence individually only ever
+      had one match."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        T.VerbTricolon = YES
+      styles/T/VerbTricolon.yml: |
+        extends: sequence
+        message: "More than one verb tricolon in this paragraph (%d found)."
+        level: warning
+        scope: paragraph
+        max: 1
+        tokens:
+          - tag: VB.*
+          - pattern: ","
+          - tag: VB.*
+          - pattern: ","
+          - pattern: and
+          - tag: VB.*
+      test.md: |
+        We planned, built, and shipped it. Later we tested, reviewed, and deployed it.
+
+        We planned, built, and shipped it in one clean pass.
+    args: test.md
+    exit: 0
+    want: |
+      test.md:1:4:T.VerbTricolon:More than one verb tricolon in this paragraph (2 found).
+
   - name: sequence
     dir: Sequence
     args: .
@@ -379,3 +415,31 @@ cases:
       test.txt:21:5:LanguageTool.APOS_ARE:Did you mean "endpoints" instead of "endpoint's"?
       test.txt:25:1:LanguageTool.Metadata:Use data and metadata as plural nouns.
       test.txt:29:1:LanguageTool.Metadata:Use data and metadata as plural nouns.
+
+  - name: remote-segment-endpoint-failure-reports-cleanly
+    about: "a failed /segment request during block construction (Info.Compute,
+      which runs ahead of every rule -- not just sequence's own -- ahead of
+      any rule) used to panic instead of surfacing as a normal lint error.
+      The endpoint is a closed local port, so the failure (connection
+      refused) is deterministic and needs no network or mock server."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+        NLPEndpoint = http://127.0.0.1:1/
+
+        [*.md]
+        Lang = id
+        T.Seq = YES
+      styles/T/Seq.yml: |
+        extends: sequence
+        message: "matched"
+        level: error
+        tokens:
+          - pattern: foo
+      test.md: |
+        This is a test sentence. Here is another one.
+    args: test.md
+    exit: 2
+    contains: |
+      E100 [NLP.Compute] Runtime error

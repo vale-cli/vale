@@ -111,6 +111,20 @@ func (b Block) at(offset int) Block {
 	return b
 }
 
+// IsSentence reports whether b is one sentence a segmenter already produced,
+// rather than a block that merely happens to hold exactly one.
+//
+// doNLP's segmentation loop is the only place that builds a `sentence.`-
+// prefixed scope, one per piece of seg(text), so this is a fact about how b
+// was constructed, not an inference about what any rule declared. Scope.Matches
+// reads the same prefix for its own, unrelated reason (a sentence fragment
+// must still satisfy a selector that doesn't ask for one); both go through
+// this one definition so the two readings of "is this a sentence block"
+// cannot drift apart.
+func (b Block) IsSentence() bool {
+	return strings.HasPrefix(b.Scope, "sentence.")
+}
+
 // resolveOffset returns where Text sits within Context.
 //
 // Blocks built from markup are handed a context they were carved out of but
@@ -175,18 +189,57 @@ type Info struct {
 // must not reach them. See #1132.
 func (n *Info) Compute(block *Block, split bool) ([]Block, error) {
 	seg := SentenceTokenizer.Segment
-	if n.Endpoint != "" && n.Lang != "en" {
+
+	// A remote endpoint's segmentation request can fail -- a network error,
+	// a timeout, a non-2xx status (see post, in http.go) -- and Compute runs
+	// during block construction, ahead of every rule's own Run: a plain
+	// (sentence-scoped) `sequence` rule reaches this exact path just by
+	// being dispatched at all, not only a `max`/`min` one. There is no
+	// recover() anywhere in Vale, so panicking here would crash the whole
+	// run instead of surfacing as this one file's lint error the way
+	// lintProse already reports any other error Compute returns (wrapped in
+	// core.NewE100; see internal/lint/lint.go). seg itself has to keep
+	// returning []string -- it is also the plain, error-free local
+	// segmenter -- so a remote failure is captured here and turned into
+	// Compute's own returned error once doNLP is done calling it, rather
+	// than changing seg's signature for this one caller.
+	var segErr error
+	if usesRemoteSegmentation(n) {
 		// We only use external segmentation for non-English text since prose
 		// (our native library) is more efficient.
 		seg = func(text string) []string {
 			ret, err := doSegment(text, n.Lang, n.Endpoint)
 			if err != nil {
-				panic(err)
+				segErr = err
+				return nil
 			}
 			return ret.Sents
 		}
 	}
-	return n.doNLP(block, seg, split)
+
+	blks := n.doNLP(block, seg, split)
+	if segErr != nil {
+		// The request failed partway through block construction: whatever
+		// doNLP built around the failed call is incomplete, not merely
+		// missing a few sentences, so it is discarded rather than returned
+		// alongside the error.
+		return nil, segErr
+	}
+
+	return blks, nil
+}
+
+// usesRemoteSegmentation reports whether n should segment sentences via a
+// configured remote endpoint's own `/segment` response rather than local
+// Punkt: only for non-English text, since prose (Vale's native library) is
+// more efficient for English.
+//
+// Both structural paragraph splitting (Compute, above) and a rule's own
+// sentence lookup (File.Sentences, by way of SegmentWith in prose.go) have to
+// make this same choice, so it lives in one place rather than two copies that
+// could drift apart.
+func usesRemoteSegmentation(n *Info) bool {
+	return n != nil && n.Endpoint != "" && n.Lang != "en"
 }
 
 // offsetOf locates piece within blk.Text and returns its offset in blk's
@@ -218,7 +271,7 @@ func offsetOf(blk *Block, base int, piece string, cursor *int) (int, int) {
 	return start, base + start
 }
 
-func (n *Info) doNLP(blk *Block, seg segmenter, split bool) ([]Block, error) {
+func (n *Info) doNLP(blk *Block, seg segmenter, split bool) []Block {
 	blks := []Block{}
 
 	ctx := blk.Context
@@ -252,5 +305,5 @@ func (n *Info) doNLP(blk *Block, seg segmenter, split bool) ([]Block, error) {
 	blks = append(
 		blks, NewLinedBlock(ctx, blk.Text, blk.Scope, idx).at(base).withRuns(blk.Runs, 0))
 
-	return blks, nil
+	return blks
 }

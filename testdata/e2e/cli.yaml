@@ -135,3 +135,19 @@ cases:
           ],
           "error": ""
       }
+
+  - name: tag-reports-endpoint-failure
+    about: "a failed /tag request used to panic (a crash with a goroutine stack
+      trace) instead of the command reporting a normal error; confirms it no
+      longer does. The endpoint is a closed local port, so the failure
+      (connection refused) is deterministic and needs no network or mock
+      server -- only the panic-vs-clean-error distinction is under test,
+      not any particular endpoint response."
+    files:
+      tagtest.txt: |
+        A short sentence to tag.
+    args: tag tagtest.txt id http://127.0.0.1:1/
+    exit: 2
+    absent:
+      - "panic:"
+      - goroutine

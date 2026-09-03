@@ -110,7 +110,7 @@ func (s Scope) Matches(blk nlp.Block) bool {
 	// parent block too -- and that is the copy such a rule must see: a
 	// `scope: heading` rule reading a heading one fragment at a time reported
 	// `a.` as a whole heading (#1150).
-	fragment := strings.HasPrefix(blk.Scope, "sentence.")
+	fragment := blk.IsSentence()
 
 	for _, sel := range s.Selectors {
 		if fragment && !asksForSentence(sel) {
