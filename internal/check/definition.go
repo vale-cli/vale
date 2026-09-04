@@ -474,7 +474,15 @@ func decodeRule(input interface{}, output interface{}) error {
 
 func checkScopes(scopes []string, path string) error {
 	for _, scope := range scopes {
-		if strings.Contains(scope, "&") {
+		for _, sel := range DocSelectors(scope) {
+			if _, err := compileSelector(sel); err != nil {
+				return core.NewE201FromTarget(
+					fmt.Sprintf("invalid selector in 'doc(...)': %s", err),
+					"scope",
+					path)
+			}
+		}
+		if strings.Contains(scope, "&") || strings.HasPrefix(strings.TrimPrefix(scope, "~"), "doc(") {
 			// FIXME: multi part ...
 			continue
 		}

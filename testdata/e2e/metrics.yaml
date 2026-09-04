@@ -56,3 +56,20 @@ cases:
     exit: 0
     want: |
       test.md:1:1:M.Counts:counts: 221.00
+
+  - name: scoped
+    about: "a `metric` or `readability` rule measures whatever block its scope
+      hands it: a heading, a paragraph, a list item, a `doc(...)` selection,
+      or -- with no scope -- the summary. A selection counts the elements it
+      holds, subheadings included, and the alert lands on the block's first
+      line. The Dense section reads harder than the file it sits in."
+    args: test.md
+    exit: 0
+    want: |
+      test.md:1:1:M.Heading:A heading of 5.00 words. The budget is 4.
+      test.md:1:1:M.Whole:The file has 2.00 H2s.
+      test.md:5:1:M.Section:A section of 38.00 words. The budget is 35.
+      test.md:5:1:M.Subheadings:A section with 2.00 subheadings. One is the limit.
+      test.md:7:1:M.Paragraph:A paragraph of 31.00 words. The budget is 30.
+      test.md:17:1:M.Grade:Dense reads at grade 11.23. Aim below 10.
+      test.md:20:1:M.ListItem:A list item of 21.00 words. The budget is 12.

@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 
+	"github.com/andybalholm/cascadia"
 	"golang.org/x/exp/maps"
 
 	"github.com/vale-cli/vale/v3/internal/core"
@@ -23,6 +25,7 @@ type Manager struct {
 	Config *core.Config
 
 	scopes       map[string]struct{}
+	docs         map[string]cascadia.Sel
 	rules        map[string]Rule
 	styles       []string
 	needsTagging bool
@@ -38,6 +41,7 @@ func NewManager(config *core.Config) (*Manager, error) {
 
 		rules:  make(map[string]Rule),
 		scopes: make(map[string]struct{}),
+		docs:   make(map[string]cascadia.Sel),
 	}
 
 	// TODO: Should we only load these if we're using them?
@@ -126,6 +130,24 @@ func (mgr *Manager) AddRuleFromFile(name, path string) error {
 // Rules are all of the Manager's compiled `Rule`s.
 func (mgr *Manager) Rules() map[string]Rule {
 	return mgr.rules
+}
+
+// A Selection is a `doc(...)` selector some rule declares, and the class the
+// walker gives the elements it matches.
+type Selection struct {
+	ID  string
+	Sel cascadia.Sel
+}
+
+// Selections returns every selector the loaded rules declare, in a stable
+// order.
+func (mgr *Manager) Selections() []Selection {
+	found := make([]Selection, 0, len(mgr.docs))
+	for id, sel := range mgr.docs {
+		found = append(found, Selection{ID: id, Sel: sel})
+	}
+	sort.Slice(found, func(i, j int) bool { return found[i].ID < found[j].ID })
+	return found
 }
 
 // HasScope returns `true` if the manager has a rule that applies to `scope`.
@@ -347,7 +369,9 @@ func (mgr *Manager) compileCheck(file []byte, chkName, path string) (Rule, bool,
 		// Not for `sequence`, which needs to tell an unset scope from an
 		// explicit `text` one: it runs on sentences, and has to know whether
 		// the author asked for somewhere in particular to take them from.
-		if extends, _ := generic["extends"].(string); extends != "sequence" {
+		// Nor for the measuring checks, which default to the summary.
+		if extends, _ := generic["extends"].(string); extends != "sequence" &&
+			extends != "metric" && extends != "readability" {
 			generic["scope"] = []string{"text"}
 		}
 	}
@@ -371,9 +395,9 @@ func (mgr *Manager) compileCheck(file []byte, chkName, path string) (Rule, bool,
 // A negated term asks for a family's absence, which needs nothing built.
 func scopeBases(s string) []string {
 	bases := []string{}
-	for _, part := range strings.Split(s, "&") {
+	for _, part := range splitOutside(s, '&') {
 		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "~") {
+		if strings.HasPrefix(part, "~") || strings.HasPrefix(part, "doc(") {
 			continue
 		}
 		bases = append(bases, strings.Split(part, ".")[0])
@@ -386,6 +410,19 @@ func (mgr *Manager) registerCheck(chkName string, rule Rule, taggedPOS bool) err
 	for _, s := range rule.Fields().Scope {
 		for _, base := range scopeBases(s) {
 			mgr.scopes[base] = struct{}{}
+		}
+		for id, sel := range DocSelectors(s) {
+			if _, seen := mgr.docs[id]; seen {
+				continue
+			}
+			compiled, err := compileSelector(sel)
+			if err != nil {
+				return core.NewE201FromTarget(
+					fmt.Sprintf("invalid selector in 'doc(...)': %s", err),
+					"scope",
+					chkName)
+			}
+			mgr.docs[id] = compiled
 		}
 	}
 

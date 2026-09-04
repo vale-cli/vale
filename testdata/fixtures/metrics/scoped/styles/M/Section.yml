@@ -1,0 +1,5 @@
+extends: metric
+message: "A section of %s words. The budget is 35."
+scope: 'doc(section:has(> h2))'
+formula: words
+condition: "> 35"

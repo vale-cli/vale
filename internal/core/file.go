@@ -272,14 +272,20 @@ func (f *File) SortedAlerts() []Alert {
 
 // ComputeMetrics returns all of f's metrics.
 func (f *File) ComputeMetrics() (map[string]interface{}, error) {
+	return BlockMetrics(f.Summary.String(), f.Metrics), nil
+}
+
+// BlockMetrics computes the metrics of one block: the counts derived from its
+// text, plus the elements it holds. Empty when the text has no words.
+func BlockMetrics(text string, counts map[string]int) map[string]interface{} {
 	params := map[string]interface{}{}
 
-	doc := summarize.NewDocument(f.Summary.String())
+	doc := summarize.NewDocument(text)
 	if doc.NumWords == 0 {
-		return params, nil
+		return params
 	}
 
-	for k, v := range f.Metrics {
+	for k, v := range counts {
 		if strings.HasPrefix(k, "table") {
 			continue
 		}
@@ -287,6 +293,11 @@ func (f *File) ComputeMetrics() (map[string]interface{}, error) {
 		params[k] = float64(v)
 	}
 
+	addTextMetrics(params, doc)
+	return params
+}
+
+func addTextMetrics(params map[string]interface{}, doc *summarize.Document) {
 	params["complex_words"] = doc.NumComplexWords
 	params["long_words"] = doc.NumLongWords
 	params["sentences"] = doc.NumSentences
@@ -294,8 +305,6 @@ func (f *File) ComputeMetrics() (map[string]interface{}, error) {
 	params["words"] = doc.NumWords
 	params["polysyllabic_words"] = doc.NumPolysylWords
 	params["syllables"] = doc.NumSyllables
-
-	return params, nil
 }
 
 // FindLoc calculates the line and span of an Alert.
@@ -439,6 +448,12 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 	// We use blk.Context (the original document) rather than ctx, which may
 	// have been modified by ChkToCtx substitutions from earlier alerts.
 	switch {
+	case a.Match == "" && blk.Line >= 0 && blk.Line < len(f.Lines):
+		// A measurement has no text to find. It is reported at the start of
+		// its block's first line: the file's for the summary, the heading's
+		// for a section, the paragraph's for a paragraph.
+		a.Line = blk.Line + 1
+		a.Span = []int{1, 1}
 	case a.HasByteOffsets && a.Span[0] >= 0 && a.Span[1] <= len(blk.Context):
 		a.Line, a.Span = locFromByteOffset(
 			blk.Context, f.lineStarts(blk.Context), a.Span[0], a.Span[1], pad)

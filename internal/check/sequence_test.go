@@ -68,13 +68,15 @@ func TestSentenceScope(t *testing.T) {
 		want     []string
 	}{
 		{"unset means every sentence", nil, []string{"sentence"}},
-		{"a block scope is narrowed", []string{"list"}, []string{"sentence.list"}},
+		{"a block scope is narrowed", []string{"list"}, []string{"sentence & list"}},
 		{"already a sentence scope", []string{"sentence"}, []string{"sentence"}},
 		{"already narrowed", []string{"sentence.list"}, []string{"sentence.list"}},
 		{"negation stays in front", []string{"~list"}, []string{"~list"}},
+		{"a selector is a term, not a sub-scope",
+			[]string{"doc(h2 + p)"}, []string{"sentence & doc(h2 + p)"}},
 		{"several at once",
 			[]string{"heading", "list"},
-			[]string{"sentence.heading", "sentence.list"}},
+			[]string{"sentence & heading", "sentence & list"}},
 
 		// `paragraph` names no block of its own: splitting wraps every block
 		// as `paragraph.<scope>`, so it already describes what an undeclared
@@ -84,7 +86,7 @@ func TestSentenceScope(t *testing.T) {
 		{"a qualified paragraph keeps its qualifier",
 			[]string{"paragraph.md"}, []string{"sentence.md"}},
 		{"a scope merely starting with the word is left alone",
-			[]string{"paragraphs"}, []string{"sentence.paragraphs"}},
+			[]string{"paragraphs"}, []string{"sentence & paragraphs"}},
 	}
 
 	for _, c := range cases {

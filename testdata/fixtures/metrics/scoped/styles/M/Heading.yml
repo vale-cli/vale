@@ -1,0 +1,5 @@
+extends: metric
+message: "A heading of %s words. The budget is 4."
+scope: heading
+formula: words
+condition: "> 4"

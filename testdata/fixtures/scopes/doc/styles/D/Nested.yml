@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' is inside Context, by way of its h3."
+level: suggestion
+scope: 'text & doc(section:has(> h2:contains("Context")))'
+tokens:
+  - nested

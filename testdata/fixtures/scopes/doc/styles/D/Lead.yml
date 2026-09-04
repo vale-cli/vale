@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' in the paragraph after an h2."
+level: suggestion
+scope: 'text & doc(h2 + p)'
+tokens:
+  - Alternatively

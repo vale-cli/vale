@@ -596,8 +596,10 @@ func (s Sequence) targetRange(m match) (int, int, bool) {
 // Declaring `list` means the sentences of list items, not the whole document's.
 // An undeclared scope means all of them.
 //
-// A scope that already names sentences is left as it is, so `sentence.list`
-// and `list` describe the same thing.
+// A scope that already names sentences is left as it is. Any other is joined
+// to `sentence` with the grammar's own conjunction, which reads the same set
+// of blocks as `sentence.list` would and holds for a term the dot cannot
+// qualify, such as a selector.
 func sentenceScope(declared []string) []string {
 	if len(declared) == 0 {
 		return []string{"sentence"}
@@ -626,7 +628,7 @@ func sentenceScope(declared []string) []string {
 			scopes = append(scopes, "sentence"+rest)
 			continue
 		}
-		scopes = append(scopes, "sentence."+s)
+		scopes = append(scopes, "sentence & "+s)
 	}
 
 	return scopes

@@ -58,12 +58,26 @@ type walker struct {
 	// than anything that accumulates across the document.
 	clsHistory []string
 
+	// idsHistory holds the selections marked on the tags in tagHistory, and
+	// is reset with it.
+	idsHistory []string
+
 	// enclosing holds every block container still open -- pushed on its start
 	// tag, popped on its end tag. Unlike clsHistory, it is not reset per
 	// block: a container's class stays in scope for every block inside it,
 	// however many blocks that is. A MyST directive holding three paragraphs
 	// scopes all three, not just the first.
 	enclosing []openTag
+
+	// aggs holds the selections open around the current block, innermost
+	// last. Like enclosing, it spans blocks rather than resetting with them.
+	// closed is the one whose element just ended, awaiting the flush.
+	aggs   []*aggregate
+	closed *aggregate
+
+	// seen records every selection the document opened, so the ones it
+	// never did can be reported as absent.
+	seen map[string]bool
 
 	// spans maps this block's text back to the source, and srcCursor is how far
 	// the search for the next run has already gone. Separate from `cursor`,
@@ -150,6 +164,7 @@ func (w *walker) reset() {
 	w.queue = []string{}
 	w.tagHistory = []string{}
 	w.clsHistory = []string{}
+	w.idsHistory = nil
 	w.inline = nil
 	w.spans = nil
 }
@@ -172,9 +187,10 @@ func (w *walker) append(text string) {
 	}
 }
 
-func (w *walker) addTag(tag, class string) {
+func (w *walker) addTag(tag, class, marks string) {
 	w.tagHistory = append(w.tagHistory, tag)
 	w.clsHistory = append(w.clsHistory, class)
+	w.idsHistory = append(w.idsHistory, strings.Fields(marks)...)
 	w.activeTag = tag
 }
 
@@ -182,17 +198,103 @@ func (w *walker) addTag(tag, class string) {
 type openTag struct {
 	tag string
 	cls string
+
+	// ids names the selections the element belongs to, and agg gathers its
+	// text for them.
+	ids []string
+	agg *aggregate
 }
 
-// enclose records a block container as open.
-func (w *walker) enclose(tag, cls string) {
-	w.enclosing = append(w.enclosing, openTag{tag, cls})
+// An aggregate gathers the text of an element a `doc(...)` selector matched,
+// to be linted as one block when the element closes.
+type aggregate struct {
+	ids     []string
+	line    int
+	text    strings.Builder
+	metrics map[string]int
+}
+
+// enclose records a block container as open. `marks` names the selections
+// that matched it, if any.
+func (w *walker) enclose(tag, cls, marks string) {
+	open := openTag{tag: tag, cls: cls}
+	if ids := strings.Fields(marks); len(ids) > 0 {
+		open.ids = ids
+		open.agg = &aggregate{ids: ids, line: -1}
+		w.aggs = append(w.aggs, open.agg)
+		if w.seen == nil {
+			w.seen = map[string]bool{}
+		}
+		for _, id := range ids {
+			w.seen[id] = true
+		}
+	}
+	w.enclosing = append(w.enclosing, open)
+}
+
+// selections returns the ids of every selection the current block is in,
+// without repeats: those of the containers still open around it, and those
+// of the block's own element, which has closed by the time it is built.
+func (w *walker) selections() []string {
+	var found []string
+	add := func(id string) {
+		if !core.StringInSlice(id, found) {
+			found = append(found, id)
+		}
+	}
+	for _, o := range w.enclosing {
+		for _, id := range o.ids {
+			add(id)
+		}
+	}
+	for _, id := range w.idsHistory {
+		add(id)
+	}
+	return found
+}
+
+// gather adds a block's text to every selection still open around it, and
+// counts it under the metric the file counts it under.
+func (w *walker) gather(txt string, line int, metric string) {
+	for _, a := range w.aggs {
+		if a.line < 0 {
+			a.line = line
+		}
+		a.text.WriteString(txt)
+		a.text.WriteString("\n\n")
+	}
+	w.count(metric)
+}
+
+// count records an element in every open selection.
+func (w *walker) count(metric string) {
+	for _, a := range w.aggs {
+		if a.metrics == nil {
+			a.metrics = map[string]int{}
+		}
+		a.metrics[metric]++
+	}
+}
+
+// closeSelection returns the selection whose element has just closed, once
+// the walker has flushed the element's own text, or nil.
+func (w *walker) closeSelection() *aggregate {
+	a := w.closed
+	w.closed = nil
+	return a
 }
 
 // unclose closes the innermost open container with the given tag.
+//
+// A selection closes with its element. It is held until the element's text
+// has been flushed, since that text is the element's own.
 func (w *walker) unclose(tag string) {
 	for i := len(w.enclosing) - 1; i >= 0; i-- {
 		if w.enclosing[i].tag == tag {
+			if a := w.enclosing[i].agg; a != nil {
+				w.closed = a
+				w.aggs = w.aggs[:len(w.aggs)-1]
+			}
 			w.enclosing = append(w.enclosing[:i], w.enclosing[i+1:]...)
 			return
 		}

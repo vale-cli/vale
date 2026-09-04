@@ -1,0 +1,4 @@
+extends: metric
+message: "The file has %s H2s."
+formula: heading.h2
+condition: "> 1"

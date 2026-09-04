@@ -87,6 +87,14 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 	}
 	var open []inlineCapture
 
+	if sels := l.Manager.Selections(); len(sels) > 0 {
+		marked, err := markSelections(raw, sels)
+		if err != nil {
+			return core.NewE100(f.Path, err)
+		}
+		raw = marked
+	}
+
 	walker := newWalker(f, raw, offset)
 	for {
 		tokt, tok, txt := walker.walk()
@@ -99,7 +107,7 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 
 		if tokt == html.StartTagToken && !core.StringInSlice(txt, inlineTags) &&
 			!core.StringInSlice(txt, voidTags) {
-			walker.enclose(txt, class)
+			walker.enclose(txt, class, getAttribute(tok, markAttr))
 		} else if tokt == html.EndTagToken && !core.StringInSlice(txt, inlineTags) {
 			walker.unclose(txt)
 		}
@@ -112,6 +120,7 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 			walker.setCls(txt, blockSkip)
 			inBlock = true
 			f.Metrics[txt]++
+			walker.count(txt)
 		} else if inBlock && (core.StringInSlice(txt, skipTags) || closed) {
 			inBlock = false
 			if closed {
@@ -148,7 +157,7 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				// capture has to read the text as it arrived instead.
 				open = append(open, inlineCapture{tag: txt, scope: scope, masked: skip})
 			}
-			walker.addTag(txt, class)
+			walker.addTag(txt, class, getAttribute(tok, markAttr))
 		} else if tokt == html.EndTagToken && core.StringInSlice(txt, inlineTags) {
 			walker.activeTag = ""
 			closedInline = true
@@ -264,6 +273,13 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 			}
 			walker.reset()
 			buf.Reset()
+
+			// After the flush: the element's own text belongs to it.
+			if agg := walker.closeSelection(); agg != nil {
+				if err := l.lintSelection(f, agg); err != nil {
+					return err
+				}
+			}
 		}
 
 		attr = getAttribute(tok, "href")
@@ -274,6 +290,12 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 		}
 
 		walker.replaceToks(tok)
+	}
+
+	if sels := l.Manager.Selections(); len(sels) > 0 {
+		if err := l.lintAbsent(f, sels, walker.seen); err != nil {
+			return err
+		}
 	}
 
 	return l.lintSizedScopes(f)
@@ -291,6 +313,7 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 	// writing. It is not segmented either -- an identifier has no sentences.
 	if core.StringInSlice("data", state.tagHistory) {
 		f.Metrics["meta"]++
+		state.count("meta")
 
 		b := state.block(txt, withClasses("meta", state)+metaScope(f)+f.RealExt, 0)
 		return l.lintBlock(f, b, state.lines, 0, false)
@@ -306,13 +329,15 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 			if !match {
 				scope = "text.heading." + tag
 			}
-			f.Metrics[strings.TrimPrefix(scope, "text.")]++
+			metric := strings.TrimPrefix(scope, "text.")
+			f.Metrics[metric]++
 
 			shift := len(txt)
 			txt = strings.TrimLeft(txt, " ")
 			shift -= len(txt)
 
 			b := state.block(txt, withClasses(scope, state)+f.MetaScope+f.RealExt, shift)
+			state.gather(txt, b.Line, metric)
 
 			// Prose, not just a block: a list item or a heading is made of
 			// sentences the same way a paragraph is, and only this path segments
@@ -347,6 +372,7 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 	f.Metrics["paragraphs"]++
 
 	b := state.block(txt, withClasses("text", state)+f.MetaScope+f.RealExt, 0)
+	state.gather(txt, b.Line, "paragraphs")
 	if err := l.lintProse(f, b, state.lines, true); err != nil {
 		return err
 	}
@@ -427,11 +453,13 @@ func metaScope(f *core.File) string {
 }
 
 func withClasses(scope string, state *walker) string {
-	classes := state.classes()
-	if len(classes) == 0 {
-		return scope
+	if classes := state.classes(); len(classes) > 0 {
+		scope += ".class." + strings.Join(classes, ".class.")
 	}
-	return scope + ".class." + strings.Join(classes, ".class.")
+	if ids := state.selections(); len(ids) > 0 {
+		scope += ".in." + strings.Join(ids, ".in.")
+	}
+	return scope
 }
 
 func (l *Linter) lintSizedScopes(f *core.File) error {
@@ -442,6 +470,7 @@ func (l *Linter) lintSizedScopes(f *core.File) error {
 	// TODO: is this the most efficient place to assign tagging?
 	summary := nlp.NewLinedBlock(f.Content, f.Summary.String(),
 		"summary"+f.RealExt, 0)
+	summary.Metrics = f.Metrics
 
 	for _, blk := range []nlp.Block{summary} {
 		err := l.lintBlock(f, blk, len(f.Lines), 0, true)

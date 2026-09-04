@@ -7,6 +7,7 @@ require (
 	github.com/adrg/frontmatter v0.2.0
 	github.com/adrg/strutil v0.3.1
 	github.com/adrg/xdg v0.5.3
+	github.com/andybalholm/cascadia v1.3.5
 	github.com/bmatcuk/doublestar/v4 v4.7.1
 	github.com/d5/tengo/v2 v2.17.0
 	github.com/errata-ai/ini v1.63.0

@@ -1,0 +1,6 @@
+extends: occurrence
+message: "An ADR has a Decision section."
+level: error
+scope: 'doc(section:has(> h2:contains("Decision")))'
+token: '(?s).'
+min: 1

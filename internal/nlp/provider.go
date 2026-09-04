@@ -18,6 +18,12 @@ type Block struct {
 	Parent  string // parent (fully-qualfied) selector
 	Text    string // text content
 
+	// Metrics counts the elements the block holds -- headings by level, list
+	// items, and so on -- for a `metric` rule measuring it. The summary
+	// carries the file's counts and a selection carries its own; a block
+	// that is a single element carries none.
+	Metrics map[string]int
+
 	// Lower is Text lower-cased, for the literal prefilter that decides
 	// whether a rule's pattern can match at all. Computed once per block
 	// because every rule would otherwise repeat it.

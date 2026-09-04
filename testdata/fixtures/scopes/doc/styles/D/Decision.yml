@@ -1,0 +1,6 @@
+extends: occurrence
+message: "The Context section states no decision, and it should not."
+level: error
+scope: 'doc(section:has(> h2:contains("Context")))'
+token: '(?i)\bwe will\b'
+min: 1

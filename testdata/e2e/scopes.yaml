@@ -17,6 +17,32 @@ cases:
       test.md:13:11:rules.Para:Don't use 'paragraph' in a blockquote.
       test.md:19:1:rules.And:Don't use 'TODO' in a blockquote OR heading.
 
+  - name: doc
+    about: "`doc(...)` selects elements of the document view by CSS selector.
+      Alone, the element is the block, measured or counted as one; beside a
+      scope, it narrows that scope to blocks inside the element; negated, it
+      excludes them. Sections nest, so an h3 under Context is in Context. An
+      ordinary rule fires once per occurrence, so the selection block adds no
+      second pass over its text. `sequence` reads the sentences inside the
+      selection. A selection the document never opens is an empty block on
+      line one, so a count can report the section as missing."
+    args: test.md
+    exit: 1
+    want: |
+      test.md:1:1:D.Required:An ADR has a Rationale section.
+      test.md:3:6:D.Outside:'worth noting' hedges outside Context.
+      test.md:7:11:D.Lead:'Alternatively' in the paragraph after an h2.
+      test.md:7:11:D.Plain:'Alternatively' anywhere, once per occurrence.
+      test.md:9:4:D.Decision:The Context section states no decision, and it should not.
+      test.md:11:4:D.Seq:'could' is a modal and a verb, and inside Context.
+      test.md:11:30:D.Hedge:'worth noting' hedges inside Context.
+      test.md:13:1:D.Plain:'Alternatively' anywhere, once per occurrence.
+      test.md:17:3:D.Nested:'nested' is inside Context, by way of its h3.
+      test.md:21:30:D.Plain:'Alternatively' anywhere, once per occurrence.
+      test.md:21:30:D.Lead:'Alternatively' in the paragraph after an h2.
+      test.md:23:1:D.Words:Consequences runs 10.00 words. The budget is 5.
+      test.md:26:8:D.Outside:'worth noting' hedges outside Context.
+
   - name: paragraph
     about: "#1132 -- headings, table cells, list items, blockquotes, and
       frontmatter are not paragraphs"

@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' hedges inside Context."
+level: error
+scope: 'sentence & doc(section:has(> h2:contains("Context")))'
+tokens:
+  - worth noting

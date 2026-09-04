@@ -1,0 +1,5 @@
+extends: metric
+message: "A section with %s subheadings. One is the limit."
+scope: 'doc(section:has(> h2))'
+formula: heading.h3
+condition: "> 1"

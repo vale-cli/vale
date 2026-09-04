@@ -1,0 +1,7 @@
+extends: sequence
+message: "'%s' is a modal and a verb, and inside Context."
+level: suggestion
+scope: 'doc(section:has(> h2:contains("Context")))'
+tokens:
+  - tag: MD
+  - tag: VB

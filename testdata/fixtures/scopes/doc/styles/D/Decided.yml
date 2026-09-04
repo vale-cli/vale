@@ -1,0 +1,6 @@
+extends: occurrence
+message: "The Decision section states no decision."
+level: error
+scope: 'doc(section:has(> h2:contains("Decision")))'
+token: '(?i)\bwe will\b'
+min: 1

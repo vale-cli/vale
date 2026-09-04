@@ -1,8 +1,13 @@
 package check
 
 import (
+	"fmt"
+	"hash/fnv"
+	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/andybalholm/cascadia"
 
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/nlp"
@@ -88,8 +93,9 @@ func NewScope(value []string) Scope {
 	scope := map[string][]Selector{}
 	for _, v := range value {
 		selectors := []Selector{}
-		for _, part := range strings.Split(v, "&") {
-			selectors = append(selectors, NewSelector(strings.Split(part, ".")))
+		parts := splitOutside(v, '&')
+		for _, part := range parts {
+			selectors = append(selectors, newPart(part, len(parts) == 1))
 		}
 		scope[v] = selectors
 	}
@@ -140,8 +146,9 @@ func (s Scope) partMatches(target, parent Selector, options []Selector) bool {
 		tm := target.Contains(part)
 		pm := parent.Contains(part)
 		if part.Negated && !pm {
-			if target.Has("raw") || target.Has("summary") {
-				// This can't apply to sized scopes.
+			if target.Has("raw") || target.Has("summary") || target.Has("doc") {
+				// This can't apply to sized scopes, nor to a selection, whose
+				// text is linted where it lies.
 				return false
 			}
 		} else if (!part.Negated && !tm) || (part.Negated && pm) {
@@ -194,4 +201,94 @@ func (s *Selector) Equal(sel Selector) bool {
 // Has determines if s has a part equal to scope.
 func (s *Selector) Has(scope string) bool {
 	return core.StringInSlice(scope, s.Sections())
+}
+
+// newPart parses one `&`-separated term of a scope.
+//
+// A `doc(...)` term names elements of the document view by CSS selector. On
+// its own it selects the matched element as a block, `doc.<id>`; beside
+// another term, or negated, it narrows to blocks inside the element, which
+// carry `in.<id>`.
+func newPart(part string, standalone bool) Selector {
+	term := strings.TrimSpace(part)
+	negated := strings.HasPrefix(term, "~")
+	term = strings.TrimPrefix(term, "~")
+
+	sel, ok := docSelection(term)
+	if !ok {
+		return NewSelector(strings.Split(part, "."))
+	}
+
+	kind := "in"
+	if standalone && !negated {
+		kind = "doc"
+	}
+	return Selector{Value: []string{term}, Negated: negated, sections: []string{kind, docID(sel)}}
+}
+
+// docSelection returns the selector inside a `doc(...)` term.
+func docSelection(term string) (string, bool) {
+	if strings.HasPrefix(term, "doc(") && strings.HasSuffix(term, ")") {
+		return term[len("doc(") : len(term)-1], true
+	}
+	return "", false
+}
+
+// docID names a selector. It is derived from the selector's text so that a
+// rule and the walker agree on it without sharing state.
+func docID(sel string) string {
+	h := fnv.New32a()
+	h.Write([]byte(sel)) //nolint:errcheck // hash writes cannot fail
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+// reHasChild is the standard spelling of "has a child matching", which
+// cascadia only knows by its own name.
+var reHasChild = regexp.MustCompile(`:has\(\s*>\s*`)
+
+// compileSelector parses a `doc(...)` selector.
+func compileSelector(sel string) (cascadia.Sel, error) {
+	return cascadia.Parse(reHasChild.ReplaceAllString(sel, ":haschild("))
+}
+
+// DocSelectors returns the selectors named by `doc(...)` terms in a scope,
+// each under its id.
+func DocSelectors(scope string) map[string]string {
+	found := map[string]string{}
+	for _, part := range splitOutside(scope, '&') {
+		term := strings.TrimPrefix(strings.TrimSpace(part), "~")
+		if sel, ok := docSelection(term); ok {
+			found[docID(sel)] = sel
+		}
+	}
+	return found
+}
+
+// splitOutside splits s on sep, leaving alone any sep inside parentheses or
+// quotes -- the `&`, `.` and `~` a selector may contain are its own.
+func splitOutside(s string, sep rune) []string {
+	var parts []string
+	var quote rune
+	depth, start := 0, 0
+
+	for i, r := range s {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			}
+		case r == '"' || r == '\'':
+			quote = r
+		case r == '(':
+			depth++
+		case r == ')':
+			if depth > 0 {
+				depth--
+			}
+		case r == sep && depth == 0:
+			parts = append(parts, s[start:i])
+			start = i + 1
+		}
+	}
+	return append(parts, s[start:])
 }

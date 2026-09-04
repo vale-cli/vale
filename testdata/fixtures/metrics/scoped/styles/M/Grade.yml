@@ -1,0 +1,6 @@
+extends: readability
+message: "Dense reads at grade %s. Aim below 10."
+scope: 'doc(section:has(> h2:contains("Dense")))'
+metrics:
+  - Flesch-Kincaid
+grade: 10

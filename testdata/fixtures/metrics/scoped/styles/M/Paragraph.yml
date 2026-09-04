@@ -1,0 +1,5 @@
+extends: metric
+message: "A paragraph of %s words. The budget is 30."
+scope: paragraph
+formula: words
+condition: "> 30"

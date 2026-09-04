@@ -29,12 +29,11 @@ func NewReadability(_ *core.Config, generic baseCheck, path string) (Readability
 	}
 
 	if core.AllStringsInSlice(rule.Metrics, readabilityMetrics) {
-		// NOTE: This is the only extension point that doesn't support scoping.
-		// The reason for this is that we need to split on sentences to
-		// calculate readability, which means that specifying a scope smaller
-		// than a paragraph or including non-block level content (i.e.,
-		// headings, list items or table cells) doesn't make sense.
-		rule.Definition.Scope = []string{"summary"}
+		rule.Definition.Scope = measuredScope(rule.Definition.Scope)
+	} else if len(rule.Definition.Scope) == 0 {
+		// A rule naming a metric this check doesn't know has always run on
+		// `text`, the default an unset scope used to compile to.
+		rule.Definition.Scope = []string{"text"}
 	}
 
 	return rule, nil

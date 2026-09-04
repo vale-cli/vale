@@ -1,0 +1,5 @@
+extends: existence
+message: "'%s' anywhere, once per occurrence."
+level: suggestion
+tokens:
+  - Alternatively

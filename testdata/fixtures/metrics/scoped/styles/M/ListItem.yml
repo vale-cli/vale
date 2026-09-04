@@ -1,0 +1,5 @@
+extends: metric
+message: "A list item of %s words. The budget is 12."
+scope: list
+formula: words
+condition: "> 12"

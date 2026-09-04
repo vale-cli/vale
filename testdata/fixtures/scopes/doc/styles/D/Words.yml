@@ -1,0 +1,6 @@
+extends: metric
+message: "Consequences runs %s words. The budget is 5."
+level: error
+scope: 'doc(section:has(> h2:contains("Consequences")))'
+formula: words
+condition: "> 5"

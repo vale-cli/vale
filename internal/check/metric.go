@@ -43,14 +43,27 @@ func NewMetric(_ *core.Config, generic baseCheck, path string) (Metric, error) {
 	}
 
 	rule.path = path
-	rule.Definition.Scope = []string{"summary"}
+	rule.Definition.Scope = measuredScope(rule.Definition.Scope)
 	rule.Formula = headings.ReplaceAllString(rule.Formula, "heading_$1")
 
 	return rule, nil
 }
 
+// measuredScope is the scope a measuring rule runs on.
+//
+// Unset, it measures the document. So does `text`: the document's prose is
+// what the summary holds, and `text` was what an unset scope used to compile
+// to, so a rule that declared it keeps measuring what it always measured.
+// Any other scope measures the blocks it names.
+func measuredScope(declared []string) []string {
+	if len(declared) == 0 || (len(declared) == 1 && declared[0] == "text") {
+		return []string{"summary"}
+	}
+	return declared
+}
+
 // Run calculates the readability level of the given text.
-func (o Metric) Run(_ nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, error) {
+func (o Metric) Run(blk nlp.Block, _ *core.File, _ *core.Config) ([]core.Alert, error) {
 	alerts := []core.Alert{}
 
 	// A formula is compiled and run as a Tengo program, so it needs the same
@@ -59,10 +72,8 @@ func (o Metric) Run(_ nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, er
 	ctx, cancel := context.WithTimeout(context.Background(), tengoTimeout)
 	defer cancel()
 
-	parameters, err := f.ComputeMetrics()
-	if err != nil {
-		return alerts, err
-	} else if len(parameters) == 0 {
+	parameters := core.BlockMetrics(blk.Text, blk.Metrics)
+	if len(parameters) == 0 {
 		// empty file.
 		return alerts, nil
 	}
