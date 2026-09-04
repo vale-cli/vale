@@ -1,0 +1,5 @@
+extends: existence
+message: "'%s' was split from the word it belongs to."
+level: error
+tokens:
+  - auto

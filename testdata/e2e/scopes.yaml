@@ -190,6 +190,36 @@ cases:
       test.adoc:5:6:rules.InlineTitle:'One Tree of ********s' should use title-style capitalization.
       test.md:7:6:rules.InlineSpace:Use a non-breaking space before 'd\x{00A0}:'.
 
+  - name: inline-boundary
+    about: "Whitespace at an inline-markup boundary is the source's, never
+      inferred: a line break stays a line break (#1174), a space stays a space
+      (#1119), no space stays no space (#1111), a `<br>` separates its sides
+      (#1157), and a bracket binds tightly (#1056). A word repeated across a
+      boundary is still a repeat (#1157)."
+    args: .
+    exit: 1
+    want: |
+      test.html:8:36:rules.InlineBreak:'e ,' puts a space before a comma.
+      test.html:12:15:rules.InlineSpace:Use a non-breaking space before 'd\x{00A0}:'.
+      test.html:15:9:rules.InlineSplit:'auto' was split from the word it belongs to.
+      test.html:17:1:rules.InlineGlued:'* s' sits beside inline code.
+      test.html:23:17:rules.InlineFused:'e.R' fuses two sentences.
+      test.html:25:4:rules.InlineRepeat:'Click' is repeated.
+      test.html:26:4:rules.InlineRepeat:'Click' is repeated.
+      test.html:28:4:rules.InlineRepeat:'Click' is repeated.
+      test.html:31:11:rules.InlineParen:'( ' pads a parenthesis.
+      test.html:31:17:rules.InlineParen:' )' pads a parenthesis.
+      test.md:15:19:rules.InlineBreak:'e ,' puts a space before a comma.
+      test.md:26:6:rules.InlineSpace:Use a non-breaking space before 'd\x{00A0}:'.
+      test.md:34:6:rules.InlineSplit:'auto' was split from the word it belongs to.
+      test.md:38:1:rules.InlineGlued:'* s' sits beside inline code.
+      test.md:56:14:rules.InlineFused:'e.R' fuses two sentences.
+      test.md:60:4:rules.InlineRepeat:'Click' is repeated.
+      test.md:62:1:rules.InlineRepeat:'Click' is repeated.
+      test.md:66:1:rules.InlineRepeat:'Click' is repeated.
+      test.md:74:8:rules.InlineParen:'( ' pads a parenthesis.
+      test.md:74:14:rules.InlineParen:' )' pads a parenthesis.
+
   - name: attr
     args: .
     requires: asciidoctor, rst2html

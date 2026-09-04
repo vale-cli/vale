@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' fuses two sentences."
+level: error
+nonword: true
+tokens:
+  - '[a-z][.?!][A-Z]'

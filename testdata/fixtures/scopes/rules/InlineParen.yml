@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' pads a parenthesis."
+level: error
+nonword: true
+tokens:
+  - '\( |\s\)'

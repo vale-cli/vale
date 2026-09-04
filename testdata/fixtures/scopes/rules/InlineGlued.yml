@@ -1,0 +1,8 @@
+extends: existence
+message: "'%s' sits beside inline code."
+level: error
+nonword: true
+tokens:
+  - '\* s\b'
+  - '\bin\*'
+  - '\*for\b'

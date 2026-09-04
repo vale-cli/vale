@@ -209,13 +209,14 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				// whitespace is exactly what the source had, so trust it
 				// rather than inferring one: `<code>X</code>s` must not gain a
 				// space (#1111) and `<strong>x</strong> :` must not lose one
-				// (#1119).
-				spaced := startsWithSpace(tok.Data)
+				// (#1119). A line break stays a line break, as it does in
+				// plain text, so `[x](u)\n,` isn't read as `x ,` (#1174).
+				sep := leadingSpace(tok.Data)
 				// Kept before `clean`, which empties the text of a skipped
 				// element: inline code never reaches the block, so a capture of
 				// it has nothing else to read.
 				raw := txt
-				txt, skip = clean(txt, attr, skip || skipClass, inline, spaced, closedInline)
+				txt, skip = clean(txt, attr, skip || skipClass, inline, sep, closedInline)
 				closedInline = false
 				// `clean` prefixes inline content with a space so it doesn't
 				// fuse with the preceding text. When that content directly
@@ -233,9 +234,9 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				// nowhere in the file. See #502.
 				//
 				// Only a run that survived extraction unchanged can be mapped;
-				// `clean` may have prefixed a space, which belongs to the block
-				// and not to the source.
-				if body := strings.TrimLeft(txt, " "); body == raw {
+				// `clean` may have prefixed a separator, which belongs to the
+				// block and not to the source.
+				if body := strings.TrimLeft(txt, " \n"); body == raw {
 					walker.mapRun(buf.Len()+(len(txt)-len(body)), raw)
 				}
 				buf.WriteString(txt)
@@ -509,21 +510,24 @@ func endsWithTightBoundary(buf *bytes.Buffer) bool {
 	}
 }
 
-// startsWithSpace reports whether s begins with whitespace. It's applied to
-// raw token data -- before `walk` trims it -- to recover whether the source
-// actually separated a text node from the markup preceding it.
-func startsWithSpace(s string) bool {
+// leadingSpace returns the separator the source put before s: a newline for a
+// line break, a space for any other whitespace, and "" when there was none.
+// It's applied to raw token data -- before `walk` trims it -- to recover how
+// the source actually separated a text node from the markup preceding it.
+func leadingSpace(s string) string {
 	if s == "" {
-		return false
+		return ""
 	}
 	switch s[0] {
-	case ' ', '\t', '\n', '\r':
-		return true
+	case '\n', '\r':
+		return "\n"
+	case ' ', '\t':
+		return " "
 	}
-	return false
+	return ""
 }
 
-func clean(txt, attr string, skip, inline, spaced, closedInline bool) (string, bool) {
+func clean(txt, attr string, skip, inline bool, sep string, closedInline bool) (string, bool) {
 	// Closing brackets are included so that inline content immediately
 	// followed by one (e.g., a link inside parentheses) doesn't get a spurious
 	// space inserted before it -- "(HNSW)" rather than "(HNSW )" (#1056). Dashes
@@ -543,7 +547,9 @@ func clean(txt, attr string, skip, inline, spaced, closedInline bool) (string, b
 	// opening tag is the boundary and carries no whitespace of its own, so we
 	// fall back to padding inline content; otherwise `in <code/> for`
 	// collapses to `infor` (#1052).
-	if (closedInline && spaced) || (!closedInline && inline && !starter) {
+	if closedInline && sep != "" {
+		txt = sep + txt
+	} else if !closedInline && inline && !starter {
 		txt = " " + txt
 	}
 

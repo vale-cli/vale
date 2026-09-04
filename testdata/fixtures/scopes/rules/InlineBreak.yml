@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' puts a space before a comma."
+level: error
+nonword: true
+tokens:
+  - '[a-z] +,'
