@@ -13,6 +13,9 @@ cases:
       API.yml:13:24:Vale.Spelling:Did you really mean 'serrver'?
       API.yml:15:70:Vale.Spelling:Did you really mean 'serrver'?
       API.yml:20:48:Vale.Spelling:Did you really mean 'servver'?
+      COMMIT_EDITMSG:1:55:Scopes.Subject:A subject line doesn't end with '.'.
+      COMMIT_EDITMSG:3:23:Vale.Spelling:Did you really mean 'occurence'?
+      COMMIT_EDITMSG:6:1:Scopes.Trailer:'Signed-off-by:' isn't a trailer Vale knows.
       Petstore.yaml:15:18:Vale.Spelling:Did you really mean 'Petstore'?
       Petstore.yaml:29:28:Vale.Spelling:Did you really mean 'Petstore'?
       Petstore.yaml:407:17:Vale.Spelling:Did you really mean 'nonintegers'?
@@ -44,3 +47,22 @@ cases:
       test.py:11:3:vale.Annotations:'XXX' left in text
       test.py:13:16:vale.Annotations:'XXX' left in text
       test.py:14:14:vale.Annotations:'NOTE' left in text
+      transcript.txt:3:6:Scopes.Assistant:'worth noting' hedges, and this is the model's turn.
+      transcript.txt:3:42:Vale.Spelling:Did you really mean 'occurence'?
+
+  - name: text
+    about: "a `textfsm` view reads plain text through a template and names
+      what it captures. The commit message yields a subject, a body, and
+      trailers, each placed on its own line and column; the transcript
+      exposes only the model's turns, so the misspelling in the user's
+      prompt goes unreported."
+    args: COMMIT_EDITMSG transcript.txt
+    exit: 1
+    want: |
+      COMMIT_EDITMSG:1:55:Scopes.Subject:A subject line doesn't end with '.'.
+      COMMIT_EDITMSG:3:23:Vale.Spelling:Did you really mean 'occurence'?
+      COMMIT_EDITMSG:6:1:Scopes.Trailer:'Signed-off-by:' isn't a trailer Vale knows.
+      transcript.txt:3:6:Scopes.Assistant:'worth noting' hedges, and this is the model's turn.
+      transcript.txt:3:42:Vale.Spelling:Did you really mean 'occurence'?
+    absent:
+      - enuf

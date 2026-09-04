@@ -12,6 +12,8 @@ import (
 	v2dasel "github.com/tomwright/dasel/v2"
 	"github.com/tomwright/dasel/v3"
 	"gopkg.in/yaml.v3"
+
+	"github.com/vale-cli/vale/v3/internal/textfsm"
 )
 
 // DaselValue is the decoded document root passed to dasel. It may be a map
@@ -19,7 +21,7 @@ import (
 // value -- dasel navigates all of them.
 type DaselValue = any
 
-var viewEngines = []string{"tree-sitter", "dasel"}
+var viewEngines = []string{"tree-sitter", "dasel", "textfsm"}
 
 // A Scope is a single query that we want to run against a document.
 type Scope struct {
@@ -34,12 +36,19 @@ type Scope struct {
 //
 // The supported engines are:
 //
-// - `tree-sitter`
-// - `dasel`
-// - `command`
+//   - `dasel`, which queries the parsed value of a data file;
+//   - `tree-sitter`, which queries the syntax tree of a source file; and
+//   - `textfsm`, which reads a plain-text file through a template -- a state
+//     machine of regular expressions -- and names what it captures.
 type View struct {
 	Engine string  `yaml:"engine"`
 	Scopes []Scope `yaml:"scopes"`
+
+	// Template is the TextFSM template a `textfsm` view reads with. Each
+	// scope's `expr` names one of its values.
+	Template string `yaml:"template"`
+
+	fsm *textfsm.Template
 }
 
 // A ScopedValue is a single value extracted from a scope, along with the
@@ -83,10 +92,102 @@ func NewView(path string) (*View, error) {
 		return nil, fmt.Errorf("missing queries")
 	}
 
+	if view.Engine == "textfsm" {
+		if err = view.compileTemplate(); err != nil {
+			return nil, err
+		}
+	}
+
 	return &view, nil
 }
 
+// compileTemplate parses a `textfsm` view's template and checks that every
+// scope names one of its values.
+func (b *View) compileTemplate() error {
+	if strings.TrimSpace(b.Template) == "" {
+		return errors.New("a textfsm view needs a template")
+	}
+
+	fsm, err := textfsm.Parse(b.Template)
+	if err != nil {
+		return fmt.Errorf("template: %w", err)
+	}
+
+	for _, s := range b.Scopes {
+		found := false
+		for _, v := range fsm.Values {
+			if v.Name == s.Expr {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("scope %q names no Value in the template", s.Expr)
+		}
+	}
+
+	b.fsm = fsm
+	return nil
+}
+
+// applyTemplate runs a `textfsm` view over a file.
+//
+// A List value's captures on consecutive lines are joined into one value, so
+// a body reads as the paragraphs it is rather than one block per line. A gap
+// in the lines starts another value, and so does a change of column: a value
+// is placed by one line and one column, so every line in it has to start
+// where its first line does.
+func (b *View) applyTemplate(f *File) ([]ScopedValues, error) {
+	records, err := b.fsm.Run(f.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]ScopedValues, 0, len(b.Scopes))
+	for _, s := range b.Scopes {
+		var values []ScopedValue
+		for _, rec := range records {
+			values = append(values, joinCaptures(rec[s.Expr])...)
+		}
+		found = append(found, ScopedValues{Scope: s.Name, Values: values, Format: s.Type})
+	}
+
+	return found, nil
+}
+
+func joinCaptures(caps []textfsm.Capture) []ScopedValue {
+	var out []ScopedValue
+	var run []string
+	var start textfsm.Capture
+
+	flush := func() {
+		text := strings.TrimRight(strings.Join(run, "\n"), "\n")
+		if strings.TrimSpace(text) != "" {
+			out = append(out, ScopedValue{Text: text, Line: start.Line, Column: start.Column})
+		}
+		run = nil
+	}
+
+	for i, c := range caps {
+		if i > 0 && (c.Line != caps[i-1].Line+1 || c.Column != caps[i-1].Column) {
+			flush()
+		}
+		if run == nil {
+			start = c
+		}
+		run = append(run, c.Text)
+	}
+	if run != nil {
+		flush()
+	}
+	return out
+}
+
 func (b *View) Apply(f *File) ([]ScopedValues, error) {
+	if b.Engine == "textfsm" {
+		return b.applyTemplate(f)
+	}
+
 	value, scalars, err := fileToValue(f)
 	if err != nil {
 		return nil, err

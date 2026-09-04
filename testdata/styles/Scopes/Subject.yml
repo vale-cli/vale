@@ -1,0 +1,6 @@
+extends: existence
+message: "A subject line doesn't end with '%s'."
+level: error
+scope: subject
+raw:
+  - '\.$'

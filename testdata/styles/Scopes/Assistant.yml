@@ -1,0 +1,7 @@
+extends: existence
+message: "'%s' hedges, and this is the model's turn."
+level: error
+scope: assistant
+ignorecase: true
+tokens:
+  - worth noting

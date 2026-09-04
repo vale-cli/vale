@@ -1,0 +1,22 @@
+engine: textfsm
+template: |
+  Value Subject (.+)
+  Value List Body (.*)
+  Value List Trailer ([A-Z][\w-]+: .+)
+
+  Start
+    ^${Subject} -> Body
+
+  Body
+    ^${Trailer}
+    ^${Body}
+scopes:
+  - name: subject
+    expr: Subject
+
+  - name: body
+    expr: Body
+    type: md
+
+  - name: trailer
+    expr: Trailer

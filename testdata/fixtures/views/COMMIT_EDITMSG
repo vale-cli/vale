@@ -1,0 +1,6 @@
+fix: report the shortfall at the scope that fell short.
+
+Zero matches leave no occurence to point at, but the scope has a
+position of its own.
+
+Signed-off-by: Joseph Kato <j@example.com>

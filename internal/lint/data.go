@@ -8,6 +8,19 @@ import (
 	"github.com/vale-cli/vale/v3/internal/glob"
 )
 
+// hasTextView reports whether a `textfsm` view applies to the file.
+func (l *Linter) hasTextView(f *core.File) bool {
+	for syntax, view := range l.Manager.Config.Views {
+		if view.Engine != "textfsm" {
+			continue
+		}
+		if sec, err := glob.Compile(syntax); err == nil && sec.Match(f.Path) {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *Linter) lintData(f *core.File) error {
 	for syntax, view := range l.Manager.Config.Views {
 		sec, err := glob.Compile(syntax)
@@ -18,7 +31,7 @@ func (l *Linter) lintData(f *core.File) error {
 			if berr != nil {
 				return core.NewE201FromTarget(
 					berr.Error(),
-					fmt.Sprintf("View = %s", view),
+					fmt.Sprintf("[%s] View", syntax),
 					l.Manager.Config.RootINI,
 				)
 			}
@@ -100,5 +113,8 @@ func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) erro
 		}
 	}
 
+	// The values were linted in the file's place; put the file back, so the
+	// `raw` scope that runs next reads the document and not the last value.
+	f.SetText(wholeFile)
 	return err
 }

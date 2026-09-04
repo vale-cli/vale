@@ -1,0 +1,25 @@
+engine: textfsm
+template: |
+  Value List Assistant (.*)
+  Value List User (.*)
+
+  Start
+    ^assistant: ${Assistant} -> Assistant
+    ^user: ${User} -> User
+
+  Assistant
+    ^(?:user|assistant): -> Continue.Record
+    ^assistant: ${Assistant}
+    ^user: ${User} -> User
+    ^${Assistant}
+
+  User
+    ^(?:user|assistant): -> Continue.Record
+    ^user: ${User}
+    ^assistant: ${Assistant} -> Assistant
+    ^${User}
+scopes:
+  # Only the model's turns are linted; the prompts are left alone.
+  - name: assistant
+    expr: Assistant
+    type: md

@@ -1,0 +1,6 @@
+extends: existence
+message: "'%s' isn't a trailer Vale knows."
+level: warning
+scope: trailer
+raw:
+  - '^Signed-off-by:'

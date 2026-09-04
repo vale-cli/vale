@@ -1,0 +1,4 @@
+user: Summarize the change in one line.
+assistant: The linter now reports where a scope fell short.
+It's worth noting that this only affects occurence rules.
+user: Thanks, that's clear enuf.
