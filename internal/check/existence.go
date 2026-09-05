@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	rx "github.com/vale-cli/vale/v3/internal/regex"
@@ -20,6 +21,7 @@ type Existence struct {
 	exceptRe   *rx.Regexp
 	phraseRe   *rx.Regexp
 	pattern    *rx.Regexp
+	groups     []groupSpan
 	Append     bool
 	IgnoreCase bool
 	Nonword    bool
@@ -73,8 +75,97 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 		return rule, core.NewE201FromPosition(err.Error(), path, 1)
 	}
 	rule.pattern = re
+	rule.groups = groupSpans(parsed, strings.Join(rule.Raw, ""), rule.Append)
 
 	return rule, nil
+}
+
+// A groupSpan is where one token's capture groups sit in the joined pattern:
+// its unnamed groups from `unnamed`, its named groups from `named`.
+type groupSpan struct {
+	unnamed, unnamedCount int
+	named, namedCount     int
+}
+
+// groupSpans maps each token's groups into the joined pattern. The engine
+// numbers every unnamed group before any named one, so a token's groups are
+// two runs rather than one.
+func groupSpans(tokens []string, raw string, rawLast bool) []groupSpan {
+	pieces := append([]string{raw}, tokens...)
+	if rawLast {
+		pieces = append(append([]string{}, tokens...), raw)
+	}
+
+	spans := make([]groupSpan, len(pieces))
+	unnamed, named := 0, 0
+	for i, piece := range pieces {
+		u, n := groupCounts(piece)
+		spans[i] = groupSpan{unnamed: unnamed, unnamedCount: u, named: named, namedCount: n}
+		unnamed += u
+		named += n
+	}
+	for i := range spans {
+		spans[i].named += unnamed
+	}
+
+	if rawLast {
+		return spans[:len(tokens)]
+	}
+	return spans[1:]
+}
+
+func groupCounts(expr string) (int, int) {
+	if expr == "" {
+		return 0, 0
+	}
+	re, err := rx.Compile(expr)
+	if err != nil {
+		return 0, 0
+	}
+
+	unnamed, named := 0, 0
+	for _, name := range re.SubexpNames()[1:] {
+		if _, numeric := strconv.Atoi(name); numeric == nil {
+			unnamed++
+		} else {
+			named++
+		}
+	}
+	return unnamed, named
+}
+
+// groupsFor returns the capture groups of whichever token matched, in that
+// token's own numbering, or nil when the token has none.
+func (e Existence) groupsFor(txt string, sub []int) []string {
+	for _, span := range e.groups {
+		indices := make([]int, 0, span.unnamedCount+span.namedCount)
+		for k := 1; k <= span.unnamedCount; k++ {
+			indices = append(indices, span.unnamed+k)
+		}
+		for k := 1; k <= span.namedCount; k++ {
+			indices = append(indices, span.named+k)
+		}
+
+		matched := false
+		groups := make([]string, 0, len(indices))
+		for _, idx := range indices {
+			lo, hi := sub[2*idx], sub[2*idx+1]
+			if lo < 0 {
+				groups = append(groups, "")
+				continue
+			}
+			text, err := re2Loc(txt, []int{lo, hi})
+			if err != nil {
+				return nil
+			}
+			groups = append(groups, text)
+			matched = true
+		}
+		if matched {
+			return groups
+		}
+	}
+	return nil
 }
 
 // Run executes the `existence`-based rule.
@@ -92,7 +183,8 @@ func (e Existence) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.Al
 		return alerts, nil
 	}
 
-	for _, loc := range e.pattern.FindAllStringIndex(blk.Text, -1) {
+	for _, sub := range e.pattern.FindAllStringSubmatchIndex(blk.Text, -1) {
+		loc := sub[:2]
 		converted, err := re2Loc(blk.Text, loc)
 		if err != nil {
 			return alerts, err
@@ -100,7 +192,8 @@ func (e Existence) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.Al
 
 		observed := strings.TrimSpace(converted)
 		if !isMatch(e.exceptRe, observed) && !withinPhrase(e.phraseRe, blk.Text, loc) {
-			a, erra := alertFor(e.Definition, loc, converted, cfg)
+			a, erra := alertWithGroups(e.Definition, loc, converted,
+				e.groupsFor(blk.Text, sub), cfg)
 			if erra != nil {
 				return alerts, erra
 			}

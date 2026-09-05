@@ -241,6 +241,9 @@ func (s Substitution) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core
 					a.Message, a.Description = formatMessages(s.Message,
 						s.Description, expected, observed)
 					a.Action = action
+					if action.Name == "replace" {
+						a.Suggestions = action.Params
+					}
 
 					anchor(&a, blk)
 					alerts = append(alerts, a)

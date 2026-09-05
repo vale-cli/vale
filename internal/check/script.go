@@ -111,7 +111,7 @@ func NewScript(cfg *core.Config, generic baseCheck, path string) (Script, error)
 }
 
 // Run executes the given script and returns its Alerts.
-func (s Script) Run(blk nlp.Block, _ *core.File, _ *core.Config) ([]core.Alert, error) {
+func (s Script) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.Alert, error) {
 	var alerts []core.Alert
 
 	// A clone per block: the program is shared, its globals are not, and Vale
@@ -151,6 +151,9 @@ func (s Script) Run(blk nlp.Block, _ *core.File, _ *core.Config) ([]core.Alert, 
 			a.Message, a.Description = formatMessages(s.Message, s.Description, matchText)
 		}
 
+		if err := resolveFix(&a, cfg); err != nil {
+			return alerts, err
+		}
 		alerts = append(alerts, a)
 	}
 

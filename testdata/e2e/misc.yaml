@@ -181,6 +181,7 @@ cases:
               "Name": "",
               "Params": null
             },
+            "Suggestions": [],
             "Span": [
               13,
               22
@@ -198,6 +199,7 @@ cases:
               "Name": "",
               "Params": null
             },
+            "Suggestions": [],
             "Span": [
               17,
               20
@@ -412,6 +414,7 @@ cases:
                 "Name": "",
                 "Params": null
               },
+              "Suggestions": [],
               "Span": [
                 3,
                 6

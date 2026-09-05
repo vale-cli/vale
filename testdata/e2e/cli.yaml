@@ -135,3 +135,158 @@ cases:
           ],
           "error": ""
       }
+
+  - name: json-suggestions
+    about: "JSON output carries what an action resolves to, so a consumer
+      reads the answer rather than re-running the recipe; an alert without an
+      action carries an empty list"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        T.Swap = YES
+        T.Trim = YES
+        T.Plain = YES
+      styles/T/Swap.yml: |
+        extends: substitution
+        message: "Use '%s' instead of '%s'."
+        level: error
+        action:
+          name: replace
+        swap:
+          utilize: use
+      styles/T/Trim.yml: |
+        extends: existence
+        message: "'%s' should be '%s'."
+        level: error
+        nonword: true
+        action:
+          name: edit
+          params:
+            - trim_right
+            - '!'
+        tokens:
+          - 'Wow!'
+      styles/T/Plain.yml: |
+        extends: existence
+        message: "Avoid '%s'."
+        level: error
+        tokens:
+          - plain
+      doc.md: |
+        Wow! We utilize the plain API.
+    args: --output=JSON doc.md
+    exit: 1
+    want: |
+      {
+        "doc.md": [
+          {
+            "Action": {
+              "Name": "edit",
+              "Params": [
+                "trim_right",
+                "!"
+              ]
+            },
+            "Suggestions": [
+              "Wow"
+            ],
+            "Span": [
+              1,
+              4
+            ],
+            "Check": "T.Trim",
+            "Description": "",
+            "Link": "",
+            "Message": "'Wow!' should be 'Wow'.",
+            "Severity": "error",
+            "Match": "Wow!",
+            "Line": 1
+          },
+          {
+            "Action": {
+              "Name": "replace",
+              "Params": [
+                "use"
+              ]
+            },
+            "Suggestions": [
+              "use"
+            ],
+            "Span": [
+              9,
+              15
+            ],
+            "Check": "T.Swap",
+            "Description": "",
+            "Link": "",
+            "Message": "Use 'use' instead of 'utilize'.",
+            "Severity": "error",
+            "Match": "utilize",
+            "Line": 1
+          },
+          {
+            "Action": {
+              "Name": "",
+              "Params": null
+            },
+            "Suggestions": [],
+            "Span": [
+              21,
+              25
+            ],
+            "Check": "T.Plain",
+            "Description": "",
+            "Link": "",
+            "Message": "Avoid 'plain'.",
+            "Severity": "error",
+            "Match": "plain",
+            "Line": 1
+          }
+        ]
+      }
+
+  - name: edit-groups
+    about: "an action's arguments can name the matched token's groups, so a
+      pattern rule can reorder or reuse what it matched without a regex step
+      that matches it again"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        T.Order = YES
+        T.Code = YES
+      styles/T/Order.yml: |
+        extends: existence
+        message: "Put the family name first: '%s' should be '%s'."
+        level: error
+        nonword: true
+        action:
+          name: replace
+          params:
+            - '$2, $1'
+        tokens:
+          - '\b([A-Z][a-z]+) ([A-Z][a-z]+) \(author\)'
+      styles/T/Code.yml: |
+        extends: existence
+        message: "Format '%s' as code, '%s'."
+        level: error
+        nonword: true
+        action:
+          name: edit
+          params:
+            - [split, ' ', '2']
+            - [wrap, '`']
+        tokens:
+          - 'the option --[a-z-]+'
+      doc.md: |
+        Ada Lovelace (author) proposed the option --no-exit.
+    args: --output=line doc.md
+    exit: 1
+    want: |
+      doc.md:1:1:T.Order:Put the family name first: 'Ada Lovelace (author)' should be 'Lovelace, Ada'.
+      doc.md:1:32:T.Code:Format 'the option --no-exit' as code, '`--no-exit`'.

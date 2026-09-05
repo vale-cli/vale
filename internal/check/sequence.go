@@ -634,7 +634,7 @@ func sentenceScope(declared []string) []string {
 	return scopes
 }
 
-func (s Sequence) Run(blk nlp.Block, f *core.File, _ *core.Config) ([]core.Alert, error) {
+func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Alert, error) {
 	var alerts []core.Alert
 	var offset []string
 	var history []int
@@ -703,6 +703,10 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, _ *core.Config) ([]core.Alert
 					a.Message, a.Description = formatMessages(s.Message,
 						s.Description, m.text...)
 					a.Offset = offset
+
+					if err := resolveFix(&a, cfg); err != nil {
+						return alerts, err
+					}
 
 					alerts = append(alerts, a)
 					offset = []string{}

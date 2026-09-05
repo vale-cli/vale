@@ -134,12 +134,31 @@ func buildRule(cfg *core.Config, generic baseCheck) (Rule, error) {
 		return Existence{}, core.NewE100("buildRule: path", msg)
 	}
 
+	rule, err := newRule(cfg, generic, path)
+	if err != nil {
+		return rule, err
+	}
+
+	// A bad action would otherwise surface as a lint-time error, once the
+	// rule had already fired, with no file or line to point at.
+	if err = checkAction(cfg, rule); err != nil {
+		if path == "internal" {
+			return rule, core.NewE100("buildRule: action", err)
+		}
+		return rule, core.NewE201FromTarget(err.Error(), "action", path)
+	}
+
+	return rule, nil
+}
+
+func newRule(cfg *core.Config, generic baseCheck, path string) (Rule, error) {
 	name, ok := generic["extends"].(string)
 	if !ok {
 		name = "unknown"
 	}
 
 	delete(generic, "path")
+	flattenAction(generic)
 	// A rule may carry its own cases (see internal/testsuite); they are for
 	// `vale test`, not the compiler.
 	delete(generic, "tests")
@@ -213,6 +232,12 @@ func makeAlert(chk Definition, loc []int, txt string, cfg *core.Config) (core.Al
 // caller that has done it once should not pay for it again -- and every
 // caller of makeAlert had already cut the matched text out to inspect it.
 func alertFor(chk Definition, loc []int, match string, cfg *core.Config) (core.Alert, error) {
+	return alertWithGroups(chk, loc, match, nil, cfg)
+}
+
+// alertWithGroups is alertFor with the matched token's capture groups, which
+// an action's arguments may refer to.
+func alertWithGroups(chk Definition, loc []int, match string, groups []string, cfg *core.Config) (core.Alert, error) {
 	action := chk.Action
 	if chk.MatchCase && action.Name == "replace" {
 		action.Params = recase(action.Params, match)
@@ -220,15 +245,16 @@ func alertFor(chk Definition, loc []int, match string, cfg *core.Config) (core.A
 
 	a := core.Alert{
 		Check: chk.Name, Severity: chk.Level, Span: loc, Link: chk.Link,
-		Match: match, Action: action}
+		Match: match, Action: action, Groups: groups}
 
 	if chk.Action.Name != "" {
 		repl := match
 
 		fixed, fixError := FixAlert(a, cfg)
 		if fixError != nil {
-			return core.Alert{}, fixError
+			return core.Alert{}, fmt.Errorf("%s: %w", chk.Name, fixError)
 		}
+		a.Suggestions = fixed
 
 		if len(fixed) == 1 {
 			repl = fixed[0]

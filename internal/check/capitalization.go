@@ -137,6 +137,9 @@ func (c Capitalization) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]co
 		// deliberate: this rule decides the case, and re-casing its suggestion
 		// to match the text it is correcting would undo the correction.
 		a.Action = action
+		if action.Name == "replace" {
+			a.Suggestions = action.Params
+		}
 
 		anchor(&a, blk)
 		alerts = append(alerts, a)

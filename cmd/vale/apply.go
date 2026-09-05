@@ -127,11 +127,16 @@ func fixFile(f *core.File, cfg *core.Config) (fixedFile, error) {
 		key := a.Check + "\x00" + a.Match
 		got, ok := cache[key]
 		if !ok {
-			suggestions, fErr := check.FixAlert(a, cfg)
-			if fErr != nil {
-				got.err = fErr.Error()
+			// The lint pass has usually resolved the fix already; spelling
+			// leaves it for here, since ranking a dictionary is per word.
+			got.suggestions = a.Suggestions
+			if len(got.suggestions) == 0 {
+				suggestions, fErr := check.FixAlert(a, cfg)
+				if fErr != nil {
+					got.err = fErr.Error()
+				}
+				got.suggestions = suggestions
 			}
-			got.suggestions = suggestions
 			cache[key] = got
 		}
 
@@ -148,6 +153,9 @@ func fixFile(f *core.File, cfg *core.Config) (fixedFile, error) {
 		if !ok {
 			skip(a, "match is not at its reported position")
 			continue
+		}
+		if got.suggestions[0] == "" {
+			begin, end = widenRemoval(raw, begin, end)
 		}
 
 		candidates = append(candidates, fixEdit{
@@ -233,6 +241,19 @@ func resolveEdits(candidates []fixEdit, report *fixedFile) []fixEdit {
 	}
 
 	return kept
+}
+
+// widenRemoval takes one adjacent space along with a removed match, so
+// deleting a word does not leave two spaces behind: the one after it when
+// there is one, otherwise the one before.
+func widenRemoval(raw []byte, begin, end int) (int, int) {
+	if end < len(raw) && raw[end] == ' ' {
+		return begin, end + 1
+	}
+	if begin > 0 && raw[begin-1] == ' ' {
+		return begin - 1, end
+	}
+	return begin, end
 }
 
 // byteSpan maps an alert's line and character columns onto the bytes of the

@@ -139,3 +139,61 @@ func TestByteSpan(t *testing.T) {
 		t.Error("mapped a span past the end of its line")
 	}
 }
+
+// TestApplyRemoveTakesASpace pins that deleting a word does not leave two
+// spaces behind: the space after the match goes with it, or the one before
+// when the match ends the line.
+func TestApplyRemoveTakesASpace(t *testing.T) {
+	root := t.TempDir()
+	writeApplyFixture(t, root)
+
+	rule := filepath.Join(root, "styles", "T", "Drop.yml")
+	body := "extends: existence\nmessage: \"Drop '%s'.\"\nlevel: warning\n" +
+		"action:\n  name: remove\ntokens:\n  - very\n"
+	if err := os.WriteFile(rule, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	doc := filepath.Join(root, "doc.md")
+	text := "This is very good.\n\nIt is fine, very\n"
+	if err := os.WriteFile(doc, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	flags := &core.CLIFlags{
+		Path:  filepath.Join(root, ".vale.ini"),
+		InExt: ".txt",
+		Glob:  "*",
+		Apply: true,
+	}
+	if err := applyFixes([]string{doc}, flags); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "This is good.\n\nIt is fine,\n"
+	if string(got) != want {
+		t.Errorf("applied content:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+func TestWidenRemoval(t *testing.T) {
+	raw := []byte("a very good one")
+	cases := []struct{ begin, end, wantBegin, wantEnd int }{
+		{2, 6, 2, 7},     // "very " -- the space after
+		{12, 15, 11, 15}, // " one" -- the space before, at the end
+		{0, 1, 0, 2},     // "a " -- at the start
+	}
+	for _, tc := range cases {
+		b, e := widenRemoval(raw, tc.begin, tc.end)
+		if b != tc.wantBegin || e != tc.wantEnd {
+			t.Errorf("[%d:%d] -> [%d:%d], want [%d:%d]", tc.begin, tc.end, b, e, tc.wantBegin, tc.wantEnd)
+		}
+	}
+	if b, e := widenRemoval([]byte("x-y"), 0, 1); b != 0 || e != 1 {
+		t.Errorf("no space: [%d:%d]", b, e)
+	}
+}

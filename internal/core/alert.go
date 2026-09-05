@@ -19,6 +19,8 @@ type Action struct {
 // An Alert represents a potential error in prose.
 type Alert struct {
 	Action         Action   // a possible solution
+	Suggestions    []string // what Action resolves to, when known at lint time
+	Groups         []string `json:",omitempty"` // the matched token's capture groups
 	Span           []int    // the [begin, end] location within a line
 	Offset         []string `json:"-"` // tokens to ignore before this match
 	Check          string   // the name of the check
@@ -48,6 +50,9 @@ func FormatAlert(a *Alert, limit int, level, name string) {
 	}
 	a.Limit = limit
 	a.Message = WhitespaceToSpace(a.Message)
+	if a.Suggestions == nil {
+		a.Suggestions = []string{}
+	}
 }
 
 // ByPosition sorts Alerts by line and column.
