@@ -25,6 +25,18 @@ jobs:
         run: make choco-cross
         if: startsWith(github.ref, 'refs/tags/')
 
+      # The docs pin their install examples to the current release; this
+      # tells the site to move them. DOCS_DISPATCH_TOKEN is a fine-grained
+      # token with contents: write on vale-cli/vale.sh.
+      - name: Release the docs
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+        run: |-
+          gh api repos/vale-cli/vale.sh/dispatches \
+            -f event_type=vale-release \
+            -F 'client_payload[version]=${{ github.ref_name }}'
+
   lint:
     name: runner / vale
     runs-on: ubuntu-latest
