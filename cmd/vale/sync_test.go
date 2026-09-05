@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vale-cli/vale/v3/internal/core"
@@ -158,5 +159,57 @@ func TestSyncDoesNotInstallPackageIntoConfigRoot(t *testing.T) {
 	wrongConfigRootRule := filepath.Join(root, "TestStyle", "Rule.yml")
 	if system.FileExists(wrongConfigRootRule) {
 		t.Fatalf("Expected package asset not to be installed into config root: %s", wrongConfigRootRule)
+	}
+}
+
+func TestSyncAgainInstallsIntoStylesPath(t *testing.T) {
+	// A complete package's .vale.ini names its own StylesPath. Read back from
+	// the pipeline directory on the next sync, that path became the install
+	// target, so the second sync wrote under `.vale-config/styles` and never
+	// refreshed the pipeline file.
+	root := t.TempDir()
+	pkgRoot := filepath.Join(root, "local-package")
+	pkgStyles := filepath.Join(pkgRoot, "styles", "TestStyle")
+	if err := os.MkdirAll(pkgStyles, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgStyles, "Rule.yml"),
+		[]byte("extends: existence\nmessage: test\nlevel: warning\ntokens: [foo]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pkgINI := filepath.Join(pkgRoot, ".vale.ini")
+	writePkg := func(body string) {
+		if err := os.WriteFile(pkgINI, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writePkg("StylesPath = styles\n[*]\nBasedOnStyles = TestStyle\n")
+
+	styles := filepath.Join(root, "styles")
+	cfgPath := filepath.Join(root, ".vale.ini")
+	if err := os.WriteFile(cfgPath,
+		[]byte("StylesPath = styles\nPackages = "+pkgRoot+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	flags := &core.CLIFlags{Path: cfgPath, IgnoreGlobal: true}
+
+	if err := sync(nil, flags); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	writePkg("StylesPath = styles\nMinAlertLevel = error\n[*]\nBasedOnStyles = TestStyle\n")
+	if err := sync(nil, flags); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+
+	if nested := filepath.Join(styles, core.PipeDir, "styles"); system.IsDir(nested) {
+		t.Fatalf("second sync installed under the pipeline directory: %s", nested)
+	}
+	installed, err := os.ReadFile(filepath.Join(styles, core.PipeDir, "0-local-package.ini"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(installed), "MinAlertLevel = error") {
+		t.Fatalf("pipeline file not refreshed:\n%s", installed)
 	}
 }

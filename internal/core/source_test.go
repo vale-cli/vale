@@ -174,3 +174,36 @@ func TestEnvBase(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A package's .vale.ini keeps its own StylesPath. Read from the pipeline
+// directory, that path resolved to a directory beside the file and became
+// the last path, where the next sync then installed.
+func TestPipelineStylesPathDropped(t *testing.T) {
+	root := t.TempDir()
+	styles := filepath.Join(root, "styles")
+	pipe := filepath.Join(styles, PipeDir)
+	if err := os.MkdirAll(pipe, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+
+	pkg := []byte("StylesPath = styles\n\n[*]\nBasedOnStyles = A\n")
+	if err := os.WriteFile(filepath.Join(pipe, "0-pkg.ini"), pkg, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(root, ".vale.ini")
+	if err := os.WriteFile(cfgPath, []byte("StylesPath = styles\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := ReadPipeline(&CLIFlags{Path: cfgPath, IgnoreGlobal: true}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Paths) != 1 || cfg.Paths[0] != styles {
+		t.Fatalf("Paths = %v, want only %s", cfg.Paths, styles)
+	}
+	if got := cfg.GBaseStyles; len(got) != 1 || got[0] != "A" {
+		t.Errorf("the package's other settings should still load; got %v", got)
+	}
+}

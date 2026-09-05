@@ -175,6 +175,15 @@ func asRuleParam(key, val string, cfg *Config) (bool, error) {
 	return true, nil
 }
 
+// lastValue returns the value a key was given last across the merged
+// sources: a package's file, then the user-level file, then the project's.
+// `Key.String` is the first, which let a package hold a rule's level or
+// parameter against the project's own setting.
+func lastValue(key *ini.Key) string {
+	values := key.ValueWithShadows()
+	return values[len(values)-1]
+}
+
 func validateLevel(key, val string, levels map[string]string) bool {
 	options := []string{"YES", "suggestion", "warning", "error"}
 	if val == "NO" || !StringInSlice(val, options) {
@@ -356,6 +365,13 @@ func expandPaths(file *ini.File, source interface{}) {
 	case string:
 		abs, _ := filepath.Abs(s)
 		path = filepath.Dir(abs)
+		if filepath.Base(path) == PipeDir {
+			// A package's StylesPath named the styles it shipped with, which
+			// sync has since merged into the project's. Resolved from here it
+			// is a directory beside this file that does not exist, and, as
+			// the last path added, where the next sync would install.
+			file.Section("").DeleteKey("StylesPath")
+		}
 	default:
 		path, _ = os.Getwd()
 	}
@@ -508,10 +524,10 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 		} else if _, found = syntaxOpts[k]; found {
 			msg := fmt.Sprintf("'%s' is a syntax-specific option", k)
 			return nil, NewE201FromTarget(msg, k, cfg.RootINI)
-		} else if isParam, pErr := asRuleParam(k, global.Key(k).String(), cfg); pErr != nil {
+		} else if isParam, pErr := asRuleParam(k, lastValue(global.Key(k)), cfg); pErr != nil {
 			return nil, pErr
 		} else if !isParam {
-			cfg.GChecks[k] = validateLevel(k, global.Key(k).String(), cfg.RuleToLevel)
+			cfg.GChecks[k] = validateLevel(k, lastValue(global.Key(k)), cfg.RuleToLevel)
 			cfg.Checks = append(cfg.Checks, k)
 		}
 	}
@@ -537,10 +553,10 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 				if err = f(sec, uCfg.Section(sec), cfg); err != nil && !dry {
 					return nil, err
 				}
-			} else if isParam, pErr := asRuleParam(k, uCfg.Section(sec).Key(k).String(), cfg); pErr != nil {
+			} else if isParam, pErr := asRuleParam(k, lastValue(uCfg.Section(sec).Key(k)), cfg); pErr != nil {
 				return nil, pErr
 			} else if !isParam {
-				syntaxMap[k] = validateLevel(k, uCfg.Section(sec).Key(k).String(), levelMap)
+				syntaxMap[k] = validateLevel(k, lastValue(uCfg.Section(sec).Key(k)), levelMap)
 				cfg.Checks = append(cfg.Checks, k)
 			}
 		}

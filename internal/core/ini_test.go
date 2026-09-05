@@ -453,3 +453,34 @@ BlockIgnores = BEGIN.{2\,}END, (?s)<!--.*?-->
 		}
 	}
 }
+
+// A package's configuration is read before the project's, and a key both set
+// takes the project's value: the later source wins, for a level, a parameter,
+// and a switch alike.
+func Test_processConfig_laterSourceWins(t *testing.T) {
+	pkg := []byte("[*]\nS.G = error\n\n[*.md]\nS.R = error\nS.R[max] = 10\n")
+	local := []byte("[*]\nS.G = NO\n\n[*.md]\nS.R = suggestion\nS.R[max] = 20\n")
+
+	uCfg, err := shadowLoad(pkg, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	conf, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = processConfig(uCfg, conf, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := conf.SLevels["*.md"]["S.R"]; got != "suggestion" {
+		t.Errorf("level = %q, want the project's", got)
+	}
+	if got := conf.RuleToParams["S.R"]["max"]; got != "20" {
+		t.Errorf("param = %q, want the project's", got)
+	}
+	if conf.GChecks["S.G"] {
+		t.Error("S.G is on; the project switched it off")
+	}
+}
