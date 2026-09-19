@@ -40,6 +40,19 @@ cases:
       test.java:1:4:vale.Annotations:'XXX' left in text
       test.java:9:4:vale.Annotations:'TODO' left in text
 
+  - name: kotlin
+    args: test.kt
+    exit: 0
+    want: |
+      test.kt:1:4:vale.Annotations:'NOTE' left in text
+      test.kt:2:4:vale.Annotations:'XXX' left in text
+      test.kt:6:4:vale.Annotations:'TODO' left in text
+      test.kt:8:16:vale.Annotations:'FIXME' left in text
+      test.kt:11:8:vale.Annotations:'NOTE' left in text
+      test.kt:13:17:vale.Annotations:'FIXME' left in text
+      test.kt:17:4:vale.Annotations:'XXX' left in text
+      test.kt:21:5:vale.Annotations:'NOTE' left in text
+
   - name: proto
     args: test.proto
     exit: 0

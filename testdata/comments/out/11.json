@@ -1,0 +1,23 @@
+[
+    {
+        "Text": "A script's leading comment.",
+        "Source": "// A script's leading comment.",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "inline block ",
+        "Source": "/* inline block */",
+        "Line": 3,
+        "Offset": 34,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "One line of KDoc. ",
+        "Source": "/** One line of KDoc. */",
+        "Line": 6,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    }
+]

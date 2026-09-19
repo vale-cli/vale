@@ -43,7 +43,11 @@ func TestComments(t *testing.T) {
 		cleaned = append(cleaned, f)
 	}
 
-	for i, f := range cleaned {
+	for _, f := range cleaned {
+		// Match each input to its output by name: the directory is read in
+		// lexical order, so `10.kt` would otherwise pair with `2.json`.
+		name := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
+
 		b, err1 := os.ReadFile(fmt.Sprintf("%s/in/%s", testDir, f.Name()))
 		if err1 != nil {
 			t.Error(err1)
@@ -59,14 +63,14 @@ func TestComments(t *testing.T) {
 			t.Error(err3)
 		}
 
-		b2, err4 := os.ReadFile(fmt.Sprintf("%s/out/%d.json", testDir, i))
+		b2, err4 := os.ReadFile(fmt.Sprintf("%s/out/%s.json", testDir, name))
 		if err4 != nil {
 			t.Error(err4)
 		}
 
 		markup := toJSON(comments)
 		if markup != string(b2) {
-			bin := filepath.Join(binDir, fmt.Sprintf("%d.json", i))
+			bin := filepath.Join(binDir, name+".json")
 			_ = os.WriteFile(bin, []byte(markup), 0600)
 			t.Errorf("%s", markup)
 		}

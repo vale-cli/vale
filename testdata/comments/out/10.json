@@ -1,0 +1,44 @@
+[
+    {
+        "Text": "NOTE: a line comment\nXXX: continued on the next line\n",
+        "Source": "// NOTE: a line comment\n// XXX: continued on the next line\n",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "\nTODO: a KDoc block.\n\n@param name FIXME: a tag description.\n\n",
+        "Source": "/**\n * TODO: a KDoc block.\n *\n * @param name FIXME: a tag description.\n */",
+        "Line": 5,
+        "Offset": 0,
+        "Scope": "text.comment.block"
+    },
+    {
+        "Text": "NOTE: a block comment ",
+        "Source": "/* NOTE: a block comment */",
+        "Line": 11,
+        "Offset": 4,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "FIXME: a trailing comment",
+        "Source": "// FIXME: a trailing comment",
+        "Line": 13,
+        "Offset": 13,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "\nXXX: a multi-line block comment.\n\n",
+        "Source": "/*\n * XXX: a multi-line block comment.\n */",
+        "Line": 16,
+        "Offset": 0,
+        "Scope": "text.comment.block"
+    },
+    {
+        "Text": "NOTE: a one-line KDoc. ",
+        "Source": "/** NOTE: a one-line KDoc. */",
+        "Line": 21,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    }
+]

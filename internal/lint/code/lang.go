@@ -59,6 +59,8 @@ func GetLanguageFromExt(ext string) (*Language, error) {
 		return Julia(), nil
 	case ".java":
 		return Java(), nil
+	case ".kt":
+		return Kotlin(), nil
 	case ".lua":
 		return Lua(), nil
 	case ".php":
