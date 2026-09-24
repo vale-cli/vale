@@ -377,3 +377,39 @@ func TestLocateMatchThroughMask(t *testing.T) {
 		t.Errorf("got pos %d hit %d, want 19 and 18", pos, hit)
 	}
 }
+
+// A mask keeps the rune count and not the byte count, so a block whose
+// earlier match was a multi-byte rune must still be found at its offset, and
+// the offset itself has to be carried over to the shortened context. See #1184.
+func TestLocateMatchThroughMultiByteMask(t *testing.T) {
+	ctx := "\"'’\n\n”’"
+	txt := "”’"
+
+	masked := maskMatch(ctx, "”", 7)
+	if masked != "\"'’\n\n#’" {
+		t.Fatalf("maskMatch = %q", masked)
+	}
+	if !throughMask(masked[7:], txt) {
+		t.Errorf("throughMask rejected %q against %q", masked[7:], txt)
+	}
+	if throughMask("#x", "”y") {
+		t.Error("throughMask accepted a differing rune after a mask")
+	}
+
+	at := maskedOffset(ctx, masked, 7)
+	if at != 7 {
+		t.Errorf("maskedOffset = %d, want 7", at)
+	}
+	if got := maskedOffset(ctx, masked, 13); got != 11 {
+		t.Errorf("maskedOffset at the end = %d, want 11", got)
+	}
+	if got := maskedOffset(ctx, ctx, 7); got != 7 {
+		t.Errorf("maskedOffset on an unmasked copy = %d, want 7", got)
+	}
+
+	// The second `’` is the one in the block, not the one on line 1.
+	pos, _, hit := locateMatch(masked, txt, Alert{Match: "’", Span: []int{3, 6}}, at)
+	if pos != 7 || hit != 8 {
+		t.Errorf("got pos %d hit %d, want 7 and 8", pos, hit)
+	}
+}

@@ -1,0 +1,7 @@
+extends: consistency
+message: "Inconsistent quote style '%s'"
+level: error
+nonword: true
+either:
+  '"': '”'
+  "'": '’'

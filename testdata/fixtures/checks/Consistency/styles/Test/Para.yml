@@ -1,0 +1,6 @@
+extends: existence
+message: "never fires"
+level: error
+scope: paragraph
+tokens:
+  - zzzqqq

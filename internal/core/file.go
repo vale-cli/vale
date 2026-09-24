@@ -354,10 +354,11 @@ func (f *File) FindLoc(ctx, s string, pad, count int, a Alert, at int) (int, []i
 	var length int
 	var lines []string
 
-	given := len(ctx)
+	given := ctx
 	for _, s := range a.Offset {
 		ctx, _ = Substitute(ctx, s, '@')
 	}
+	at = maskedOffset(given, ctx, at)
 
 	pos, substring, hit := locateMatch(ctx, s, a, at)
 	if pos < 0 {
@@ -366,7 +367,7 @@ func (f *File) FindLoc(ctx, s string, pad, count int, a Alert, at int) (int, []i
 	}
 	if hit >= 0 {
 		// The Offset masks above map rune to rune; the tail keeps its place.
-		hit += given - len(ctx)
+		hit += len(given) - len(ctx)
 	}
 
 	loc := a.Span
@@ -580,7 +581,10 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 			a.Line, a.Span = f.assignLoc(ctx, blk, pad, a)
 		}
 		if (!lookup && a.Span[0] < 0) || lookup {
-			a.Line, a.Span, hit = f.FindLoc(ctx, blk.Text, pad, lines, a, blk.Offset)
+			// An earlier alert's mask may have shortened ctx, so the block's
+			// offset into its context is carried over to the masked copy.
+			at := maskedOffset(blk.Context, ctx, blk.Offset)
+			a.Line, a.Span, hit = f.FindLoc(ctx, blk.Text, pad, lines, a, at)
 		}
 	}
 

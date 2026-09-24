@@ -243,18 +243,38 @@ func directPosition(ctx string, idx, from int, sub string) bool {
 	return !strings.Contains(ctx[from:idx], sub)
 }
 
-// throughMask reports whether ctx begins with txt, a masked byte in ctx
-// standing for any byte of txt.
+// throughMask reports whether ctx begins with txt, a masked rune in ctx
+// standing for any rune of txt. Rune by rune: a mask keeps the rune count,
+// not the byte count, since a multi-byte rune is masked as a single `#`.
 func throughMask(ctx, txt string) bool {
-	if len(ctx) < len(txt) {
-		return false
-	}
-	for i := 0; i < len(txt); i++ {
-		if c := ctx[i]; c != txt[i] && c != '#' && c != '@' {
+	for _, want := range txt {
+		if ctx == "" {
 			return false
 		}
+		got, n := utf8.DecodeRuneInString(ctx)
+		if got != want && got != '#' && got != '@' {
+			return false
+		}
+		ctx = ctx[n:]
 	}
 	return true
+}
+
+// maskedOffset maps the byte offset at in ctx to the same rune in masked, a
+// copy of ctx that masking has shortened. The runes still line up, so the
+// offset is carried over by rune count.
+func maskedOffset(ctx, masked string, at int) int {
+	if at <= 0 || at > len(ctx) || len(ctx) == len(masked) {
+		return at
+	}
+	runes := utf8.RuneCountInString(ctx[:at])
+	for i := range masked {
+		if runes == 0 {
+			return i
+		}
+		runes--
+	}
+	return len(masked)
 }
 
 // located is positionOf with the match's byte index in the unmasked context.
