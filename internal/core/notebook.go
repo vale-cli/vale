@@ -47,8 +47,8 @@ var kernelExts = map[string]string{
 	"elixir":     ".ex",
 	"clojure":    ".clj",
 	"perl":       ".r",
-	"csharp":     ".c",
-	"c#":         ".c",
+	"csharp":     ".cs",
+	"c#":         ".cs",
 	"scala":      ".c",
 	"powershell": ".ps1",
 }

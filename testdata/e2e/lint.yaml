@@ -53,6 +53,17 @@ cases:
       test.kt:17:4:vale.Annotations:'XXX' left in text
       test.kt:21:5:vale.Annotations:'NOTE' left in text
 
+  - name: csharp
+    args: test.cs
+    exit: 0
+    want: |
+      test.cs:1:4:vale.Annotations:'NOTE' left in text
+      test.cs:2:4:vale.Annotations:'XXX' left in text
+      test.cs:5:18:vale.Annotations:'TODO' left in text
+      test.cs:8:12:vale.Annotations:'NOTE' left in text
+      test.cs:15:37:vale.Annotations:'FIXME' left in text
+      test.cs:16:33:vale.Annotations:'XXX' left in text
+
   - name: proto
     args: test.proto
     exit: 0
