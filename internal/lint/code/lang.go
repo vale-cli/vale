@@ -88,6 +88,8 @@ func newLanguage(ext string) (*Language, error) {
 		return Cpp(), nil
 	case ".c":
 		return C(), nil
+	case ".cs":
+		return CSharp(), nil
 	case ".js", ".jsx":
 		return JavaScript(), nil
 	case ".hs":

@@ -225,5 +225,6 @@ var (
 	javaDirective   = regexp.MustCompile(`^//[ \t]*(?:NOPMD|NOSONAR|CHECKSTYLE|noinspection|@formatter:|\$NON-NLS)`)
 	kotlinDirective = regexp.MustCompile(`^//[ \t]*(?:ktlint|NOSONAR|noinspection|@formatter:)`)
 	cDirective      = regexp.MustCompile(`^//[ \t]*(?:NOLINT|clang-format|cppcheck-suppress)|^/\*[ \t]*(?:NOLINT|clang-format)`)
+	csharpDirective = regexp.MustCompile(`^//[ \t]*(?:ReSharper (?:disable|restore)\b|NOSONAR)`)
 	rubyDirective   = regexp.MustCompile(`^#[ \t]*(?:rubocop:|frozen_string_literal:|encoding:|typed:|sorbet:|-\*-)`)
 )

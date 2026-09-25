@@ -1,0 +1,30 @@
+[
+    {
+        "Text": "A line comment\ncontinued on the next line.\n",
+        "Source": "// A line comment\n// continued on the next line.\n",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "\u003csummary\u003eAn XML documentation comment.\u003c/summary\u003e",
+        "Source": "/// \u003csummary\u003eAn XML documentation comment.\u003c/summary\u003e",
+        "Line": 5,
+        "Offset": 4,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "A block comment after a verbatim string. ",
+        "Source": "/* A block comment after a verbatim string. */",
+        "Line": 8,
+        "Offset": 41,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "A trailing comment.",
+        "Source": "// A trailing comment.",
+        "Line": 14,
+        "Offset": 26,
+        "Scope": "text.comment.line"
+    }
+]

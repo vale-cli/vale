@@ -59,7 +59,7 @@ var FormatByExtension = map[string][]string{
 	`\.(?:clj|cljs|cljc|cljd)$`:                {".clj", "code"},
 	`\.(?:cpp|cc|c|cp|cxx|c\+\+|h|hpp|h\+\+)$`: {".cpp", "code"},
 	`\.(?:css)$`:                             {".css", "code"},
-	`\.(?:cs|csx)$`:                          {".c", "code"},
+	`\.(?:cs|csx)$`:                          {".cs", "code"},
 	`\.(?:dita)$`:                            {".dita", "markup"},
 	`\.(?:ex|exs)$`:                          {".ex", "code"},
 	`\.(?:go)$`:                              {".go", "code"},
