@@ -467,3 +467,61 @@ func (c *Config) SphinxNames(key string) []string {
 	}
 	return out
 }
+
+// DefaultConfigTemplate is the default configuration template written by `vale init`.
+const DefaultConfigTemplate = `# Core settings
+# StylesPath defines where Vale looks for styles and downloaded packages.
+StylesPath = styles
+
+# MinAlertLevel sets the minimum alert severity to display: suggestion, warning, or error.
+MinAlertLevel = suggestion
+
+# External packages installed via 'vale sync'.
+Packages = Google
+
+# Format-specific configuration
+# Applies the Vale and Google styles to Markdown and text files.
+[*.{md,txt}]
+BasedOnStyles = Vale, Google
+`
+
+// InitConfig creates a default .vale.ini configuration file at target and
+// scaffolds the styles directory.
+// Returns an error if a configuration file already exists at target or
+// within target's directory.
+func InitConfig(target string) error {
+	if target == "" {
+		target = ".vale.ini"
+	} else if system.IsDir(target) {
+		target = filepath.Join(target, ".vale.ini")
+	}
+
+	if system.FileExists(target) {
+		return NewE100("init", fmt.Errorf("configuration file '%s' already exists", target))
+	}
+
+	dir := filepath.Dir(target)
+	for _, name := range configNames {
+		candidate := filepath.Join(dir, name)
+		if system.FileExists(candidate) {
+			return NewE100("init", fmt.Errorf("configuration file '%s' already exists", candidate))
+		}
+	}
+
+	if dir != "" && dir != "." && !system.IsDir(dir) {
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			return NewE100("init", fmt.Errorf("failed to create directory '%s': %w", dir, err))
+		}
+	}
+
+	if err := os.WriteFile(target, []byte(DefaultConfigTemplate), 0o644); err != nil {
+		return NewE100("init", fmt.Errorf("failed to write configuration file '%s': %w", target, err))
+	}
+
+	stylesDir := filepath.Join(dir, "styles")
+	if err := os.MkdirAll(stylesDir, os.ModePerm); err != nil {
+		return NewE100("init", fmt.Errorf("failed to create styles directory '%s': %w", stylesDir, err))
+	}
+
+	return nil
+}

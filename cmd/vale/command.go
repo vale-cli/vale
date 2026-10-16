@@ -56,6 +56,13 @@ type command struct {
 
 // commands are the available CLI commands.
 var commands = map[string]command{
+	"init": {
+		Run:     initCmd,
+		Summary: "Initialize a new .vale.ini configuration file.",
+		Usage:   "init [path]",
+		Detail: "Generates a default .vale.ini configuration file with baseline\n" +
+			"settings and creates the styles directory if no configuration exists.",
+	},
 	"ls-config": {
 		Run:     printConfig,
 		Summary: "Print the current configuration to stdout.",
