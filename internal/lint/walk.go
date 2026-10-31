@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 	"unsafe"
 
@@ -700,12 +701,62 @@ func (w *walker) mapRun(at int, raw string) {
 
 	i := strings.Index(ctx[w.srcCursor:], raw)
 	if i < 0 {
+		w.mapWords(at, raw, ctx)
 		return
 	}
 
 	src := w.srcCursor + i
 	w.srcCursor = src + len(raw)
 	w.spans = append(w.spans, nlp.Run{At: at, Src: src, N: len(raw)})
+}
+
+// mapWords maps a run that isn't in the source as written one word at a
+// time, in order. A converter can drop markup from inside a run -- Sphinx's
+// `:ref:` keeps only its title -- and the words are still there to be found;
+// unmapped, a match in the run was placed by searching from the top of the
+// file, on whatever came first.
+func (w *walker) mapWords(at int, raw, ctx string) {
+	// The words sit close together in the source: the markup between two of
+	// them is short, so a word far ahead is someone else's.
+	const gap = 256
+
+	cursor := w.srcCursor
+	var runs []nlp.Run
+	for _, word := range wordSpans(raw) {
+		limit := min(len(ctx), cursor+gap+word[1]-word[0])
+		i := strings.Index(ctx[cursor:limit], raw[word[0]:word[1]])
+		if i < 0 {
+			// Rewritten too, as an escaped `\*` is: it stays unmapped, and
+			// the words after it are still found.
+			continue
+		}
+		src := cursor + i
+		runs = append(runs, nlp.Run{At: at + word[0], Src: src, N: word[1] - word[0]})
+		cursor = src + word[1] - word[0]
+	}
+
+	w.srcCursor = cursor
+	w.spans = append(w.spans, runs...)
+}
+
+// wordSpans returns the start and end of each whitespace-separated word in s.
+func wordSpans(s string) [][2]int {
+	var out [][2]int
+	start := -1
+	for i, r := range s {
+		if unicode.IsSpace(r) {
+			if start >= 0 {
+				out = append(out, [2]int{start, i})
+				start = -1
+			}
+		} else if start < 0 {
+			start = i
+		}
+	}
+	if start >= 0 {
+		out = append(out, [2]int{start, len(s)})
+	}
+	return out
 }
 
 // sourceOffset returns where index `i` of the block's text sits in the source,

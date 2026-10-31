@@ -303,3 +303,35 @@ func TestWrappedRuns(t *testing.T) {
 		t.Errorf("absent text was placed: %v", runs)
 	}
 }
+
+// A run the converter rewrote is mapped by its words, so a match in it is
+// placed where the word is rather than wherever the text first appears.
+func TestMapWords(t *testing.T) {
+	cases := []struct {
+		desc string
+		ctx  string
+		raw  string
+		want []nlp.Run
+	}{
+		{
+			desc: "a role reduced to its title",
+			ctx:  "Wrap in :ref:`rsp-only <c>` block.",
+			raw:  "Wrap in rsp-only block.",
+			want: []nlp.Run{{At: 0, Src: 0, N: 4}, {At: 5, Src: 5, N: 2}, {At: 8, Src: 14, N: 8}, {At: 17, Src: 28, N: 6}},
+		},
+		{
+			desc: "an escape skips one word",
+			ctx:  "Files (\\*.in.rst) with rsp",
+			raw:  "Files (*.in.rst) with rsp",
+			want: []nlp.Run{{At: 0, Src: 0, N: 5}, {At: 17, Src: 18, N: 4}, {At: 22, Src: 23, N: 3}},
+		},
+	}
+
+	for _, tc := range cases {
+		w := &walker{}
+		w.mapWords(0, tc.raw, tc.ctx)
+		if !reflect.DeepEqual(w.spans, tc.want) {
+			t.Errorf("%s:\n got: %v\nwant: %v", tc.desc, w.spans, tc.want)
+		}
+	}
+}

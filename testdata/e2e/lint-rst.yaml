@@ -59,6 +59,38 @@ cases:
     want: |
       subst.rst:1:57:Test.Rule:found 'rsp'
 
+  - name: rewritten-run-placement
+    about: "a run the converter rewrote -- a `:ref:` reduced to its title, an
+      escaped `\\*` -- is placed word by word. Unmapped, a match in it was
+      placed by searching from the top of the file, inside an earlier role's
+      name."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.rst]
+        Test.Rule = YES
+      styles/Test/Rule.yml: |
+        extends: existence
+        message: "found '%s'"
+        level: error
+        tokens:
+          - rsp
+      roles.rst: |
+        See :rsp-link:`Platform <home>`.
+
+        Under it.
+        Wrap in :ref:`rsp-only <c>` block.
+
+        Files (\*.in.rst) with rsp-only
+        =================================
+    args: roles.rst
+    requires: rst2html
+    exit: 1
+    want: |
+      roles.rst:4:15:Test.Rule:found 'rsp'
+      roles.rst:6:24:Test.Rule:found 'rsp'
+
   - name: hyphenated-literal
     about: "prose after a hyphenated inline literal is still read. Docutils
       wraps such a literal in a `pre` span inside the `tt`, and the pair, left
