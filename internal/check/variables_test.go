@@ -71,6 +71,18 @@ func TestSentence(t *testing.T) {
 			exceptions: []string{"Community Leader"},
 			match:      true,
 		},
+		{
+			heading: "TAP endpoint",
+			match:   true,
+		},
+		{
+			heading: "Configure the CLI",
+			match:   true,
+		},
+		{
+			heading: "Querying the TAP Service",
+			match:   false,
+		},
 	}
 
 	for _, h := range headings {
