@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/pflag"
 
 	"github.com/vale-cli/vale/v3/internal/core"
@@ -80,6 +82,26 @@ func doLint(args []string, l *lint.Linter, glob string) ([]*core.File, error) {
 func handleError(err error) {
 	ShowError(err, Flags.Output, os.Stderr)
 	os.Exit(2)
+}
+
+func initCmd(args []string, flags *core.CLIFlags) error {
+	target := ".vale.ini"
+	if len(args) > 0 {
+		target = args[0]
+	} else if flags.Path != "" {
+		target = flags.Path
+	}
+
+	if system.IsDir(target) {
+		target = filepath.Join(target, ".vale.ini")
+	}
+
+	if err := core.InitConfig(target); err != nil {
+		return err
+	}
+
+	pterm.Success.Println(fmt.Sprintf("Initialized configuration in '%s'.", target))
+	return nil
 }
 
 func main() {
