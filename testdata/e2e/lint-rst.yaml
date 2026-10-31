@@ -32,6 +32,33 @@ cases:
       sphinx.rst:32:19:Test.Rule:Use 'BIG Needles' rather than 'BIG needles'.
       sphinx.rst:44:20:Test.Rule:Use 'BIG Needles' rather than 'BIG needles'.
 
+  - name: sphinx-substitution
+    about: "a substitution defined outside the file, as a Sphinx project's
+      rst_epilog does, is not prose: Docutils leaves it as written, and it is
+      skipped like the markup it is. The same word in a sentence, or in a
+      literal, is read as before."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.rst]
+        Test.Rule = YES
+      styles/Test/Rule.yml: |
+        extends: existence
+        message: "found '%s'"
+        level: error
+        tokens:
+          - rsp
+      subst.rst: |
+        Open the |rsp-at| in a browser, or follow |rsp|_ to the rsp portal.
+
+        Run ``rsp | grep x`` and keep |rsp-a b| as written.
+    args: subst.rst
+    requires: rst2html
+    exit: 1
+    want: |
+      subst.rst:1:57:Test.Rule:found 'rsp'
+
   - name: hyphenated-literal
     about: "prose after a hyphenated inline literal is still read. Docutils
       wraps such a literal in a `pre` span inside the `tt`, and the pair, left

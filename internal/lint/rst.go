@@ -372,7 +372,34 @@ func (l *Linter) lintRSTHTML(f *core.File, html string) error {
 	if err := l.lintMetadata(f); err != nil {
 		return err
 	}
-	return l.lintHTMLTokens(f, []byte(html), 0)
+	return l.lintHTMLTokens(f, []byte(markSubstitutions(html)), 0)
+}
+
+// A substitution Docutils couldn't resolve, one a Sphinx project defines in
+// its `rst_epilog`, comes through as written, since --report=5 drops the
+// `problematic` markup it would get otherwise.
+var reSubstitution = regexp.MustCompile(`\|[^\s|<>](?:[^|<>]*[^\s|<>])?\|(?:__?)?`)
+
+// Literal text keeps its pipes as they are.
+var reRSTLiteral = regexp.MustCompile(`(?s)<pre\b.*?</pre>|<tt\b.*?</tt>|<code\b.*?</code>`)
+
+// markSubstitutions wraps each unresolved substitution in the `problematic`
+// span Docutils would have given it, so it is skipped rather than read as
+// prose.
+func markSubstitutions(html string) string {
+	if !strings.Contains(html, "|") {
+		return html
+	}
+
+	var b strings.Builder
+	last := 0
+	for _, lit := range reRSTLiteral.FindAllStringIndex(html, -1) {
+		b.WriteString(reSubstitution.ReplaceAllString(html[last:lit[0]], `<span class="problematic">$0</span>`))
+		b.WriteString(html[lit[0]:lit[1]])
+		last = lit[1]
+	}
+	b.WriteString(reSubstitution.ReplaceAllString(html[last:], `<span class="problematic">$0</span>`))
+	return b.String()
 }
 
 // A batch is several documents converted together, joined by a literal
