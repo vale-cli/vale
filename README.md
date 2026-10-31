@@ -101,9 +101,11 @@ Everyone who funds Vale, individuals included, is listed on the [sponsors page](
 
 ### Infrastructure
 
-Thanks to [GitBook](https://www.gitbook.com/solutions/open-source) for hosting the [documentation](https://docs.vale.sh).
+Thanks to [Fyra Stack](https://dash.fyrastack.com/) for hosting [Vale Studio](https://studio.vale.sh), and to [GitBook](https://www.gitbook.com/solutions/open-source) for hosting the [documentation](https://docs.vale.sh).
 
 <p>
+  <a href="https://dash.fyrastack.com/"><img src="https://img.shields.io/badge/Studio%20hosted%20by-Fyra%20Stack-FE6565?style=for-the-badge" alt="Studio hosted by Fyra Stack" height="40"></a>
+  &nbsp;
   <a href="https://docs.vale.sh"><img src="https://img.shields.io/badge/Docs%20hosted%20by-GitBook-3884FF?style=for-the-badge&logo=gitbook&logoColor=white" alt="Docs hosted by GitBook" height="40"></a>
 </p>
 

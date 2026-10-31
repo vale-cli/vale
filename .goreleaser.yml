@@ -4,7 +4,7 @@ env:
 before:
   hooks:
     # The wasm archive carries the loader from the toolchain that built it.
-    - sh -c 'install -m 0644 "$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm_exec.js'
+    - sh -c 'mkdir -p bin && install -m 0644 "$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm_exec.js'
 
 builds:
   - id: vale-darwin-amd64

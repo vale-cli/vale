@@ -16,6 +16,7 @@ endtab
 endtabs
 FFmpeg
 flesch
+Fyra
 gunning fog
 Gurubase
 haskell
