@@ -1,0 +1,6 @@
+extends: sequence
+message: "Two adjectives in a row: '%s'."
+level: warning
+tokens:
+  - upos: ADJ
+  - upos: ADJ

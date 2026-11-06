@@ -1,0 +1,41 @@
+# The language a file is written in, set by `Lang`, chooses the segmenter,
+# tokenizer and part-of-speech model Vale reads it with. No endpoint: every
+# language here is handled in-process.
+name: lang
+dir: fixtures/lang
+
+cases:
+  - name: german
+    about: "German tags come from the German model, so `upos: ADJ` matches
+      German adjectives; its segmenter knows that z.B. is not the end of a
+      sentence, and its positions survive tokenization"
+    args: test.md
+    exit: 0
+    want: |
+      test.md:3:5:Lang.Abbreviation:'gilt' is one sentence.
+      test.md:3:53:Lang.Adjectives:Two adjectives in a row: 'großes'.
+      test.md:5:28:Lang.Adjectives:Two adjectives in a row: 'ruhiges'.
+
+  - name: french
+    about: "French elisions are tokenized as the model expects: l'homme is
+      l' and homme, and a hyphenated clitic is its own token"
+    args: fr/test.md
+    exit: 0
+    want: |
+      fr/test.md:3:19:Lang.Adjectives:Two adjectives in a row: 'belle'.
+      fr/test.md:5:4:Lang.Adjectives:Two adjectives in a row: 'petit'.
+
+  - name: japanese
+    about: "Japanese has no spaces and no tagging model; sentences still end
+      at 。, so a sentence-scoped rule sees each one"
+    args: ja/test.md
+    exit: 0
+    want: |
+
+  - name: japanese-tagged
+    about: "A rule that needs tags on a language without a model is reported,
+      not quietly tagged as English"
+    args: ja/tagged.md
+    exit: 2
+    contains: |
+      no model for language "ja"

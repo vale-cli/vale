@@ -292,14 +292,19 @@ func SplitLines(data []byte, atEOF bool) (adv int, token []byte, err error) { //
 	return 0, nil, nil
 }
 
-func TextToContext(text string, meta *nlp.Info) []nlp.TaggedWord {
+func TextToContext(text string, meta *nlp.Info) ([]nlp.TaggedWord, error) {
 	context := []nlp.TaggedWord{}
 
 	for idx, line := range strings.Split(text, "\n") {
 		plain := stripMarkdown(line)
 
+		tokens, err := nlp.TextToTokens(plain, meta)
+		if err != nil {
+			return nil, err
+		}
+
 		pos := 0
-		for _, tok := range nlp.TextToTokens(plain, meta) {
+		for _, tok := range tokens {
 			if strings.TrimSpace(tok.Text) != "" {
 				s := strings.Index(line[pos:], tok.Text) + len(line[:pos])
 				if !StringInSlice(tok.Tag, []string{"''", "``"}) {
@@ -315,7 +320,7 @@ func TextToContext(text string, meta *nlp.Info) []nlp.TaggedWord {
 		}
 	}
 
-	return context
+	return context, nil
 }
 
 func ReplaceAllStringSubmatchFunc(re *regexp.Regexp, str string, repl func([]string) string) string {

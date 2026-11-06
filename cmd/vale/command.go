@@ -263,9 +263,11 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 	return printJSON(computed)
 }
 
+// runTag tags a file: `vale tag <file> <lang> [endpoint]`. Without an
+// endpoint, prose's own model for the language does the tagging.
 func runTag(args []string, _ *core.CLIFlags) error {
-	if len(args) != 3 {
-		return core.NewE100("tag", errors.New("three arguments expected"))
+	if len(args) < 2 || len(args) > 3 {
+		return core.NewE100("tag", errors.New("a file and a language expected, then an optional endpoint"))
 	}
 
 	text, err := os.ReadFile(args[0])
@@ -273,8 +275,15 @@ func runTag(args []string, _ *core.CLIFlags) error {
 		return err
 	}
 
-	out := core.TextToContext(
-		string(text), &nlp.Info{Lang: args[1], Endpoint: args[2]})
+	info := nlp.Info{Lang: args[1]}
+	if len(args) == 3 {
+		info.Endpoint = args[2]
+	}
+
+	out, err := core.TextToContext(string(text), &info)
+	if err != nil {
+		return core.NewE100("tag", err)
+	}
 
 	return printJSON(out)
 }

@@ -1,0 +1,7 @@
+# One terminator per sentence: a second one means a sentence was not split.
+extends: occurrence
+message: "More than one sentence in a sentence."
+level: error
+scope: sentence
+max: 1
+token: '。'

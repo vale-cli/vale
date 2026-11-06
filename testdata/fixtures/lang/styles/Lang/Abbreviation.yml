@@ -1,0 +1,9 @@
+# Fires only if "gilt z.B. für" stays one sentence: a segmenter that breaks
+# after "z.B." puts "für" out of reach.
+extends: sequence
+message: "'%s' is one sentence."
+level: suggestion
+tokens:
+  - pattern: gilt
+  - pattern: für
+    skip: 2
