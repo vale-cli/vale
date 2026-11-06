@@ -163,3 +163,63 @@ func TestSummarizeIsSharedByCopies(t *testing.T) {
 		t.Errorf("hand-built block: NumSentences = %v, want 1", got)
 	}
 }
+
+// A block's language chooses its segmenter: German knows "z.B." and "Dr."
+// are abbreviations, and Japanese ends a sentence at 。 with no space after.
+func TestComputeByLanguage(t *testing.T) {
+	texts := func(blks []Block) []string {
+		var out []string
+		for _, b := range blks {
+			if strings.HasPrefix(b.Scope, "sentence.") {
+				out = append(out, b.Text)
+			}
+		}
+		return out
+	}
+
+	cases := []struct {
+		lang, text string
+		want       []string
+	}{
+		{"de", "Das gilt z.B. für Dr. Müller. Er bleibt.", []string{"Das gilt z.B. für Dr. Müller.", "Er bleibt."}},
+		{"ja", "東京に行きました。楽しかったです。", []string{"東京に行きました。", "楽しかったです。"}},
+		{"", "Dr. Smith went home. He slept.", []string{"Dr. Smith went home.", "He slept."}},
+	}
+	for _, tc := range cases {
+		info := Info{Lang: tc.lang, Segmentation: true}
+		blk := NewLinedBlock("", tc.text, "text.md", 1)
+		blks, err := info.Compute(&blk, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := texts(blks)
+		if strings.Join(got, "|") != strings.Join(tc.want, "|") {
+			t.Errorf("[%s] sentences = %q, want %q", tc.lang, got, tc.want)
+		}
+	}
+}
+
+// Tagging follows the language too, with that language's tokenizer, and a
+// language without a model is an error rather than English tags.
+func TestTextToTokensByLanguage(t *testing.T) {
+	toks, err := TextToTokens("L'homme mange une pomme rouge.", &Info{Lang: "fr"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, tok := range toks {
+		got = append(got, tok.Text+"/"+tok.Tag)
+	}
+	if want := "L'/DET homme/NOUN mange/VERB une/DET pomme/NOUN rouge/ADJ ./PUNCT"; strings.Join(got, " ") != want {
+		t.Errorf("got %q, want %q", strings.Join(got, " "), want)
+	}
+
+	if _, jerr := TextToTokens("こんにちは。", &Info{Lang: "ja"}); jerr == nil {
+		t.Error("Japanese has no tagging model; expected an error")
+	}
+
+	toks, err = TextToTokens("The dog runs.", nil)
+	if err != nil || len(toks) != 4 || toks[2].Tag != "VBZ" {
+		t.Errorf("English should still be Penn-tagged: %v (err=%v)", toks, err)
+	}
+}

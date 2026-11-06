@@ -8,7 +8,11 @@ import (
 )
 
 // Universal POS tags, expressed in terms of the Penn Treebank tags Vale's
-// tagger actually produces.
+// English tagger produces.
+//
+// Every other language's tagger emits the universal tags themselves, so a
+// pattern also accepts its own name: `upos: NOUN` is "NN or NNS from the
+// English tagger, or NOUN from any other". See uposTagPattern.
 //
 // Penn is the finer tagset, so most of this is a straight widening: NOUN is
 // "NN or NNS", ADJ is "JJ, JJR or JJS". Three categories are not expressible
@@ -47,7 +51,9 @@ var uposTags = map[string]string{
 // uposWords narrows the categories Penn cannot distinguish on its own.
 //
 // A token must carry both the tag and one of these words to match. Without
-// this, `upos: AUX` would match every verb in the document.
+// this, `upos: AUX` would match every verb in the document. The lists are
+// English, and apply only to Penn-tagged words: a universal tagger says AUX
+// itself, in its own language.
 var uposWords = map[string][]string{
 	"AUX": {
 		"am", "is", "are", "was", "were", "be", "been", "being",
@@ -76,15 +82,23 @@ func uposTagPattern(name string) (string, error) {
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 
-		pattern, ok := uposTags[strings.ToUpper(part)]
+		upper := strings.ToUpper(part)
+		pattern, ok := uposTags[upper]
 		if !ok {
 			return "", fmt.Errorf("unknown universal POS tag %q; expected one of %s",
 				part, strings.Join(uposNames(), ", "))
 		}
-		out = append(out, pattern)
+		out = append(out, pattern, upper)
 	}
 
 	return "^(?:" + strings.Join(out, "|") + ")$", nil
+}
+
+// isUniversalTag reports whether tag is one of the universal tags, as a
+// non-English tagger emits them.
+func isUniversalTag(tag string) bool {
+	_, ok := uposTags[tag]
+	return ok
 }
 
 // uposWordPattern returns the word-level constraint for a universal tag, or

@@ -98,7 +98,7 @@ func (o Repetition) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.A
 				return alerts, err
 			}
 
-			if sents := nlp.SentenceTokenizer.Segment(converted); len(sents) == 1 {
+			if sents := nlp.Segment(f.NLP.Lang, converted); len(sents) == 1 {
 				// If we have more than one sentence, we're likely looking at
 				// a false positive:
 				//

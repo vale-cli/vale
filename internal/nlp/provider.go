@@ -287,10 +287,10 @@ type Info struct {
 // other prose, but they are not paragraphs, and a rule scoped to `paragraph`
 // must not reach them. See #1132.
 func (n *Info) Compute(block *Block, split bool) ([]Block, error) {
-	seg := SentenceTokenizer.Segment
-	if n.Endpoint != "" && n.Lang != "en" {
-		// We only use external segmentation for non-English text since prose
-		// (our native library) is more efficient.
+	seg := func(text string) []string { return Segment(n.Lang, text) }
+	if n.Endpoint != "" && !IsEnglish(n.Lang) {
+		// An endpoint configured for another language is asked to segment
+		// it too; it may know the language better than prose does.
 		seg = func(text string) []string {
 			ret, err := doSegment(text, n.Lang, n.Endpoint)
 			if err != nil {

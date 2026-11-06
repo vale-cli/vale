@@ -348,8 +348,10 @@ func tokensMatch(token NLPToken, word tag.Token) bool {
 		token.tokenRe.MatchStringStd(word.Text) == token.Negate
 
 	// A universal tag that Penn cannot express also restricts which words
-	// qualify -- `upos: AUX` is "a verb, and one of these words".
-	if token.wordRe != nil && token.wordRe.MatchStringStd(word.Text) == token.Negate {
+	// qualify -- `upos: AUX` is "a verb, and one of these words". Only for
+	// Penn-tagged words: a universal tagger has already said AUX.
+	if token.wordRe != nil && !isUniversalTag(word.Tag) &&
+		token.wordRe.MatchStringStd(word.Text) == token.Negate {
 		return false
 	}
 

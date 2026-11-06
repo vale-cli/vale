@@ -2,11 +2,17 @@ package nlp
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/jdkato/prose/v3/segment"
 	"github.com/jdkato/prose/v3/tag"
 	"github.com/jdkato/prose/v3/tokenize"
+
+	// Every language prose ships a model for, since the language is chosen
+	// in configuration, at run time.
+	_ "github.com/jdkato/prose/v3/segment/lang/all"
+	_ "github.com/jdkato/prose/v3/tag/lang/all"
 
 	"github.com/vale-cli/vale/v3/internal/system"
 )
@@ -21,27 +27,63 @@ type TaggedWord struct {
 // WordTokenizer splits text into words.
 var WordTokenizer = NewIterTokenizer()
 
-// segmenter is loaded on first use: the punkt model costs time and memory to
-// build, and most Vale runs never segment anything.
-var punktSegmenter = sync.OnceValue(func() *segment.Segmenter {
-	s, err := segment.New()
-	if err != nil {
-		panic("nlp: loading the sentence segmentation model: " + err.Error())
+// segmenters holds one sentence segmenter per language, built on first use:
+// a model costs time and memory to load, and most Vale runs never segment
+// anything.
+var segmenters sync.Map // lang -> *segment.Segmenter
+
+// segmenterFor returns the segmenter for lang, loading its model once.
+//
+// English is the default. A language without a trained model gets prose's
+// rule-based segmenter, which is never an error, so the only failure here is
+// a model that will not load -- a bug, not a configuration mistake.
+func segmenterFor(lang string) *segment.Segmenter {
+	lang = normalizeLang(lang)
+	if s, ok := segmenters.Load(lang); ok {
+		return s.(*segment.Segmenter)
 	}
-	return s
-})
-
-// sentenceTokenizer defers loading the punkt model until something is actually
-// segmented, while keeping the `SentenceTokenizer.Segment(...)` call shape.
-type sentenceTokenizer struct{}
-
-// Segment splits text into sentences.
-func (sentenceTokenizer) Segment(text string) []string {
-	return punktSegmenter().SegmentText(text)
+	s, err := segment.ForLanguage(lang)
+	if err != nil {
+		panic("nlp: loading the sentence segmentation model for " + lang + ": " + err.Error())
+	}
+	actual, _ := segmenters.LoadOrStore(lang, s)
+	return actual.(*segment.Segmenter)
 }
 
-// SentenceTokenizer splits text into sentences.
+// Segment splits text into the sentences of the given language.
+func Segment(lang, text string) []string {
+	return segmenterFor(lang).SegmentText(text)
+}
+
+// sentenceTokenizer defers loading the English model until something is
+// actually segmented, while keeping the `SentenceTokenizer.Segment(...)` call
+// shape.
+type sentenceTokenizer struct{}
+
+// Segment splits English text into sentences. Callers that know the
+// language should use the Segment function instead.
+func (sentenceTokenizer) Segment(text string) []string {
+	return Segment("en", text)
+}
+
+// SentenceTokenizer splits English text into sentences.
 var SentenceTokenizer sentenceTokenizer
+
+// normalizeLang lower-cases a language tag, treating an empty one as English.
+func normalizeLang(lang string) string {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if lang == "" {
+		return "en"
+	}
+	return lang
+}
+
+// IsEnglish reports whether lang names English, the language Vale assumes
+// when none is set.
+func IsEnglish(lang string) bool {
+	lang = normalizeLang(lang)
+	return lang == "en" || strings.HasPrefix(lang, "en-") || strings.HasPrefix(lang, "en_")
+}
 
 // taggers holds one tagger per model, built on first use.
 //
@@ -56,7 +98,9 @@ var (
 // reading its dictionary from path.
 //
 // The dictionary is Vale's existing asset kind, so a model ships, syncs and
-// resolves the same way a spelling dictionary does.
+// resolves the same way a spelling dictionary does. Words the dictionary does
+// not know fall back to prose's English tagger, since a dictionary carries no
+// language of its own.
 func RegisterModel(name, path string) error {
 	taggersMu.Lock()
 	defer taggersMu.Unlock()
@@ -90,14 +134,16 @@ func RegisterModel(name, path string) error {
 	return nil
 }
 
-// TaggerFor returns the tagger a rule asked for.
+// TaggerFor returns the tagger a rule asked for, or the language's own when
+// the rule named none.
 //
 // An unknown name is an error rather than a quiet fallback: a rule written
 // against one tagger reads differently under another, so substituting one
-// would change what the rule means.
-func TaggerFor(name string) (tag.Interface, error) {
+// would change what the rule means. So is a language prose has no model for:
+// English tags on German text are not tags, they are noise.
+func TaggerFor(name, lang string) (tag.Interface, error) {
 	if name == "" {
-		return tagger()
+		return tag.ForLanguage(normalizeLang(lang))
 	}
 
 	taggersMu.Lock()
@@ -111,49 +157,30 @@ func TaggerFor(name string) (tag.Interface, error) {
 	return t, nil
 }
 
-// tagger is prose's own, used by every rule that does not name a model.
-//
-// sync.OnceValues rather than a nil check: Vale lints files concurrently, so
-// a plain check-then-assign here is a data race.
-var tagger = sync.OnceValues(func() (tag.Interface, error) { return tag.Open("") })
-
-// wordTokenizer splits a sentence into positioned words for tagging.
-//
-// prose's tokenizer rather than the Treebank one: Treebank rewrites the text
-// as it splits (quotes become “ and ”), so its tokens are not substrings of
-// the source and cannot carry offsets. Callers such as the `sequence` check
-// need to know where a token actually is.
-var wordTokenizer = sync.OnceValue(func() *tokenize.Tokenizer {
-	return tokenize.New()
-})
-
-// tagText splits text into sentences, tags each one, and returns the tokens
-// with offsets relative to text.
+// tagTextWith splits text into sentences, tags each one with the named tagger
+// (or the language's own), and returns the tokens with offsets relative to
+// text.
 //
 // Tagging is per sentence because the tagger conditions on the previous two
 // tags; letting that context run across a sentence boundary would condition
 // the first word of each sentence on the last word of the one before it.
-func tagText(text string) []tag.Token {
-	toks, err := tagTextWith("", text)
-	if err != nil {
-		panic("nlp: loading the part-of-speech model: " + err.Error())
-	}
-	return toks
-}
-
-// tagTextWith is tagText, read with the named tagger.
 //
-// An unknown model is returned as an error rather than panicked on: the name
-// comes from a rule, so it is the author's mistake to report, not a bug.
-func tagTextWith(model, text string) ([]tag.Token, error) {
-	t, err := TaggerFor(model)
+// The tokenizer is the language's: French "l'homme" is two tokens, and
+// Japanese has no spaces to split on. prose's tokenizers rather than the
+// Treebank one, which rewrites the text as it splits and so cannot carry
+// offsets. Callers such as the `sequence` check need to know where a token
+// actually is.
+func tagTextWith(model, lang, text string) ([]tag.Token, error) {
+	t, err := TaggerFor(model, lang)
 	if err != nil {
 		return nil, err
 	}
 
+	words := tokenize.ForLanguage(normalizeLang(lang))
+
 	var tokens []tag.Token
-	for _, sent := range punktSegmenter().Segment(text) {
-		found := wordTokenizer().Tokenize(sent.Text)
+	for _, sent := range segmenterFor(lang).Segment(text) {
+		found := words.Tokenize(sent.Text)
 		t.TagTokens(found)
 
 		// Tokenize reported offsets within the sentence; shift them so they
@@ -173,23 +200,19 @@ func tagTextWith(model, text string) ([]tag.Token, error) {
 // text[tok.Start:tok.Start+len(tok.Text)] == tok.Text. Tokens from a remote
 // NLP endpoint do not: that API returns text and tags only, so Start is zero
 // throughout and callers needing positions must locate the tokens themselves.
-func TextToTokens(text string, nlp *Info) []tag.Token {
-	// Determine if (and how) we need to do POS tagging.
-	if nlp == nil || nlp.Endpoint == "" {
-		// Fall back to our internal library (English-only).
-		return tagText(text)
-	}
-	result, err := pos(text, nlp.Lang, nlp.Endpoint)
-	if err != nil {
-		panic(err)
-	}
-	return result.Tokens
+//
+// The error is a language with no model, or an endpoint that did not answer.
+func TextToTokens(text string, nlp *Info) ([]tag.Token, error) {
+	return textToTokensWith("", text, nlp)
 }
 
 // textToTokensWith converts text to tagged tokens with the named tagger.
 func textToTokensWith(model, text string, info *Info) ([]tag.Token, error) {
-	if info == nil || info.Endpoint == "" {
-		return tagTextWith(model, text)
+	if info == nil {
+		return tagTextWith(model, "en", text)
+	}
+	if info.Endpoint == "" {
+		return tagTextWith(model, info.Lang, text)
 	}
 
 	// A remote endpoint does its own tagging, so there is no model to choose.
