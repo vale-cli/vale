@@ -5,14 +5,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/jdkato/prose/v3/models"
 	"github.com/jdkato/prose/v3/segment"
 	"github.com/jdkato/prose/v3/tag"
 	"github.com/jdkato/prose/v3/tokenize"
-
-	// Every language prose ships a model for, since the language is chosen
-	// in configuration, at run time.
-	_ "github.com/jdkato/prose/v3/segment/lang/all"
-	_ "github.com/jdkato/prose/v3/tag/lang/all"
 
 	"github.com/vale-cli/vale/v3/internal/system"
 )
@@ -27,6 +23,60 @@ type TaggedWord struct {
 // WordTokenizer splits text into words.
 var WordTokenizer = NewIterTokenizer()
 
+// A LanguageModel is what a language's model archive holds, as `vale sync`
+// installs it under config/models/<lang>: the part-of-speech model, where the
+// language has one, and the sentence-segmentation model with the
+// abbreviations added to it, where it has one. Either may be absent.
+type LanguageModel struct {
+	Tagger        []byte
+	Segmenter     []byte
+	Abbreviations []string
+}
+
+// A registered language builds each of its models on first use, so that
+// reading a configuration that names ten languages costs nothing until one
+// of them is linted.
+type languageEntry struct {
+	model LanguageModel
+
+	taggerOnce sync.Once
+	tagger     *tag.Tagger
+	taggerErr  error
+
+	segOnce sync.Once
+	seg     *segment.Segmenter
+	segErr  error
+}
+
+// languages holds the model each configured language was given, by tag.
+var languages sync.Map // lang -> *languageEntry
+
+// RegisterLanguage makes a language's models available to Segment and
+// TaggerFor. The configuration finds the files and reads them through its own
+// filesystem; this package only ever sees the bytes.
+//
+// Registering a language again replaces its models, so a configuration read
+// twice -- as the language server reads it -- lints with the files it has
+// now.
+func RegisterLanguage(lang string, model LanguageModel) {
+	lang = normalizeLang(lang)
+	languages.Store(lang, &languageEntry{model: model})
+	segmenters.Delete(lang)
+}
+
+// languageFor returns the registered entry for lang, trying the base
+// language when the full tag ("pt-BR") has nothing of its own.
+func languageFor(lang string) (*languageEntry, bool) {
+	if e, ok := languages.Load(lang); ok {
+		return e.(*languageEntry), true
+	}
+	base, _, _ := strings.Cut(lang, "-")
+	if e, ok := languages.Load(base); ok {
+		return e.(*languageEntry), true
+	}
+	return nil, false
+}
+
 // segmenters holds one sentence segmenter per language, built on first use:
 // a model costs time and memory to load, and most Vale runs never segment
 // anything.
@@ -34,15 +84,26 @@ var segmenters sync.Map // lang -> *segment.Segmenter
 
 // segmenterFor returns the segmenter for lang, loading its model once.
 //
-// English is the default. A language without a trained model gets prose's
-// rule-based segmenter, which is never an error, so the only failure here is
-// a model that will not load -- a bug, not a configuration mistake.
+// English is the default. A language with a registered model gets that; one
+// without gets prose's rule-based segmenter, which is never an error, so the
+// only failure here is a model that will not load -- a bug, not a
+// configuration mistake.
 func segmenterFor(lang string) *segment.Segmenter {
 	lang = normalizeLang(lang)
 	if s, ok := segmenters.Load(lang); ok {
 		return s.(*segment.Segmenter)
 	}
-	s, err := segment.ForLanguage(lang)
+
+	var s *segment.Segmenter
+	var err error
+	if e, ok := languageFor(lang); ok && e.model.Segmenter != nil {
+		e.segOnce.Do(func() {
+			e.seg, e.segErr = segment.FromBytes(e.model.Segmenter, e.model.Abbreviations...)
+		})
+		s, err = e.seg, e.segErr
+	} else {
+		s, err = segment.ForLanguage(lang)
+	}
 	if err != nil {
 		panic("nlp: loading the sentence segmentation model for " + lang + ": " + err.Error())
 	}
@@ -69,9 +130,10 @@ func (sentenceTokenizer) Segment(text string) []string {
 // SentenceTokenizer splits English text into sentences.
 var SentenceTokenizer sentenceTokenizer
 
-// normalizeLang lower-cases a language tag, treating an empty one as English.
+// normalizeLang lower-cases a language tag, accepts an underscore for the
+// hyphen as locale names write it, and treats an empty tag as English.
 func normalizeLang(lang string) string {
-	lang = strings.ToLower(strings.TrimSpace(lang))
+	lang = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(lang), "_", "-"))
 	if lang == "" {
 		return "en"
 	}
@@ -143,7 +205,7 @@ func RegisterModel(name, path string) error {
 // English tags on German text are not tags, they are noise.
 func TaggerFor(name, lang string) (tag.Interface, error) {
 	if name == "" {
-		return tag.ForLanguage(normalizeLang(lang))
+		return taggerForLanguage(normalizeLang(lang))
 	}
 
 	taggersMu.Lock()
@@ -155,6 +217,37 @@ func TaggerFor(name, lang string) (tag.Interface, error) {
 	}
 
 	return t, nil
+}
+
+// taggerForLanguage returns the tagger for a language: English's, which is
+// built in; a registered model's; or, failing both, whatever prose has linked.
+//
+// A language with nothing is reported with what to do about it, which
+// depends on whether prose publishes a model for it at all.
+func taggerForLanguage(lang string) (tag.Interface, error) {
+	if IsEnglish(lang) {
+		return tag.New()
+	}
+	if e, ok := languageFor(lang); ok && e.model.Tagger != nil {
+		e.taggerOnce.Do(func() {
+			e.tagger, e.taggerErr = tag.FromBytes(e.model.Tagger)
+		})
+		return e.tagger, e.taggerErr
+	}
+	if t, err := tag.ForLanguage(lang); err == nil {
+		return t, nil
+	}
+
+	if info, ok := models.Lookup(lang); ok && info.Tagger {
+		return nil, fmt.Errorf("no model for language %q in the StylesPath; run 'vale sync' to download it", lang)
+	}
+	var tagged []string
+	for _, info := range models.Published {
+		if info.Tagger {
+			tagged = append(tagged, info.Language)
+		}
+	}
+	return nil, fmt.Errorf("no model for language %q: prose tags %s", lang, strings.Join(tagged, ", "))
 }
 
 // tagTextWith splits text into sentences, tags each one with the named tagger

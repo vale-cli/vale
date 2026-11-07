@@ -41,6 +41,7 @@ var (
 	ScriptDir = filepath.Join(ConfigDir, "scripts")
 	ViewDir   = filepath.Join(ConfigDir, "views")
 	ScopeDir  = filepath.Join(ConfigDir, "scopes")
+	ModelDir  = filepath.Join(ConfigDir, "models")
 )
 
 // ConfigDirs is a list of all directories that contain user-defined, non-style
@@ -55,12 +56,14 @@ var ConfigDirs = []string{
 	FilterDir,
 	ViewDir,
 	ScopeDir,
+	ModelDir,
 }
 
 // ConfigVars is a list of all supported environment variables.
 var ConfigVars = map[string]string{
 	"VALE_CONFIG_PATH": "Override the default search process by specifying a .vale.ini file.",
 	"VALE_STYLES_PATH": "Specify the location of the default StylesPath.",
+	"VALE_MODELS_URL":  "Where `vale sync` downloads language models from: a URL or a directory holding one archive per language.",
 }
 
 // ConfigNames is a list of all possible configuration file names.

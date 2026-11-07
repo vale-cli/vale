@@ -66,6 +66,10 @@ type testCase struct {
 	// Sync runs `vale sync` before the case.
 	Sync bool `yaml:"sync"`
 
+	// Env is set for the case's commands, the sync included. A relative path
+	// in a value is read from the working directory.
+	Env map[string]string `yaml:"env"`
+
 	// Exit is the expected exit status.
 	Exit int `yaml:"exit"`
 
