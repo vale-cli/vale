@@ -14,7 +14,7 @@ func TestAdocConverterFile(t *testing.T) {
 	if exe == "" {
 		t.Skip("asciidoctor not installed")
 	}
-	conv := adocConverterFile()
+	conv := adocConverterFile(adocIsJS(exe))
 	if conv == "" {
 		t.Fatal("no converter file was written")
 	}
@@ -34,5 +34,30 @@ func TestAdocConverterFile(t *testing.T) {
 	}
 	if !strings.Contains(html, ">kept</a>") {
 		t.Errorf("authored text was dropped:\n%s", html)
+	}
+}
+
+// Asciidoctor.js names itself in its version line, and gets the converter
+// as a module its CLI can require; the Ruby gem gets the Ruby one. See
+// #1224.
+func TestIsAsciidoctorJS(t *testing.T) {
+	for out, want := range map[string]bool{
+		"Asciidoctor.js 3.0.4 (Asciidoctor 2.0.20) [https://asciidoctor.org]\nRuntime Environment (node v22.22.3 on darwin)": true,
+		"Asciidoctor 2.0.18 [https://asciidoctor.org]\nRuntime Environment (ruby 3.2.2 [arm64-darwin23])":                    false,
+		"": false,
+	} {
+		if got := isAsciidoctorJS(out); got != want {
+			t.Errorf("isAsciidoctorJS(%q) = %t, want %t", out, got, want)
+		}
+	}
+
+	for _, want := range []string{
+		`require.resolve("@asciidoctor/core"`,
+		"class ValeHtml5Converter",
+		`asciidoctor.ConverterFactory.register(new ValeHtml5Converter(asciidoctor), ["html5"]);`,
+	} {
+		if !strings.Contains(adocConverterModule, want) {
+			t.Errorf("the converter module lacks %q", want)
+		}
 	}
 }

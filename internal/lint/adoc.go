@@ -284,7 +284,7 @@ func (l *Linter) callAdoc(text, exe string, attrs map[string]string) (string, er
 	}
 
 	args := adocArgs
-	if conv := adocConverterFile(); conv != "" {
+	if conv := adocConverterFile(adocIsJS(exe)); conv != "" {
 		args = append(args, "-r", conv)
 	}
 
@@ -302,14 +302,52 @@ var (
 // adocConverterFile writes the converter where the `asciidoctor` executable
 // can require it, once, and returns its path; "" when it couldn't be written,
 // in which case the executable runs without it.
-func adocConverterFile() string {
+//
+// Asciidoctor.js requires a JavaScript module, so it gets the converter the
+// browser build uses, registered the way its CLI expects.
+func adocConverterFile(js bool) string {
 	adocConvOnce.Do(func() {
-		path := filepath.Join(os.TempDir(), "vale-asciidoctor.rb")
-		if err := os.WriteFile(path, []byte(adocConverter), 0o600); err == nil {
+		name, src := "vale-asciidoctor.rb", adocConverter
+		if js {
+			name, src = "vale-asciidoctor.js", adocConverterModule
+		}
+		path := filepath.Join(os.TempDir(), name)
+		if err := os.WriteFile(path, []byte(src), 0o600); err == nil {
 			adocConvPath = path
 		}
 	})
 	return adocConvPath
+}
+
+// adocConverterModule is adocConverterJS as a module for `asciidoctor -r`.
+//
+// Asciidoctor.js's CLI loads the module from wherever it is, so the module
+// can't name @asciidoctor/core by a relative path; it resolves the copy the
+// CLI itself runs, starting from the CLI's script.
+const adocConverterModule = `const path = require("path");
+const core = require(require.resolve("@asciidoctor/core", { paths: [path.dirname(process.argv[1])] }));
+const asciidoctor = core();
+` + adocConverterJS + `asciidoctor.ConverterFactory.register(new ValeHtml5Converter(asciidoctor), ["html5"]);
+`
+
+var adocKinds sync.Map // exe -> bool, true for Asciidoctor.js
+
+// adocIsJS reports whether the asciidoctor at exe is Asciidoctor.js rather
+// than the Ruby gem, asking it once per run.
+func adocIsJS(exe string) bool {
+	if v, ok := adocKinds.Load(exe); ok {
+		return v.(bool)
+	}
+	out, err := system.ExecuteWithInput(exe, "", "--version")
+	js := err == nil && isAsciidoctorJS(out)
+	adocKinds.Store(exe, js)
+	return js
+}
+
+// isAsciidoctorJS reads `asciidoctor --version`: the JavaScript port names
+// itself, as "Asciidoctor.js 3.0.4 (Asciidoctor 2.0.20)".
+func isAsciidoctorJS(version string) bool {
+	return strings.Contains(version, "Asciidoctor.js")
 }
 
 // adocDirectAttrs mirrors adocArgs for the API, which takes a hash rather than
