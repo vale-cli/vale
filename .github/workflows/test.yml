@@ -120,7 +120,8 @@ jobs:
           curl -fsSL -o dita-ot-3.6.zip \
             https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
           unzip -q dita-ot-3.6.zip
-          echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
+          # A Windows path: this shell's $PWD is a POSIX one PATH can't use.
+          echo "$GITHUB_WORKSPACE\\dita-ot-3.6\\bin" >> "$GITHUB_PATH"
 
       - uses: mlugg/setup-zig@v2
         with:
