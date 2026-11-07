@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jdkato/prose/v3/tag"
 	"github.com/pterm/pterm"
@@ -66,10 +67,12 @@ var commands = map[string]command{
 	},
 	"ls-metrics": {
 		Run:     printMetrics,
-		Summary: "Print the given file's internal metrics to stdout.",
-		Usage:   "ls-metrics <file>",
-		Detail: "Reports the counts Vale computed while reading the file --\n" +
-			"words, sentences, paragraphs, and the elements of its markup.",
+		Summary: "Print the metrics of the given files to stdout.",
+		Usage:   "ls-metrics <path>...",
+		Detail: "Reports the counts Vale computed while reading each file --\n" +
+			"words, sentences, paragraphs, and the elements of its markup.\n" +
+			"One file prints its metrics alone; several, or a directory,\n" +
+			"print an object keyed by file. --glob chooses a directory's files.",
 	},
 	"ls-dirs": {
 		Run:     printDirs,
@@ -235,11 +238,18 @@ func printConfig(_ []string, flags *core.CLIFlags) error {
 	return nil
 }
 
-func printMetrics(args []string, _ *core.CLIFlags) error {
-	if len(args) != 1 {
-		return core.NewE100("ls-metrics", errors.New("one argument expected"))
-	} else if !system.FileExists(args[0]) {
-		return errors.New("file not found")
+// printMetrics reports the metrics of each path given: `vale ls-metrics
+// <path>...`. One file prints its metrics alone, as it always has; several
+// paths, or a directory, print an object keyed by file, the way `--output=JSON`
+// keys alerts. `--glob` chooses the files under a directory. See #1223.
+func printMetrics(args []string, flags *core.CLIFlags) error {
+	if len(args) == 0 {
+		return core.NewE100("ls-metrics", errors.New("a file or directory expected"))
+	}
+	for _, arg := range args {
+		if !system.FileExists(arg) {
+			return core.NewE100("ls-metrics", fmt.Errorf("'%s' not found", arg))
+		}
 	}
 
 	cfg, err := core.NewConfig(&core.CLIFlags{})
@@ -250,13 +260,18 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 	cfg.MinAlertLevel = 0
 	cfg.GBaseStyles = []string{"Vale"}
 	cfg.Flags.InExt = ".txt" // default value
+	cfg.Flags.Normalize = flags.Normalize
 
 	linter, err := lint.NewLinter(cfg)
 	if err != nil {
 		return err
 	}
 
-	linted, err := linter.Lint([]string{args[0]}, "*")
+	pat := "*"
+	if flags.Glob != "" {
+		pat = flags.Glob
+	}
+	linted, err := linter.Lint(args, pat)
 	if err != nil {
 		return err
 	}
@@ -266,18 +281,31 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 	// `{}`, which already means "a file Vale read and found no metrics in".
 	if len(linted) == 0 {
 		return core.NewE100("ls-metrics", fmt.Errorf(
-			"'%s' contains no lintable files", args[0]))
+			"'%s' contains no lintable files", strings.Join(args, "', '")))
 	}
 
-	computed, _ := linted[0].ComputeMetrics()
+	if len(args) == 1 && !system.IsDir(args[0]) {
+		return printJSON(roundedMetrics(linted[0]))
+	}
+
+	byFile := make(map[string]map[string]interface{}, len(linted))
+	for _, f := range linted {
+		byFile[f.Path] = roundedMetrics(f)
+	}
+	return printJSON(byFile)
+}
+
+// roundedMetrics is a file's metrics with each score at two places, which is
+// what a rule's message shows; a score otherwise carries the digits of its
+// division.
+func roundedMetrics(f *core.File) map[string]interface{} {
+	computed, _ := f.ComputeMetrics()
 	for k, v := range computed {
-		// A score carries the digits of its division; two places is what a
-		// rule's message shows.
-		if f, ok := v.(float64); ok && f != math.Trunc(f) {
-			computed[k] = math.Round(f*100) / 100
+		if n, ok := v.(float64); ok && n != math.Trunc(n) {
+			computed[k] = math.Round(n*100) / 100
 		}
 	}
-	return printJSON(computed)
+	return computed
 }
 
 // runTag tags a file: `vale tag <file> <lang> [endpoint]`. Without an

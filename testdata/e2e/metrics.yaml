@@ -95,6 +95,79 @@ cases:
       test.md:1:1:T.Words:This text has 16.00 words.
       test.txt:1:1:T.Words:This text has 16.00 words.
 
+  - name: several
+    about: "#1223 -- several paths, or a directory, print an object keyed by
+      file, the way `--output=JSON` keys alerts; `--glob` chooses a
+      directory's files. One file still prints its metrics alone."
+    files:
+      a.md: |
+        # A
+
+        One short sentence here.
+      docs/b.txt: |
+        Two words here. And three more words.
+      docs/c.md: |
+        # B
+
+        Another one.
+    args: --glob=*.md ls-metrics a.md docs
+    exit: 0
+    want: |
+      {
+          "a.md": {
+              "automated_readability": 4.12,
+              "characters": 20,
+              "coleman_liau": 6.2,
+              "complex_words": 0,
+              "dale_chall": 4.15,
+              "flesch_kincaid": 0.72,
+              "flesch_reading_ease": 97.03,
+              "gunning_fog": 1.6,
+              "heading_h1": 1,
+              "lix": 29,
+              "long_words": 1,
+              "paragraphs": 1,
+              "polysyllabic_words": 0,
+              "quote_words": 0,
+              "sentence_length_sd": 0,
+              "sentences": 1,
+              "smog": 3.13,
+              "syllables": 5,
+              "words": 4
+          },
+          "docs/c.md": {
+              "automated_readability": 3.12,
+              "characters": 10,
+              "coleman_liau": -1.2,
+              "complex_words": 1,
+              "dale_chall": 7.99,
+              "flesch_kincaid": 8.79,
+              "flesch_reading_ease": 35.61,
+              "gunning_fog": 20.8,
+              "heading_h1": 1,
+              "lix": 52,
+              "long_words": 1,
+              "paragraphs": 1,
+              "polysyllabic_words": 1,
+              "quote_words": 0,
+              "sentence_length_sd": 0,
+              "sentences": 1,
+              "smog": 8.84,
+              "syllables": 4,
+              "words": 2
+          }
+      }
+
+  - name: missing-path
+    about: a path that isn't there is named, before anything is read
+    files:
+      a.md: |
+        Here.
+    args: ls-metrics a.md nope.md
+    exit: 2
+    contains: |
+      [ls-metrics]:E100:'nope.md' not found
+
   - name: empty-directory
     about: the argument only has to exist, and a directory does -- so one
       whose every file is skipped (`node_modules` is ignored by default)
