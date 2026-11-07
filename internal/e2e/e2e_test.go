@@ -220,9 +220,15 @@ func invoke(t *testing.T, s *suite, tc testCase) (string, int) {
 		}
 	}
 
+	env := os.Environ()
+	for k, v := range tc.Env {
+		env = append(env, k+"="+v)
+	}
+
 	if tc.Sync {
 		sync := exec.Command(valeBin, "sync")
 		sync.Dir = dir
+		sync.Env = env
 		if out, err := sync.CombinedOutput(); err != nil {
 			t.Fatalf("vale sync: %v\n%s", err, out)
 		}
@@ -230,6 +236,7 @@ func invoke(t *testing.T, s *suite, tc testCase) (string, int) {
 
 	cmd := exec.Command(valeBin, append(append([]string{}, sharedFlags...), tc.Args...)...)
 	cmd.Dir = dir
+	cmd.Env = env
 
 	if tc.Stdin != "" {
 		f, err := os.Open(filepath.Join(dir, tc.Stdin))

@@ -180,7 +180,7 @@ func sync(_ []string, flags *core.CLIFlags) error {
 	// years should keep printing what it always printed.
 	var bar *pterm.ProgressbarPrinter
 	if !flags.PlainProgress {
-		bar, err = pterm.DefaultProgressbar.WithTotal(len(pkgs)).Start()
+		bar, err = pterm.DefaultProgressbar.WithTotal(len(pkgs) + len(cfg.Languages())).Start()
 		if err != nil {
 			return err
 		}
@@ -203,7 +203,24 @@ func sync(_ []string, flags *core.CLIFlags) error {
 		}
 	}
 
+	// The models for the languages the configuration names, after the
+	// packages: a package may be what names a language.
+	nModels, err := syncModels(cfg, stylesPath, len(pkgs), func(lang string) {
+		if bar != nil {
+			bar.UpdateTitle("Syncing " + lang)
+			bar.Increment()
+		} else {
+			fmt.Printf("Synced %s\n", lang)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
 	msg := fmt.Sprintf("Synced %d package(s) to '%s'.", len(pkgs), stylesPath)
+	if nModels > 0 {
+		msg = fmt.Sprintf("Synced %d package(s) and %d language model(s) to '%s'.", len(pkgs), nModels, stylesPath)
+	}
 	pterm.Success.Println(msg)
 
 	return nil
@@ -265,7 +282,7 @@ func printMetrics(args []string, _ *core.CLIFlags) error {
 
 // runTag tags a file: `vale tag <file> <lang> [endpoint]`. Without an
 // endpoint, prose's own model for the language does the tagging.
-func runTag(args []string, _ *core.CLIFlags) error {
+func runTag(args []string, flags *core.CLIFlags) error {
 	if len(args) < 2 || len(args) > 3 {
 		return core.NewE100("tag", errors.New("a file and a language expected, then an optional endpoint"))
 	}
@@ -278,6 +295,18 @@ func runTag(args []string, _ *core.CLIFlags) error {
 	info := nlp.Info{Lang: args[1]}
 	if len(args) == 3 {
 		info.Endpoint = args[2]
+	}
+
+	// Another language's model is in the StylesPath, which only the
+	// configuration knows; English and an endpoint need neither.
+	if !nlp.IsEnglish(info.Lang) && info.Endpoint == "" {
+		cfg, cerr := core.ReadPipeline(flags, false)
+		if cerr != nil {
+			return cerr
+		}
+		if cerr = core.LoadLanguageModels(cfg); cerr != nil {
+			return cerr
+		}
 	}
 
 	out, err := core.TextToContext(string(text), &info)

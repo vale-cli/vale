@@ -116,6 +116,9 @@ func documentError(err error, path string) bool {
 
 // NewLinter initializes a Linter.
 func NewLinter(cfg *core.Config) (*Linter, error) {
+	if err := core.LoadLanguageModels(cfg); err != nil {
+		return nil, err
+	}
 	mgr, err := check.NewManager(cfg)
 
 	globalStyles := len(cfg.GBaseStyles)

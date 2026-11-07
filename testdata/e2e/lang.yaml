@@ -1,15 +1,46 @@
 # The language a file is written in, set by `Lang`, chooses the segmenter,
 # tokenizer and part-of-speech model Vale reads it with. No endpoint: every
-# language here is handled in-process.
+# language here is handled in-process, from models `vale sync` installs under
+# config/models -- here from fixtures/models rather than a prose release.
 name: lang
 dir: fixtures/lang
 
 cases:
+  - name: sync
+    about: "`vale sync` installs the model archive for each language the
+      configuration names, from VALE_MODELS_URL; a language prose publishes
+      nothing for is a warning, since its text is still segmented by rules"
+    args: sync --plain-progress
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 0
+    contains: |
+      Synced de
+      Synced fr
+    absent:
+      - Synced ja
+
+  - name: sync-unpublished
+    about: "a language prose publishes nothing for is reported by sync but
+      does not fail it: Japanese is segmented by punctuation, and only a rule
+      that needs its tags reports the missing model"
+    args: sync --plain-progress
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 0
+    contains: |
+      No model is published for language 'ja'
+
   - name: german
     about: "German tags come from the German model, so `upos: ADJ` matches
       German adjectives; its segmenter knows that z.B. is not the end of a
       sentence, and its positions survive tokenization"
     args: test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
     exit: 0
     want: |
       test.md:3:5:Lang.Abbreviation:'gilt' is one sentence.
@@ -20,6 +51,9 @@ cases:
     about: "French elisions are tokenized as the model expects: l'homme is
       l' and homme, and a hyphenated clitic is its own token"
     args: fr/test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
     exit: 0
     want: |
       fr/test.md:3:19:Lang.Adjectives:Two adjectives in a row: 'belle'.
@@ -29,6 +63,9 @@ cases:
     about: "Japanese has no spaces and no tagging model; sentences still end
       at 。, so a sentence-scoped rule sees each one"
     args: ja/test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
     exit: 0
     want: |
 
@@ -36,6 +73,9 @@ cases:
     about: "A rule that needs tags on a language without a model is reported,
       not quietly tagged as English"
     args: ja/tagged.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
     exit: 2
     contains: |
       no model for language "ja"
