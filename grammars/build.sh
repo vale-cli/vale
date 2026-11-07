@@ -8,6 +8,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The sources live in the module cache, which a fresh checkout has not filled
+# yet: `go list -m` reports no directory for a module that is not there.
+go mod download github.com/smacker/go-tree-sitter github.com/jdkato/go-tree-sitter-julia
 TS=$(go list -m -f '{{.Dir}}' github.com/smacker/go-tree-sitter)
 JULIA=$(go list -m -f '{{.Dir}}' github.com/jdkato/go-tree-sitter-julia)
 OUT=grammars/dist
