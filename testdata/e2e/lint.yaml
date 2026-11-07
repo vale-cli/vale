@@ -373,8 +373,8 @@ cases:
       doc.md:6:5:T.Rule:found wombat
       doc.md:10:27:T.Rule:found wombat
       doc.md:21:15:T.Rule:found wombat
-      doc.md:21:48:T.Rule:found wombat
       doc.md:21:72:T.Rule:found wombat
+      doc.md:21:96:T.Rule:found wombat
       doc.md:23:10:T.Rule:found wombat
 
   - name: typst
