@@ -226,8 +226,6 @@ type Config struct {
 	Scopes       map[string]string `json:"-"`
 	scopesLoaded bool
 
-	NLPEndpoint string // An external API to call for NLP-related work.
-
 	// Command-line configuration
 	Flags *CLIFlags `json:"-"`
 

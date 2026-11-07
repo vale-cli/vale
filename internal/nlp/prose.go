@@ -289,12 +289,9 @@ func tagTextWith(model, lang, text string) ([]tag.Token, error) {
 
 // TextToTokens converts a string to a slice of tagged tokens.
 //
-// Tokens from the built-in tagger carry their byte offset within text, so
-// text[tok.Start:tok.Start+len(tok.Text)] == tok.Text. Tokens from a remote
-// NLP endpoint do not: that API returns text and tags only, so Start is zero
-// throughout and callers needing positions must locate the tokens themselves.
-//
-// The error is a language with no model, or an endpoint that did not answer.
+// Tokens carry their byte offset within text, so
+// text[tok.Start:tok.Start+len(tok.Text)] == tok.Text. The error is a
+// language with no model.
 func TextToTokens(text string, nlp *Info) ([]tag.Token, error) {
 	return textToTokensWith("", text, nlp)
 }
@@ -304,17 +301,7 @@ func textToTokensWith(model, text string, info *Info) ([]tag.Token, error) {
 	if info == nil {
 		return tagTextWith(model, "en", text)
 	}
-	if info.Endpoint == "" {
-		return tagTextWith(model, info.Lang, text)
-	}
-
-	// A remote endpoint does its own tagging, so there is no model to choose.
-	result, err := pos(text, info.Lang, info.Endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Tokens, nil
+	return tagTextWith(model, info.Lang, text)
 }
 
 // TokenCache remembers the tagging of each block within one document.

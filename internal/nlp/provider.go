@@ -268,7 +268,6 @@ func (b *Block) resolveOffset() int {
 // projects -- one file might be `en` while another is `ja`, for example.
 type Info struct {
 	Lang         string // Language of the file.
-	Endpoint     string // API endpoint (optional); TODO: should this be per-file?
 	Scope        string // The file's ext scope.
 	Tagging      bool   // Does the file need POS tagging?
 	Segmentation bool   // Does the file need sentence segmentation?
@@ -288,17 +287,6 @@ type Info struct {
 // must not reach them. See #1132.
 func (n *Info) Compute(block *Block, split bool) ([]Block, error) {
 	seg := func(text string) []string { return Segment(n.Lang, text) }
-	if n.Endpoint != "" && !IsEnglish(n.Lang) {
-		// An endpoint configured for another language is asked to segment
-		// it too; it may know the language better than prose does.
-		seg = func(text string) []string {
-			ret, err := doSegment(text, n.Lang, n.Endpoint)
-			if err != nil {
-				panic(err)
-			}
-			return ret.Sents
-		}
-	}
 	return n.doNLP(block, seg, split)
 }
 
@@ -315,8 +303,8 @@ func offsetOf(blk *Block, base int, piece string, cursor *int) (int, int) {
 
 	i := strings.Index(blk.Text[*cursor:], piece)
 	if i < 0 {
-		// A segmenter that rewrites text (a remote endpoint, say) can return
-		// something that is not a substring of the input.
+		// A segmenter that rewrites text can return something that is not a
+		// substring of the input.
 		return -1, -1
 	}
 

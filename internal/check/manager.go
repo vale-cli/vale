@@ -178,7 +178,6 @@ func (mgr *Manager) AssignNLP(f *core.File) nlp.Info {
 		Segmentation: mgr.HasScope("sentence"),
 		Splitting:    mgr.HasScope("paragraph"),
 		Tagging:      mgr.NeedsTagging(),
-		Endpoint:     f.NLP.Endpoint,
 		Lang:         f.NLP.Lang,
 	}
 }

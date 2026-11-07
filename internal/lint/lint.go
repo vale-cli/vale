@@ -3,7 +3,6 @@ package lint
 import (
 	"errors"
 	"io/fs"
-	"net/http"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -24,7 +23,6 @@ import (
 type Linter struct {
 	Manager   *check.Manager
 	glob      *glob.Glob
-	client    *http.Client
 	nonGlobal bool
 
 	// BlockHook, when set, receives every block before its rules run.
@@ -128,7 +126,6 @@ func NewLinter(cfg *core.Config) (*Linter, error) {
 		Manager: mgr,
 		inScope: &sync.Map{},
 
-		client:    http.DefaultClient,
 		nonGlobal: globalStyles+globalChecks == 0}, err
 }
 

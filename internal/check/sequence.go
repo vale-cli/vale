@@ -530,13 +530,13 @@ func stepsToString(steps []string) string {
 
 // locate returns the span of a match within txt, plus the matched text.
 //
-// When the tokens carry offsets, the span is taken straight from them, so it
-// is exact even when the sequence occurs more than once or the source spacing
-// is irregular. Without offsets we fall back to rebuilding the text and
-// searching for it, which is what Vale did before tokens had positions; that
-// path returns nil rather than a negative span when the search fails.
-func (s Sequence) locate(txt string, words []tag.Token, m match, positioned bool) ([]int, string) {
-	if positioned && m.hi < len(words) {
+// The span is taken straight from the tokens' offsets, so it is exact even
+// when the sequence occurs more than once or the source spacing is irregular.
+// A match that runs past the tokens, or whose offsets don't line up with the
+// text, falls back to rebuilding its text and searching for it; that path
+// returns nil rather than a negative span when the search fails.
+func (s Sequence) locate(txt string, words []tag.Token, m match) ([]int, string) {
+	if m.hi < len(words) {
 		lo, hi := m.lo, m.hi
 		if tlo, thi, ok := s.targetRange(m); ok {
 			lo, hi = tlo, thi
@@ -656,10 +656,6 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 		return nil, terr
 	}
 
-	// A remote NLP endpoint returns text and tags only, so we have no offsets
-	// to work from and have to fall back to locating the match by its text.
-	positioned := f.NLP.Endpoint == ""
-
 	txt := blk.Text
 	excluded := s.exceptionSpans(txt)
 
@@ -676,7 +672,7 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 				history = append(history, m.index)
 
 				if m.ok() {
-					span, seq := s.locate(txt, words, m, positioned)
+					span, seq := s.locate(txt, words, m)
 					if span == nil {
 						// We matched but cannot say where; reporting a bogus
 						// span is worse than reporting nothing.

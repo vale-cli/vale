@@ -451,16 +451,6 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		}
 		return nil
 	},
-	"NLPEndpoint": func(sec *ini.Section, cfg *Config) error {
-		cfg.NLPEndpoint = sec.Key("NLPEndpoint").MustString("")
-
-		values := sec.Key("NLPEndpoint").StringsWithShadows(",")
-		if len(values) > 0 {
-			cfg.NLPEndpoint = values[len(values)-1]
-		}
-
-		return nil
-	},
 }
 
 func expandPaths(file *ini.File, source interface{}) {

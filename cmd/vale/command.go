@@ -308,11 +308,10 @@ func roundedMetrics(f *core.File) map[string]interface{} {
 	return computed
 }
 
-// runTag tags a file: `vale tag <file> <lang> [endpoint]`. Without an
-// endpoint, prose's own model for the language does the tagging.
+// runTag tags a file with the language's model: `vale tag <file> <lang>`.
 func runTag(args []string, flags *core.CLIFlags) error {
-	if len(args) < 2 || len(args) > 3 {
-		return core.NewE100("tag", errors.New("a file and a language expected, then an optional endpoint"))
+	if len(args) != 2 {
+		return core.NewE100("tag", errors.New("a file and a language expected"))
 	}
 
 	text, err := os.ReadFile(args[0])
@@ -321,13 +320,10 @@ func runTag(args []string, flags *core.CLIFlags) error {
 	}
 
 	info := nlp.Info{Lang: args[1]}
-	if len(args) == 3 {
-		info.Endpoint = args[2]
-	}
 
 	// Another language's model is in the StylesPath, which only the
-	// configuration knows; English and an endpoint need neither.
-	if !nlp.IsEnglish(info.Lang) && info.Endpoint == "" {
+	// configuration knows; English needs none.
+	if !nlp.IsEnglish(info.Lang) {
 		cfg, cerr := core.ReadPipeline(flags, false)
 		if cerr != nil {
 			return cerr

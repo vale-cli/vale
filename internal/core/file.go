@@ -269,7 +269,7 @@ func buildFile(path, ext, format string, fbytes []byte, lookup bool, config *Con
 		Comments: make(map[string]bool), history: make(map[string]int),
 		simple: config.Flags.Simple, Transform: transform, Held: held,
 		limits: make(map[string]int), Path: path, Metrics: make(map[string]int),
-		NLP:    nlp.Info{Endpoint: config.NLPEndpoint, Lang: lang},
+		NLP:    nlp.Info{Lang: lang},
 		Lookup: lookup, NormedPath: normed,
 		sanShifts: findShifts(string(fbytes)),
 	}
