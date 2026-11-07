@@ -314,11 +314,11 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 
 		return nil
 	},
-	"IgnorePatterns": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"IgnorePatterns": func(label string, sec *ini.Section, cfg *Config) error {
 		cfg.BlockIgnores[label] = sec.Key("IgnorePatterns").Strings(",")
 		return nil
 	},
-	"BlockIgnores": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"BlockIgnores": func(label string, sec *ini.Section, cfg *Config) error {
 		cfg.BlockIgnores[label] = patternsWithShadows(sec.Key("BlockIgnores"))
 		return nil
 	},
@@ -336,17 +336,17 @@ var syntaxOpts = map[string]func(string, *ini.Section, *Config) error{
 		return nil
 
 	},
-	"TokenIgnores": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"TokenIgnores": func(label string, sec *ini.Section, cfg *Config) error {
 		cfg.TokenIgnores[label] = patternsWithShadows(sec.Key("TokenIgnores"))
 		return nil
 	},
-	"Transform": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"Transform": func(label string, sec *ini.Section, cfg *Config) error {
 		candidate := sec.Key("Transform").String()
 		cfg.Stylesheets[label] = system.DeterminePath(cfg.FS, cfg.ConfigFile(), candidate)
 		return nil
 
 	},
-	"Lang": func(label string, sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"Lang": func(label string, sec *ini.Section, cfg *Config) error {
 		cfg.FormatToLang[label] = sec.Key("Lang").String()
 		return nil
 	},
@@ -426,19 +426,19 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		}
 		return nil
 	},
-	"IgnoredScopes": func(sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"IgnoredScopes": func(sec *ini.Section, cfg *Config) error {
 		cfg.IgnoredScopes = mergeValues(sec.Key("IgnoredScopes").StringsWithShadows(","))
 		return nil
 	},
-	"WordTemplate": func(sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"WordTemplate": func(sec *ini.Section, cfg *Config) error {
 		cfg.WordTemplate = sec.Key("WordTemplate").String()
 		return nil
 	},
-	"SkippedScopes": func(sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"SkippedScopes": func(sec *ini.Section, cfg *Config) error {
 		cfg.SkippedScopes = mergeValues(sec.Key("SkippedScopes").StringsWithShadows(","))
 		return nil
 	},
-	"IgnoredClasses": func(sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"IgnoredClasses": func(sec *ini.Section, cfg *Config) error {
 		cfg.IgnoredClasses = mergeValues(sec.Key("IgnoredClasses").StringsWithShadows(","))
 		return nil
 	},
@@ -451,7 +451,7 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		}
 		return nil
 	},
-	"NLPEndpoint": func(sec *ini.Section, cfg *Config) error { //nolint:unparam
+	"NLPEndpoint": func(sec *ini.Section, cfg *Config) error {
 		cfg.NLPEndpoint = sec.Key("NLPEndpoint").MustString("")
 
 		values := sec.Key("NLPEndpoint").StringsWithShadows(",")

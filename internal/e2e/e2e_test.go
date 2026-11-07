@@ -234,7 +234,7 @@ func invoke(t *testing.T, s *suite, tc testCase) (string, int) {
 		}
 	}
 
-	cmd := exec.Command(valeBin, append(append([]string{}, sharedFlags...), tc.Args...)...)
+	cmd := exec.Command(valeBin, append(append([]string{}, sharedFlags...), tc.Args...)...) //nolint:gosec // the binary under test, with the case's arguments
 	cmd.Dir = dir
 	cmd.Env = env
 

@@ -97,6 +97,8 @@ var (
 // when it resolves, and `[refid]` or the file path when it doesn't, as every
 // reference into another chapter of a book does when a chapter is linted on
 // its own. None of that is in the source, so none of it is prose to lint.
+//
+//nolint:dupword // Ruby closes each block with end
 const adocConverter = `class ValeHtml5 < (Asciidoctor::Converter.for "html5")
   register_for "html5"
   def convert_inline_anchor node

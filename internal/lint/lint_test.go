@@ -239,7 +239,7 @@ func BenchmarkLintMDScale(b *testing.B) {
 		}
 
 		path := filepath.Join(dir, fmt.Sprintf("bench-%dkb.md", kb))
-		if err = os.WriteFile(path, chunk, 0o600); err != nil {
+		if err = os.WriteFile(path, chunk, 0o600); err != nil { //nolint:gosec // a test file
 			b.Fatal(err)
 		}
 

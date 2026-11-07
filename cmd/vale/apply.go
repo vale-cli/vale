@@ -182,7 +182,7 @@ func fixFile(f *core.File, cfg *core.Config) (fixedFile, error) {
 	if info, sErr := os.Stat(f.Path); sErr == nil {
 		mode = info.Mode()
 	}
-	if err = os.WriteFile(f.Path, out, mode); err != nil {
+	if err = os.WriteFile(f.Path, out, mode); err != nil { //nolint:gosec // the file being fixed
 		return report, err
 	}
 

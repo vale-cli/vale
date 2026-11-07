@@ -496,19 +496,19 @@ func (l *Linter) lintInline(f *core.File, state *walker, blk nlp.Block, lines, s
 	// through the runs recorded as it was read, while a masked one -- inline
 	// code, written out of the block -- was never in the block to translate.
 	within, source := 0, 0
-	for _, cap := range state.inline {
+	for _, capture := range state.inline {
 		var at int
-		if cap.masked {
-			at, source = seek(blk.Context, cap.text, source)
+		if capture.masked {
+			at, source = seek(blk.Context, capture.text, source)
 		} else {
-			at, within = seek(blk.Text, cap.text, within)
+			at, within = seek(blk.Text, capture.text, within)
 			if at >= 0 {
 				at = state.sourceOffset(at + shift)
 			}
 		}
 
 		b := nlp.NewLinedBlock(
-			blk.Context, cap.text, cap.scope+f.MetaScope+f.RealExt, blk.Line)
+			blk.Context, capture.text, capture.scope+f.MetaScope+f.RealExt, blk.Line)
 		b.Offset = at
 
 		// Without an offset the match has to be located by searching, which is
@@ -526,15 +526,15 @@ func (l *Linter) lintInline(f *core.File, state *walker, blk nlp.Block, lines, s
 // element's text is not in the block to place.
 func inlineRuns(caps []inlineCapture, text string, shift int) []nlp.Inline {
 	var runs []nlp.Inline
-	for _, cap := range caps {
-		if cap.masked || cap.text == "" {
+	for _, capture := range caps {
+		if capture.masked || capture.text == "" {
 			continue
 		}
-		begin, end := cap.begin-shift, cap.end-shift
-		if begin < 0 || end > len(text) || text[begin:end] != cap.text {
+		begin, end := capture.begin-shift, capture.end-shift
+		if begin < 0 || end > len(text) || text[begin:end] != capture.text {
 			continue
 		}
-		runs = append(runs, nlp.Inline{Scope: cap.scope, Begin: begin, End: end})
+		runs = append(runs, nlp.Inline{Scope: capture.scope, Begin: begin, End: end})
 	}
 	return runs
 }

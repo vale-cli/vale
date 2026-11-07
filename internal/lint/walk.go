@@ -926,7 +926,7 @@ func subInplace(ctx []byte, sub string, char rune) bool {
 // maskAt overwrites the occurrence of sub at idx, byte for byte, leaving
 // newlines and multibyte runes in place.
 func maskAt(ctx []byte, idx int, sub string, char rune) {
-	mask := byte(char)
+	mask := byte(char) //nolint:gosec // every mask is ASCII
 	for _, r := range sub {
 		if r != '\n' && utf8.RuneLen(r) == 1 {
 			ctx[idx] = mask

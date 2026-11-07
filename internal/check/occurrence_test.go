@@ -11,7 +11,7 @@ import (
 // collapsed onto line one, where one report also hid every other deficient
 // scope in the file.
 func TestOccurrenceMinAnchorsShortfall(t *testing.T) {
-	rule, err := NewOccurrence(testConfig(), baseCheck{
+	rule, err := NewOccurrence(testConfig(), baseCheck{ //nolint:gosec // a rule, not a credential
 		"extends": "occurrence",
 		"name":    "Test.Presence",
 		"level":   "warning",

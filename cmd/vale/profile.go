@@ -24,7 +24,7 @@ func startProfiling() func() {
 	p := &profiler{mem: os.Getenv("VALE_MEMPROFILE")}
 
 	if path := os.Getenv("VALE_CPUPROFILE"); path != "" {
-		f, err := os.Create(path)
+		f, err := os.Create(path) //nolint:gosec // where the flag says
 		switch {
 		case err != nil:
 			fmt.Fprintf(os.Stderr, "vale: creating CPU profile: %v\n", err)

@@ -71,7 +71,7 @@ func TestComments(t *testing.T) {
 		markup := toJSON(comments)
 		if markup != string(b2) {
 			bin := filepath.Join(binDir, name+".json")
-			_ = os.WriteFile(bin, []byte(markup), 0600)
+			_ = os.WriteFile(bin, []byte(markup), 0600) //nolint:gosec // a test file
 			t.Errorf("%s", markup)
 		}
 	}
