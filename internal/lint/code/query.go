@@ -5,11 +5,11 @@ import (
 	"regexp"
 	"strings"
 
-	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/vale-cli/vale/v3/internal/lint/code/tsw"
 )
 
 type QueryEngine struct {
-	tree   *sitter.Tree
+	tree   *tsw.Tree
 	lang   *Language
 	cutset string
 
@@ -24,7 +24,7 @@ type QueryEngine struct {
 // Markdown, so its body is never linted -- see #1130.
 const defaultCutset = " \t"
 
-func NewQueryEngine(tree *sitter.Tree, lang *Language) *QueryEngine {
+func NewQueryEngine(tree *tsw.Tree, lang *Language) *QueryEngine {
 	cutset := lang.Cutset
 	if cutset == "" {
 		cutset = defaultCutset
@@ -41,25 +41,16 @@ func NewQueryEngine(tree *sitter.Tree, lang *Language) *QueryEngine {
 	}
 }
 
-func (qe *QueryEngine) run(meta, format string, q *sitter.Query, source []byte) []Comment {
+func (qe *QueryEngine) run(meta, format string, q *tsw.Query, source []byte) []Comment {
 	var comments []Comment
 
 	if meta != "" {
 		meta = "." + meta
 	}
 
-	qc := sitter.NewQueryCursor()
-	qc.Exec(q, qe.tree.RootNode())
-
-	for {
-		m, ok := qc.NextMatch()
-		if !ok {
-			break
-		}
-
-		m = qc.FilterPredicates(m, source)
+	for _, m := range qe.tree.Matches(q, source) {
 		for _, c := range m.Captures {
-			name := q.CaptureNameForId(c.Index)
+			name := q.CaptureNameForID(c.Index)
 
 			// A capture named with a leading underscore exists for a
 			// predicate to test, not to be linted -- the convention

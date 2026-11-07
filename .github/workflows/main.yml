@@ -21,6 +21,15 @@ jobs:
           echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
           echo 'CHOCOLATEY_API_KEY=${{secrets.CHOCOLATEY_API_KEY}}' >> .release-env
 
+      - uses: mlugg/setup-zig@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          version: 0.16.0
+
+      - name: Build the grammars
+        if: startsWith(github.ref, 'refs/tags/')
+        run: grammars/build.sh && grammars/pack.sh
+
       - name: GoReleaser
         run: make choco-cross
         if: startsWith(github.ref, 'refs/tags/')

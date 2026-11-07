@@ -1,18 +1,56 @@
-//go:build !js
-
-// Native code linting: parse source with tree-sitter, extract the regions a
+// Code linting: parse source with tree-sitter, extract the regions a
 // language's queries capture (comments by default, or a `tree-sitter` View's
-// scopes), and lint each. The grammars are CGo, so this file and the
-// internal/lint/code package it imports are native-only; the wasm build falls
-// back to the regex-based lintCodeOld (see code_js.go).
+// scopes), and lint each. A grammar is a WebAssembly module installed in the
+// StylesPath and run in pure Go, so every build reads code the same way.
 package lint
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/lint/code"
 )
+
+// grammarLoader finds a grammar's module for the configuration: under
+// config/grammars on the StylesPath, where `vale sync` installs it, else in
+// the directory VALE_GRAMMARS_PATH names. Read through the configuration's
+// filesystem, so the browser build finds what its host added.
+func grammarLoader(cfg *core.Config) func(name string) ([]byte, error) {
+	return func(name string) ([]byte, error) {
+		file := name + ".wasm"
+		if path := core.FindConfigAsset(cfg, file, core.GrammarDir); path != "" {
+			return cfg.FS.ReadFile(path)
+		}
+		if dir := os.Getenv("VALE_GRAMMARS_PATH"); dir != "" {
+			if path := filepath.Join(dir, file); cfg.FS.Exists(path) {
+				return cfg.FS.ReadFile(path)
+			}
+		}
+		return nil, &code.NotInstalledError{Name: name}
+	}
+}
+
+// missingGrammars holds each grammar already warned about, so a run says
+// it once however many files it reads.
+var missingGrammars sync.Map
+
+// grammarMissing reports whether err is a grammar that isn't installed,
+// warning the first time. The file is still read, by its comment
+// delimiters, so a project that never asked for grammars lints as it did.
+func grammarMissing(err error) bool {
+	var missing *code.NotInstalledError
+	if !errors.As(err, &missing) {
+		return false
+	}
+	if _, seen := missingGrammars.LoadOrStore(missing.Name, true); !seen {
+		core.Warn(missing.Error() + "; until then, comments are read by their delimiters")
+	}
+	return true
+}
 
 // languageFor returns the tree-sitter grammar for a file. When the file's own
 // extension has none, the format it is read as supplies it: `NormedExt` holds
@@ -42,6 +80,9 @@ func (l *Linter) lintCode(f *core.File) error {
 
 	comments, err := code.GetComments([]byte(f.Content), lang)
 	if err != nil {
+		if grammarMissing(err) {
+			return l.lintCodeOld(f)
+		}
 		return err
 	}
 	wholeFile := f.Content

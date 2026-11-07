@@ -1,5 +1,5 @@
 env:
-  - CGO_ENABLED=1
+  - CGO_ENABLED=0
 
 before:
   hooks:
@@ -148,6 +148,10 @@ archives:
 # while it's still a draft; publish it from the UI once GoReleaser finishes.
 release:
   draft: true
+  # The grammars, one package each, for `vale sync` to fetch; see
+  # grammars/pack.sh.
+  extra_files:
+    - glob: grammars/dist/pkg/*.zip
 
 chocolateys:
   - # Your app's package name.

@@ -3,15 +3,14 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/javascript"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
 func JavaScript() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`//|/\*\*?|\*/`),
-		Prefix: cStylePrefix,
-		Parser: javascript.GetLanguage(),
+		Delims:  regexp.MustCompile(`//|/\*\*?|\*/`),
+		Prefix:  cStylePrefix,
+		Grammar: "javascript",
 		// NOTE: a Cutset of " *" was tried here and cannot work: it makes the
 		// dedent read `*` as indentation, which eats a Markdown list, and the
 		// alert adjustment has no way to know a non-whitespace character was

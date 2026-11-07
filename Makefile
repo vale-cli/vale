@@ -14,7 +14,7 @@ EXE := $(if $(filter Windows_NT,$(OS)),.exe,)
 DOCKER_BUILD_TARGETS := linux/arm64,linux/amd64
 DOCKER_USER  ?= jdkato
 
-.PHONY: data test lint install rules bench compare release choco-cross
+.PHONY: data test lint install rules bench compare release choco-cross grammars
 
 all: build
 
@@ -98,3 +98,8 @@ choco-cross:
 		-w /go/src/$(PACKAGE_NAME) \
 		jdkato/choco-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
+
+# Compile every tree-sitter grammar to a WebAssembly module (needs zig). The
+# tests read them from grammars/dist.
+grammars:
+	grammars/build.sh

@@ -12,6 +12,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/vale-cli/vale/v3/internal/core"
+	"github.com/vale-cli/vale/v3/internal/lint/code"
 	"github.com/vale-cli/vale/v3/internal/system"
 )
 
@@ -106,4 +107,78 @@ func proseVersion() (string, bool) {
 		return dep.Version, true
 	}
 	return "", false
+}
+
+// A grammar comes from the Vale release this binary is, as
+// grammar-<name>.zip; grammars/pack.sh writes the archives and the release
+// workflow attaches them.
+const grammarReleases = "https://github.com/vale-cli/vale/releases/download/%s/%s"
+
+// grammarsURLVar overrides where grammars come from, as modelsURLVar does
+// for models.
+const grammarsURLVar = "VALE_GRAMMARS_URL"
+
+// grammarsToSync is the grammars a configuration asks for with its
+// `Grammars` key: the ones it names, or every one for `ALL`; none without
+// the key, since most projects lint no code and a grammar is a download. An
+// unknown name is an error, since nothing would be found for it.
+func grammarsToSync(cfg *core.Config) ([]string, error) {
+	known := map[string]bool{}
+	for _, name := range code.Names() {
+		known[name] = true
+	}
+	var out []string
+	for _, name := range cfg.Grammars {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name == "all" {
+			return code.Names(), nil
+		}
+		if !known[name] {
+			return nil, fmt.Errorf("no grammar named %q; the grammars are %s", name, strings.Join(code.Names(), ", "))
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
+// syncGrammars installs the grammars the configuration asks for, after the
+// packages and models; idx continues their numbering.
+func syncGrammars(cfg *core.Config, stylesPath string, idx int, report func(name string)) (int, error) {
+	names, err := grammarsToSync(cfg)
+	if err != nil {
+		return 0, core.NewE100("sync", err)
+	}
+	for i, name := range names {
+		pkg := "grammar-" + name
+		src, serr := grammarSource(pkg)
+		if serr != nil {
+			return i, core.NewE100("sync", serr)
+		}
+		if lerr := loadPkg(pkg, src, stylesPath, idx+i); lerr != nil {
+			return i, lerr
+		}
+		report(pkg)
+	}
+	return len(names), nil
+}
+
+// grammarSource is where a grammar package is: under VALE_GRAMMARS_URL when
+// set, else in this Vale's own release.
+func grammarSource(pkg string) (string, error) {
+	archive := pkg + ".zip"
+
+	if base := os.Getenv(grammarsURLVar); base != "" {
+		if strings.Contains(base, "://") {
+			return strings.TrimSuffix(base, "/") + "/" + archive, nil
+		}
+		if dir := filepath.Join(base, pkg); system.IsDir(dir) {
+			return dir, nil
+		}
+		return filepath.Join(base, archive), nil
+	}
+
+	if version == "master" || !isRelease(version) {
+		return "", fmt.Errorf("this build of Vale is not a release to fetch grammars from; set %s", grammarsURLVar)
+	}
+	return fmt.Sprintf(grammarReleases, "v"+strings.TrimPrefix(version, "v"), archive), nil
 }

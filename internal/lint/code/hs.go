@@ -3,7 +3,6 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/elm"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
@@ -12,8 +11,8 @@ import (
 // recovery, which is all comment extraction needs.
 func Haskell() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`\{-\|?|-\}|--`),
-		Parser: elm.GetLanguage(),
+		Delims:  regexp.MustCompile(`\{-\|?|-\}|--`),
+		Grammar: "elm",
 		Queries: []core.Scope{
 			{Name: "", Expr: "(line_comment) @comment", Type: ""},
 			{Name: "", Expr: "(block_comment) @comment", Type: ""},

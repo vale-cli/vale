@@ -24,7 +24,7 @@ jobs:
           - { name: Linux, os: ubuntu-latest, goos: linux }
           - { name: macOS, os: macos-latest, goos: darwin }
     env:
-      CGO_ENABLED: "1" # required for the tree-sitter parsers
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -63,6 +63,14 @@ jobs:
           unzip -q dita-ot-3.6.zip
           echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
 
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build the grammars
+        run: grammars/build.sh
+        shell: bash
+
       - name: Build
         run: make build os=${{ matrix.goos }} exe=vale
 
@@ -78,7 +86,7 @@ jobs:
       run:
         shell: bash # use the runner's Git bash for all steps
     env:
-      CGO_ENABLED: "1" # required for the tree-sitter parsers
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -114,6 +122,14 @@ jobs:
           unzip -q dita-ot-3.6.zip
           echo "$PWD/dita-ot-3.6/bin" >> "$GITHUB_PATH"
 
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build the grammars
+        run: grammars/build.sh
+        shell: bash
+
       - name: Build
         run: go build -o bin/vale.exe ./cmd/vale
 
@@ -142,6 +158,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      # The smoke test adds a grammar through the API; one is enough.
+      - name: Build a grammar
+        run: grammars/build.sh javascript
 
       - name: Build and test the wasm module
         run: make test-wasm

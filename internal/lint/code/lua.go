@@ -3,14 +3,13 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/lua"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
 func Lua() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`--\[=*\[|\]=*\]|--`),
-		Parser: lua.GetLanguage(),
+		Delims:  regexp.MustCompile(`--\[=*\[|\]=*\]|--`),
+		Grammar: "lua",
 		Queries: []core.Scope{
 			{Name: "", Expr: "(comment) @comment", Type: ""},
 			// `---` doc comments (including the `---[[` toggle idiom, which

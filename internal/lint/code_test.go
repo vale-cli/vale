@@ -1,5 +1,3 @@
-//go:build !js
-
 package lint
 
 import (

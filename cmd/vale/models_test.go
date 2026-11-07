@@ -3,7 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/vale-cli/vale/v3/internal/core"
+	"github.com/vale-cli/vale/v3/internal/lint/code"
 )
 
 func TestIsRelease(t *testing.T) {
@@ -39,5 +43,57 @@ func TestModelSource(t *testing.T) {
 	}
 	if got, _ := modelSource("fr"); got != filepath.Join(dir, "fr") {
 		t.Errorf("an unpacked package in a directory: got %q", got)
+	}
+}
+
+// A grammar package comes from VALE_GRAMMARS_URL when it is set, else from
+// this Vale's own release, which a development build has none of.
+func TestGrammarSource(t *testing.T) {
+	t.Setenv(grammarsURLVar, "https://example.com/grammars")
+	if got, err := grammarSource("grammar-go"); err != nil || got != "https://example.com/grammars/grammar-go.zip" {
+		t.Errorf("grammarSource = %q, %v", got, err)
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "grammar-go"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(grammarsURLVar, dir)
+	if got, _ := grammarSource("grammar-go"); got != filepath.Join(dir, "grammar-go") {
+		t.Errorf("an unpacked package: got %q", got)
+	}
+	if got, _ := grammarSource("grammar-rust"); got != filepath.Join(dir, "grammar-rust.zip") {
+		t.Errorf("an archive: got %q", got)
+	}
+
+	t.Setenv(grammarsURLVar, "")
+	if _, err := grammarSource("grammar-go"); err == nil {
+		t.Error("a development build has no release to fetch from")
+	}
+}
+
+func TestGrammarsToSync(t *testing.T) {
+	cfg, err := core.NewConfig(&core.CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names, _ := grammarsToSync(cfg); len(names) != 0 {
+		t.Errorf("no key: got %v, want no grammars", names)
+	}
+	cfg.Grammars = []string{"ALL"}
+	if names, _ := grammarsToSync(cfg); len(names) != len(code.Names()) {
+		t.Errorf("ALL: got %d grammars, want every one", len(names))
+	}
+	cfg.Grammars = []string{"Go", " python "}
+	if names, _ := grammarsToSync(cfg); strings.Join(names, ",") != "go,python" {
+		t.Errorf("named: got %v", names)
+	}
+	cfg.Grammars = []string{}
+	if names, _ := grammarsToSync(cfg); len(names) != 0 {
+		t.Errorf("NONE: got %v", names)
+	}
+	cfg.Grammars = []string{"cobol"}
+	if _, bad := grammarsToSync(cfg); bad == nil || !strings.Contains(bad.Error(), `"cobol"`) {
+		t.Errorf("unknown: %v", bad)
 	}
 }

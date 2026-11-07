@@ -38,6 +38,10 @@ func IsTestFile(name string) bool {
 //
 // Only Clojure (no bundled grammar uses `;` comments) and PowerShell (a
 // stand-in grammar would lose `<# #>` block interiors) remain here.
+// CommentsByNormedExt is how each code format's comments are found when
+// its tree-sitter grammar is not installed: the pattern of a line comment,
+// and of a block comment's first and last lines. `$^` matches nothing, for
+// a form the language lacks.
 var CommentsByNormedExt = map[string]map[string]string{
 	".clj": {
 		"inline":     `(;+.+)`,
@@ -49,7 +53,69 @@ var CommentsByNormedExt = map[string]map[string]string{
 		"blockStart": `(<#.*)`,
 		"blockEnd":   `(.*#>)`,
 	},
+	".c":     cStyleComments,
+	".cpp":   cStyleComments,
+	".cs":    cStyleComments,
+	".go":    cStyleComments,
+	".java":  cStyleComments,
+	".js":    cStyleComments,
+	".kt":    cStyleComments,
+	".proto": cStyleComments,
+	".qml":   cStyleComments,
+	".rs":    cStyleComments,
+	".ts":    cStyleComments,
+	".css": {
+		"inline":     `$^`,
+		"blockStart": `(/\*.*)`,
+		"blockEnd":   `(.*\*/)`,
+	},
+	".php": {
+		"inline":     `((?://|#).+)`,
+		"blockStart": `(/\*.*)`,
+		"blockEnd":   `(.*\*/)`,
+	},
+	".ex": hashComments,
+	".r":  hashComments,
+	".py": {
+		"inline":     `(#.+)`,
+		"blockStart": `(^\s*["']{3}.*)`,
+		"blockEnd":   `(.*["']{3}\s*$)`,
+	},
+	".rb": {
+		"inline":     `(#.+)`,
+		"blockStart": `(^=begin.*)`,
+		"blockEnd":   `(^=end.*)`,
+	},
+	".jl": {
+		"inline":     `(#.+)`,
+		"blockStart": `(#=.*)`,
+		"blockEnd":   `(.*=#)`,
+	},
+	".lua": {
+		"inline":     `(--.+)`,
+		"blockStart": `(--\[\[.*)`,
+		"blockEnd":   `(.*\]\])`,
+	},
+	".hs": {
+		"inline":     `(--.+)`,
+		"blockStart": `(\{-.*)`,
+		"blockEnd":   `(.*-\})`,
+	},
 }
+
+// cStyleComments and hashComments are the two shapes most languages share.
+var (
+	cStyleComments = map[string]string{
+		"inline":     `(//.+)`,
+		"blockStart": `(/\*.*)`,
+		"blockEnd":   `(.*\*/)`,
+	}
+	hashComments = map[string]string{
+		"inline":     `(#.+)`,
+		"blockStart": `$^`,
+		"blockEnd":   `$^`,
+	}
+)
 
 // FormatByExtension associates a file extension with its "normed" extension
 // and its format (markup, code or text).

@@ -39,7 +39,8 @@ If you're looking to improve Vale's documentation, it lives in a separate reposi
 
 Prerequisites:
 
-* [Go](https://go.dev/dl/) matching the version in [`go.mod`](../go.mod). Building requires `CGO_ENABLED=1` for the tree-sitter parsers.
+* [Go](https://go.dev/dl/) matching the version in [`go.mod`](../go.mod). Vale is pure Go: no C toolchain.
+* [Zig](https://ziglang.org/download/) 0.16, which compiles the tree-sitter grammars to WebAssembly (`make grammars`).
 
 The end-to-end suite shells out to external converters, so these also need to be on your `$PATH`:
 
@@ -52,9 +53,12 @@ The end-to-end suite shells out to external converters, so these also need to be
 Then build and test:
 
 ```bash
+make grammars                 # compiles grammars/dist/*.wasm, once
 make build os=linux exe=vale  # writes ./bin/vale
 make test                     # go test ./...
 ```
+
+The code-linting tests read the grammars from `grammars/dist`, so build them before the first `make test` and after `grammars/shim.c` or the bindings change.
 
 `make build` takes `os`, `arch`, and `exe`; omitting `os` and `arch` builds for the host platform. On Windows, use `exe=vale.exe`.
 

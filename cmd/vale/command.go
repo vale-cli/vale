@@ -183,7 +183,8 @@ func sync(_ []string, flags *core.CLIFlags) error {
 	// years should keep printing what it always printed.
 	var bar *pterm.ProgressbarPrinter
 	if !flags.PlainProgress {
-		bar, err = pterm.DefaultProgressbar.WithTotal(len(pkgs) + len(cfg.Languages())).Start()
+		grammars, _ := grammarsToSync(cfg)
+		bar, err = pterm.DefaultProgressbar.WithTotal(len(pkgs) + len(cfg.Languages()) + len(grammars)).Start()
 		if err != nil {
 			return err
 		}
@@ -220,11 +221,26 @@ func sync(_ []string, flags *core.CLIFlags) error {
 		return err
 	}
 
-	msg := fmt.Sprintf("Synced %d package(s) to '%s'.", len(pkgs), stylesPath)
-	if nModels > 0 {
-		msg = fmt.Sprintf("Synced %d package(s) and %d language model(s) to '%s'.", len(pkgs), nModels, stylesPath)
+	nGrammars, err := syncGrammars(cfg, stylesPath, len(pkgs)+nModels, func(name string) {
+		if bar != nil {
+			bar.UpdateTitle("Syncing " + name)
+			bar.Increment()
+		} else {
+			fmt.Printf("Synced %s\n", name)
+		}
+	})
+	if err != nil {
+		return err
 	}
-	pterm.Success.Println(msg)
+
+	synced := []string{fmt.Sprintf("%d package(s)", len(pkgs))}
+	if nModels > 0 {
+		synced = append(synced, fmt.Sprintf("%d language model(s)", nModels))
+	}
+	if nGrammars > 0 {
+		synced = append(synced, fmt.Sprintf("%d grammar(s)", nGrammars))
+	}
+	pterm.Success.Printf("Synced %s to '%s'.\n", strings.Join(synced, ", "), stylesPath)
 
 	return nil
 }

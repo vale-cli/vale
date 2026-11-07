@@ -1,0 +1,114 @@
+# `vale sync` installs tree-sitter grammars, one package each, and a code
+# file is read with the one in the StylesPath. Here they come from
+# VALE_GRAMMARS_URL, a directory the harness lays out from grammars/dist.
+name: grammars
+
+files:
+  styles/Vocab/Test/accept.txt: |
+    wombat
+  main.go: |
+    package main
+
+    // Thsi comment has a mispelling.
+    func main() {}
+
+cases:
+  - name: sync-named
+    about: "`Grammars` names the grammars to install; the rest are left alone"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        Grammars = go, python
+
+        [*]
+        BasedOnStyles = Vale
+    args: sync --plain-progress
+    sync: true
+    exit: 0
+    contains: |
+      Synced grammar-go
+      Synced grammar-python
+    absent:
+      - grammar-rust
+
+  - name: lint-after-sync
+    about: "a code file is read with the grammar sync installed under
+      config/grammars, with no other source of grammars"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        Grammars = go
+
+        [*]
+        BasedOnStyles = Vale
+    env:
+      VALE_GRAMMARS_PATH: ""
+    args: main.go
+    sync: true
+    exit: 1
+    want: |
+      main.go:3:4:Vale.Spelling:Did you really mean 'Thsi'?
+      main.go:3:23:Vale.Spelling:Did you really mean 'mispelling'?
+
+  - name: not-installed
+    about: "without the grammar, a code file's comments are read by their
+      delimiters instead, and the run says what to add to install it"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*]
+        BasedOnStyles = Vale
+    env:
+      VALE_GRAMMARS_PATH: ""
+    args: main.go
+    sync: true
+    exit: 1
+    contains: |
+      main.go:3:4:Vale.Spelling:Did you really mean 'Thsi'?
+      main.go:3:23:Vale.Spelling:Did you really mean 'mispelling'?
+
+  - name: not-installed-warns
+    about: the same run names the grammar and the key that installs it
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*]
+        BasedOnStyles = Vale
+    env:
+      VALE_GRAMMARS_PATH: ""
+    args: main.go
+    sync: true
+    exit: 1
+    contains: |
+      grammar "go" is not installed
+
+  - name: all
+    about: "`Grammars = ALL` installs every grammar"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        Grammars = ALL
+
+        [*]
+        BasedOnStyles = Vale
+    args: sync --plain-progress
+    sync: true
+    exit: 0
+    contains: |
+      Synced grammar-bash
+
+  - name: unknown
+    about: a grammar nobody has is named before anything is downloaded
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        Grammars = go, cobol
+
+        [*]
+        BasedOnStyles = Vale
+    args: sync --plain-progress
+    exit: 2
+    contains: |
+      no grammar named "cobol"

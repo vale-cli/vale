@@ -1,10 +1,6 @@
 package code
 
-import (
-	"testing"
-
-	sitter "github.com/smacker/go-tree-sitter"
-)
+import "testing"
 
 // TestGrammarForExt tests that an extension with a grammar of its own gets
 // it, and one without gets the grammar of the format it is normed to. See
@@ -27,7 +23,13 @@ func TestGrammarForExt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", c.ext, err)
 		}
-		_, qErr := sitter.NewQuery([]byte(c.query), lang.Parser)
+		grammar, gErr := Grammar(lang.Grammar)
+		if gErr != nil {
+			t.Fatalf("%s: %v", c.ext, gErr)
+		}
+		tree, _ := grammar.Parse(nil)
+		_, qErr := tree.Query(c.query)
+		tree.Close()
 		if ok := qErr == nil; ok != c.ok {
 			t.Errorf("%s: query %q compiles = %v; want %v", c.ext, c.query, ok, c.ok)
 		}

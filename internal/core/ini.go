@@ -442,6 +442,10 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		cfg.IgnoredClasses = mergeValues(sec.Key("IgnoredClasses").StringsWithShadows(","))
 		return nil
 	},
+	"Grammars": func(sec *ini.Section, cfg *Config) error {
+		cfg.Grammars = valuesAfterNone(sec.Key("Grammars"))
+		return nil
+	},
 	"Vocab": func(sec *ini.Section, cfg *Config) error {
 		cfg.Vocab = valuesAfterNone(sec.Key("Vocab"))
 		for _, v := range cfg.Vocab {

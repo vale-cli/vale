@@ -27,6 +27,7 @@ require (
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	github.com/spf13/pflag v1.0.5
+	github.com/tetratelabs/wazero v1.12.0
 	github.com/tomwright/dasel/v2 v2.8.1
 	github.com/tomwright/dasel/v3 v3.11.2
 	github.com/yuin/goldmark v1.8.6

@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	sitter "github.com/smacker/go-tree-sitter"
+	"github.com/vale-cli/vale/v3/internal/lint/code/tsw"
 )
 
 // A documentation comment has a convention of its own on top of the
@@ -157,7 +157,7 @@ func leadingMask(text, name string) (Mask, bool) {
 
 // goDocName is the name a Go doc comment is expected to open with: that of
 // the declaration it precedes, or `Package name` for a package clause.
-func goDocName(n *sitter.Node, src []byte) string {
+func goDocName(n *tsw.Node, src []byte) string {
 	next := n.NextNamedSibling()
 	if next == nil {
 		return ""

@@ -53,11 +53,24 @@ assert.deepEqual(alerts.map((a) => [a.Check, a.Line, a.Span]), [["T.W", 1, [9, 1
 out = ValeLint("Use `very` here.\n", "md", custom);
 assert.deepEqual(JSON.parse(out.result)["input.md"], []);
 
-// A code file is accepted but not read: its comments need tree-sitter, which
-// the browser build has none of.
-out = ValeLint("// This is very good.\nconst a = 1;\n", "js", custom);
+// A code file's comments are read by their delimiters until its grammar is
+// added, so a string that looks like a comment is read too.
+const js = "// This is very good.\nconst a = \"// very\";\n";
+out = ValeLint(js, "js", custom);
 assert.equal(out.error, undefined, out.error);
-assert.deepEqual(JSON.parse(out.result)["input.js"], []);
+assert.deepEqual(JSON.parse(out.result)["input.js"].map((a) => a.Line), [1, 2]);
+
+// With the grammar in place, under config/grammars, the file is parsed and
+// only the comment is linted. The module comes from grammars/build.sh.
+const grammar = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "grammars", "dist", "javascript.wasm");
+if (fs.existsSync(grammar)) {
+  ValeAddFile("/styles/config/grammars/javascript.wasm", new Uint8Array(fs.readFileSync(grammar)));
+  out = ValeLint(js, "js", custom);
+  assert.equal(out.error, undefined, out.error);
+  assert.deepEqual(JSON.parse(out.result)["input.js"].map((a) => [a.Line, a.Span]), [[1, [12, 15]]]);
+} else {
+  console.log("skipping the grammar case: run grammars/build.sh");
+}
 
 // Plain text and HTML are read.
 out = ValeLint("This is very good.\n", "txt", custom);

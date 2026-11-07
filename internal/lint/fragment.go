@@ -1,5 +1,3 @@
-//go:build !js
-
 package lint
 
 import (
@@ -61,6 +59,9 @@ func (l *Linter) lintFragments(f *core.File) error {
 
 	comments, err := code.GetComments([]byte(f.Content), lang)
 	if err != nil {
+		if grammarMissing(err) {
+			return nil
+		}
 		return err
 	}
 

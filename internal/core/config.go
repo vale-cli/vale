@@ -42,6 +42,8 @@ var (
 	ViewDir   = filepath.Join(ConfigDir, "views")
 	ScopeDir  = filepath.Join(ConfigDir, "scopes")
 	ModelDir  = filepath.Join(ConfigDir, "models")
+	// GrammarDir holds the tree-sitter grammars, one module per language.
+	GrammarDir = filepath.Join(ConfigDir, "grammars")
 )
 
 // ConfigDirs is a list of all directories that contain user-defined, non-style
@@ -57,13 +59,16 @@ var ConfigDirs = []string{
 	ViewDir,
 	ScopeDir,
 	ModelDir,
+	GrammarDir,
 }
 
 // ConfigVars is a list of all supported environment variables.
 var ConfigVars = map[string]string{
-	"VALE_CONFIG_PATH": "Override the default search process by specifying a .vale.ini file.",
-	"VALE_STYLES_PATH": "Specify the location of the default StylesPath.",
-	"VALE_MODELS_URL":  "Where `vale sync` downloads language models from: a URL or a directory holding one archive per language.",
+	"VALE_CONFIG_PATH":   "Override the default search process by specifying a .vale.ini file.",
+	"VALE_STYLES_PATH":   "Specify the location of the default StylesPath.",
+	"VALE_MODELS_URL":    "Where `vale sync` downloads language models from: a URL or a directory holding one archive per language.",
+	"VALE_GRAMMARS_PATH": "A directory of tree-sitter grammar modules, read when the StylesPath has none.",
+	"VALE_GRAMMARS_URL":  "Where `vale sync` downloads grammars from: a URL or a directory holding one archive per grammar.",
 }
 
 // ConfigNames is a list of all possible configuration file names.
@@ -186,6 +191,7 @@ type Config struct {
 	IgnoredScopes     []string                     // A list of HTML tags to ignore
 	MinAlertLevel     int                          // Lowest alert level to display
 	Vocab             []string                     // The active project
+	Grammars          []string                     // Tree-sitter grammars to sync: names, or ALL
 	RuleToLevel       map[string]string            // Single-rule level changes
 	RuleToParams      map[string]map[string]string // Single-rule scalar overrides
 	SBaseStyles       map[string][]string          // Syntax-specific base styles

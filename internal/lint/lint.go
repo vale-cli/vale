@@ -15,6 +15,7 @@ import (
 	"github.com/vale-cli/vale/v3/internal/check"
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/glob"
+	"github.com/vale-cli/vale/v3/internal/lint/code"
 	"github.com/vale-cli/vale/v3/internal/nlp"
 	"github.com/vale-cli/vale/v3/internal/system"
 )
@@ -117,6 +118,7 @@ func NewLinter(cfg *core.Config) (*Linter, error) {
 	if err := core.LoadLanguageModels(cfg); err != nil {
 		return nil, err
 	}
+	code.Loader = grammarLoader(cfg)
 	mgr, err := check.NewManager(cfg)
 
 	globalStyles := len(cfg.GBaseStyles)

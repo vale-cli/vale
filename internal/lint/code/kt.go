@@ -3,7 +3,6 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/kotlin"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
@@ -11,9 +10,9 @@ import (
 // KDoc (`/** */`), which the grammar parses as an ordinary block comment.
 func Kotlin() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`//|/\*\*?|\*/`),
-		Prefix: cStylePrefix,
-		Parser: kotlin.GetLanguage(),
+		Delims:  regexp.MustCompile(`//|/\*\*?|\*/`),
+		Prefix:  cStylePrefix,
+		Grammar: "kotlin",
 		Queries: []core.Scope{
 			{Name: "", Expr: "(line_comment)+ @comment", Type: ""},
 			{Name: "", Expr: "(multiline_comment) @comment", Type: ""},

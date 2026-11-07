@@ -3,7 +3,6 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/elixir"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
@@ -28,8 +27,8 @@ import (
 // no prose, and neither matches a query that requires a string or sigil.
 func Elixir() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`#`),
-		Parser: elixir.GetLanguage(),
+		Delims:  regexp.MustCompile(`#`),
+		Grammar: "elixir",
 		Queries: []core.Scope{
 			{Name: "", Expr: `(comment) @comment`, Type: ""},
 			// `@` applied to a call whose target names a documentation

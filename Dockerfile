@@ -13,12 +13,10 @@ FROM golang:${GOLANG_VER}-alpine AS build
 
 # Debug shell: $ docker run -it --entrypoint /bin/sh jdkato/vale -s
 
-RUN apk add build-base
-
 COPY . /app/
 WORKDIR /app
 
-ENV CGO_ENABLED=1
+ENV CGO_ENABLED=0
 
 ARG ltag
 

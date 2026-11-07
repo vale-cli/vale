@@ -37,7 +37,7 @@ jobs:
     name: Compare against base
     runs-on: ubuntu-latest
     env:
-      CGO_ENABLED: "1" # required for the tree-sitter parsers
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v5
         with:

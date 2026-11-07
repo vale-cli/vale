@@ -3,7 +3,6 @@ package code
 import (
 	"regexp"
 
-	"github.com/smacker/go-tree-sitter/csharp"
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
@@ -11,9 +10,9 @@ import (
 // `/* */` block comments, all of which the grammar parses as `comment`.
 func CSharp() *Language {
 	return &Language{
-		Delims: regexp.MustCompile(`///?|/\*|\*/`),
-		Prefix: cStylePrefix,
-		Parser: csharp.GetLanguage(),
+		Delims:  regexp.MustCompile(`///?|/\*|\*/`),
+		Prefix:  cStylePrefix,
+		Grammar: "csharp",
 		Queries: []core.Scope{
 			{Name: "", Expr: "(comment) @comment", Type: ""},
 		},

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/vale-cli/vale/v3/internal/core"
+	"github.com/vale-cli/vale/v3/internal/lint/code/tsw"
 )
 
 type padding func(string) int
@@ -17,7 +17,9 @@ type padding func(string) int
 // NOTE: What about haskell, less, perl, php, powershell, r, sass, swift?
 type Language struct {
 	Delims *regexp.Regexp
-	Parser *sitter.Language
+	// Grammar names the tree-sitter grammar the language is parsed with; see
+	// Grammar.
+	Grammar string
 	// Prefix matches a block comment's per-line decoration -- the ` *` that
 	// starts each line of a JSDoc or Javadoc block.
 	//
@@ -44,33 +46,60 @@ type Language struct {
 	// DocName is the name a documentation comment is expected to open with,
 	// read from the node it precedes; nil for a language with no such
 	// convention.
-	DocName func(*sitter.Node, []byte) string
+	DocName func(*tsw.Node, []byte) string
 }
 
 // GetLanguageFromExt returns a Language based on the given file extension.
-//
-// The grammar is shared across calls: each call builds a fresh Language,
-// whose queries a View may replace, but the grammar underneath is the same
-// one, and a compiled query is cached against it (see compiledQuery). A
-// fresh grammar handle per call made that cache miss every time.
 func GetLanguageFromExt(ext string) (*Language, error) {
-	lang, key, err := newLanguage(ext)
+	lang, _, err := newLanguage(ext)
+	return lang, err
+}
+
+// Names lists every grammar Vale reads, as grammars/build.sh names them.
+func Names() []string {
+	return []string{
+		"bash", "c", "cpp", "csharp", "css", "elixir", "elm", "go", "java",
+		"javascript", "julia", "kotlin", "lua", "php", "proto", "python",
+		"ruby", "rust", "toml", "tsx", "typescript", "yaml",
+	}
+}
+
+// A NotInstalledError is a grammar the configuration has no module for.
+type NotInstalledError struct {
+	Name string
+}
+
+func (e *NotInstalledError) Error() string {
+	return fmt.Sprintf("grammar %q is not installed; add 'Grammars = %s' to .vale.ini and run 'vale sync'", e.Name, e.Name)
+}
+
+// Loader finds the module for a grammar by name: the bytes of
+// `<name>.wasm`, as grammars/build.sh writes it. The linter sets it from the
+// configuration, which knows where grammars are installed.
+var Loader = func(name string) ([]byte, error) {
+	return nil, &NotInstalledError{Name: name}
+}
+
+// grammars holds each grammar once loaded: compiling a module is the costly
+// step, and every file of a language shares the result.
+var grammars sync.Map // name -> *tsw.Language
+
+// Grammar returns the compiled grammar of the given name, loading it on
+// first use.
+func Grammar(name string) (*tsw.Language, error) {
+	if g, ok := grammars.Load(name); ok {
+		return g.(*tsw.Language), nil //nolint:errcheck // only *tsw.Language is stored
+	}
+	wasm, err := Loader(name)
 	if err != nil {
 		return nil, err
 	}
-	lang.Parser = sharedGrammar(key, lang.Parser)
-	return lang, nil
-}
-
-// grammars holds the first grammar handle seen for each extension.
-var grammars sync.Map
-
-func sharedGrammar(ext string, fresh *sitter.Language) *sitter.Language {
-	if g, ok := grammars.Load(ext); ok {
-		return g.(*sitter.Language) //nolint:errcheck // only *sitter.Language is stored
+	g, err := tsw.Load(name, wasm)
+	if err != nil {
+		return nil, err
 	}
-	g, _ := grammars.LoadOrStore(ext, fresh)
-	return g.(*sitter.Language) //nolint:errcheck // only *sitter.Language is stored
+	actual, _ := grammars.LoadOrStore(name, g)
+	return actual.(*tsw.Language), nil //nolint:errcheck // only *tsw.Language is stored
 }
 
 // newLanguage returns the language for ext and the extension it was found

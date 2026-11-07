@@ -40,9 +40,38 @@ var update = flag.Bool("update", false, "rewrite the `want:` blocks in testdata/
 var sharedFlags = []string{"--output=line", "--sort", "--normalize", "--relative", "--no-global"}
 
 var (
-	valeBin  string // the binary under test
-	testdata string // the repository's testdata/ directory
+	valeBin         string // the binary under test
+	testdata        string // the repository's testdata/ directory
+	grammarPackages string // unpacked grammar packages, for sync cases
 )
+
+// layOutGrammarPackages writes each grammar module under dist as the package
+// `vale sync` installs: grammar-<name>/styles/config/grammars/<name>.wasm.
+// A missing dist is not an error; the cases that need one fail on their own.
+func layOutGrammarPackages(dist, out string) error {
+	entries, err := os.ReadDir(dist)
+	if err != nil {
+		return nil //nolint:nilerr // see above
+	}
+	for _, e := range entries {
+		name, ok := strings.CutSuffix(e.Name(), ".wasm")
+		if !ok {
+			continue
+		}
+		dir := filepath.Join(out, "grammar-"+name, "styles", "config", "grammars")
+		if merr := os.MkdirAll(dir, 0o755); merr != nil {
+			return merr
+		}
+		b, rerr := os.ReadFile(filepath.Join(dist, e.Name()))
+		if rerr != nil {
+			return rerr
+		}
+		if werr := os.WriteFile(filepath.Join(dir, e.Name()), b, 0o600); werr != nil { //nolint:gosec // a test fixture
+			return werr
+		}
+	}
+	return nil
+}
 
 func TestMain(m *testing.M) {
 	flag.Parse()
@@ -81,6 +110,13 @@ func run(m *testing.M) (int, error) {
 	build.Dir = root
 	if out, bErr := build.CombinedOutput(); bErr != nil {
 		return 0, fmt.Errorf("building vale: %w\n%s", bErr, out)
+	}
+
+	// `vale sync` cases fetch grammars from a directory of unpacked packages
+	// laid out from the repository's build of them.
+	grammarPackages = filepath.Join(tmp, "grammar-packages")
+	if err = layOutGrammarPackages(filepath.Join(root, "grammars", "dist"), grammarPackages); err != nil {
+		return 0, err
 	}
 
 	return m.Run(), nil
@@ -220,7 +256,12 @@ func invoke(t *testing.T, s *suite, tc testCase) (string, int) {
 		}
 	}
 
-	env := os.Environ()
+	// The grammars are read from the repository's build of them rather than
+	// installed into every fixture, and synced from the packages laid out
+	// from it.
+	env := append(os.Environ(),
+		"VALE_GRAMMARS_PATH="+filepath.Join(testdata, "..", "grammars", "dist"),
+		"VALE_GRAMMARS_URL="+grammarPackages)
 	for k, v := range tc.Env {
 		env = append(env, k+"="+v)
 	}
