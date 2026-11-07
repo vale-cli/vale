@@ -15,7 +15,7 @@ require (
 	github.com/expr-lang/expr v1.17.7
 	github.com/gobwas/glob v0.2.3
 	github.com/jdkato/go-tree-sitter-julia v0.1.0
-	github.com/jdkato/prose/v3 v3.2.4-0.20261107122747-4c4fe2f560ef
+	github.com/jdkato/prose/v3 v3.2.3
 	github.com/jdkato/regexp2/v2 v2.5.6
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/mapstructure v1.5.0

@@ -229,7 +229,7 @@ func TestSequenceVerifiesTokensAfterWindow(t *testing.T) {
 		text string
 		want int
 	}{
-		{"verb follows the noun", "Then the big dog barked loudly today.", 1},
+		{"verb follows the noun", "Then the big dog jumped loudly today.", 1},
 		{"no verb follows", "Near the big dog yesterday morning.", 0},
 	}
 

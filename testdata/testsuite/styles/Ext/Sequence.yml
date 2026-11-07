@@ -8,8 +8,8 @@ tokens:
   - tag: VB
 tests:
   - name: fires
-    input: "I will be able reach the goal.\n"
+    input: "We will be able see the results.\n"
     contains: "Ext.Sequence:"
   - name: clean
-    input: "I will be able to reach the goal.\n"
+    input: "We will be able to see the results.\n"
     want: ""
