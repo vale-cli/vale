@@ -205,6 +205,13 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 				open = append(open, inlineCapture{tag: txt, scope: scope, masked: skip, begin: buf.Len()})
 			}
 			walker.addTag(txt, class, getAttribute(tok, markAttr))
+			// A void element has no end tag, so it leaves the history at once.
+			// Left there, a hard line break, `<br>`, reads as an open inline
+			// element. A nested list after it then joins the list item above,
+			// and an enclosing `</em>` cannot pop its own tag (#1225).
+			if core.StringInSlice(txt, voidTags) {
+				walker.popTag(txt)
+			}
 		} else if tokt == html.EndTagToken && isInline {
 			walker.popTag(txt)
 			walker.activeTag = ""

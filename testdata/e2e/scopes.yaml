@@ -400,6 +400,48 @@ cases:
       test.md:1:22:T.Text:text: after
       test.md:3:27:T.Text:text: after
 
+  - name: list-item-with-hard-break
+    about: "#1225 -- a hard line break, `<br>`, has no end tag. It stayed in the
+      tag history and joined the nested list to the item above, also inside
+      emphasis"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Item.yml: |
+        extends: metric
+        message: "item: %s words"
+        level: error
+        scope: list
+        formula: words
+        condition: "> 3"
+      break.md: |
+        - Lead line.\
+          Second line.
+          - One two three four five six seven.
+          - One two three four five six seven.
+          - One two three four five six seven.
+      emphasis.md: |
+        - *Lead line.\
+          second* line.
+          - One two three four five six seven.
+          - One two three four five six seven.
+          - One two three four five six seven.
+    args: break.md emphasis.md
+    exit: 1
+    want: |
+      break.md:2:1:T.Item:item: 4.00 words
+      break.md:3:1:T.Item:item: 7.00 words
+      break.md:4:1:T.Item:item: 7.00 words
+      break.md:5:1:T.Item:item: 7.00 words
+      emphasis.md:2:1:T.Item:item: 4.00 words
+      emphasis.md:3:1:T.Item:item: 7.00 words
+      emphasis.md:4:1:T.Item:item: 7.00 words
+      emphasis.md:5:1:T.Item:item: 7.00 words
+
   - name: table
     args: .
     requires: asciidoctor, rst2html
