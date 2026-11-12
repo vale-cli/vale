@@ -122,3 +122,60 @@ func TestFallbackToDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestInitConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".vale.ini")
+
+	err := InitConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("InitConfig failed: %v", err)
+	}
+
+	if !system.FileExists(cfgPath) {
+		t.Fatalf("expected config file to exist: %s", cfgPath)
+	}
+
+	stylesDir := filepath.Join(tmpDir, "styles")
+	if !system.IsDir(stylesDir) {
+		t.Fatalf("expected styles directory to exist: %s", stylesDir)
+	}
+
+	content, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to read created config: %v", err)
+	}
+	if string(content) != DefaultConfigTemplate {
+		t.Fatalf("config content does not match template")
+	}
+
+	// Should fail if called again on existing config
+	err = InitConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected InitConfig to fail on existing file, got nil")
+	}
+
+	// Should fail if another valid config name already exists in dir
+	altDir := t.TempDir()
+	altPath := filepath.Join(altDir, "vale.ini")
+	if err := os.WriteFile(altPath, []byte("StylesPath = styles\n"), 0o600); err != nil {
+		t.Fatalf("failed to create alt config: %v", err)
+	}
+	err = InitConfig(filepath.Join(altDir, ".vale.ini"))
+	if err == nil {
+		t.Fatal("expected InitConfig to fail when alternative config exists in directory, got nil")
+	}
+
+	// Target as existing directory
+	dirTarget := t.TempDir()
+	err = InitConfig(dirTarget)
+	if err != nil {
+		t.Fatalf("InitConfig with directory target failed: %v", err)
+	}
+	if !system.FileExists(filepath.Join(dirTarget, ".vale.ini")) {
+		t.Fatalf("expected .vale.ini in target directory")
+	}
+	if !system.IsDir(filepath.Join(dirTarget, "styles")) {
+		t.Fatalf("expected styles directory in target directory")
+	}
+}
