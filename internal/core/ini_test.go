@@ -576,3 +576,31 @@ func TestBasedOnStylesNone(t *testing.T) {
 		}
 	}
 }
+
+// `Lang` is read at the top level, in `[*]`, and per section, each setting
+// the language of the files it covers.
+func Test_processConfig_lang(t *testing.T) {
+	body := `Lang = de
+
+[docs/fr/*.md]
+Lang = fr
+`
+	uCfg, err := shadowLoad(system.Default, []byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf, err := NewConfig(&CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = processConfig(uCfg, conf, false); err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]string{"*": "de", "docs/fr/*.md": "fr"}
+	for k, v := range want {
+		if got := conf.FormatToLang[k]; got != v {
+			t.Errorf("FormatToLang[%q] = %q, want %q", k, got, v)
+		}
+	}
+}

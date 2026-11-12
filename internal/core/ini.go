@@ -388,6 +388,11 @@ var globalOpts = map[string]func(*ini.Section, *Config){
 }
 
 var coreOpts = map[string]func(*ini.Section, *Config) error{
+	// The language of every file a section doesn't set one for.
+	"Lang": func(sec *ini.Section, cfg *Config) error {
+		cfg.FormatToLang["*"] = sec.Key("Lang").String()
+		return nil
+	},
 	"StylesPath": func(sec *ini.Section, cfg *Config) error {
 		paths := sec.Key("StylesPath").ValueWithShadows()
 		for _, path := range paths {
