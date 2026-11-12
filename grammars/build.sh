@@ -4,7 +4,7 @@
 # the ones the go-tree-sitter bindings carry, so each module parses exactly
 # what the CGo build did.
 #
-# Usage: grammars/build.sh [name ...]   (needs zig; writes grammars/dist/<name>.wasm)
+# Usage: grammars/build.sh [name ...]   (needs zig and binaryen; writes grammars/dist/<name>.wasm)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -63,13 +63,20 @@ build() {
   local srcs=("$dir/parser.c")
   [ -f "$dir/scanner.c" ] && srcs+=("$dir/scanner.c")
   # A scanner written in C++ (YAML's) builds with the same driver, without
-  # exceptions or RTTI, which wasm32-wasi has no runtime for.
+  # exceptions or RTTI, which wasm32-wasi has no runtime for. The module is
+  # stripped: zig writes DWARF by default, which is most of an unstripped
+  # module and nothing reads it.
   local cc="zig cc"
   [ -f "$dir/scanner.cc" ] && { srcs+=("$dir/scanner.cc"); cc="zig c++"; }
   $cc -target wasm32-wasi -O2 -mexec-model=reactor -fno-exceptions -fno-rtti \
+    -Wl,--strip-all \
     -Wno-implicit-function-declaration -Wno-unused-but-set-variable \
     -DTS_LANG="$symbol" -I "$INC" -I "$OUT/core" -I "$dir" \
     "$OUT"/core/*.c "${srcs[@]}" grammars/shim.c -o "$OUT/$name.wasm"
+  # A parse table is mostly zeros, which the linker writes out; packing
+  # leaves them out of the data segments and takes a third off the largest
+  # grammars.
+  wasm-opt --enable-bulk-memory --memory-packing "$OUT/$name.wasm" -o "$OUT/$name.wasm"
   printf '%-11s %5.2f MB\n' "$name" "$(awk "BEGIN{print $(wc -c <"$OUT/$name.wasm")/1e6}")"
 }
 

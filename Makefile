@@ -34,7 +34,8 @@ release:
 build:
 	GOOS=$(os) GOARCH=$(arch) go build ${LDFLAGS} -o bin/$(exe) ./cmd/vale
 
-# The browser build: no CGo, so no tree-sitter, and no external converters.
+# The browser build: no external converters, and grammars run on wazero's
+# interpreter.
 # `wasm_exec.js` is the loader that ships with the Go toolchain that built it.
 wasm:
 	GOOS=js GOARCH=wasm go build ${LDFLAGS} -o bin/vale.wasm ./cmd/valew
@@ -104,7 +105,7 @@ choco-cross:
 		jdkato/choco-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
 
-# Compile every tree-sitter grammar to a WebAssembly module (needs zig). The
-# tests read them from grammars/dist.
+# Compile every tree-sitter grammar to a WebAssembly module (needs zig and
+# binaryen). The tests read them from grammars/dist.
 grammars:
 	grammars/build.sh

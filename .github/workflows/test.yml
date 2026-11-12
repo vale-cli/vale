@@ -56,6 +56,9 @@ jobs:
         with:
           version: 0.16.0
 
+      - name: Install binaryen
+        run: grammars/setup-binaryen.sh
+
       - name: Build the grammars
         run: grammars/build.sh
         shell: bash
@@ -106,6 +109,9 @@ jobs:
         with:
           version: 0.16.0
 
+      - name: Install binaryen
+        run: grammars/setup-binaryen.sh
+
       - name: Build the grammars
         run: grammars/build.sh
         shell: bash
@@ -142,6 +148,9 @@ jobs:
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
+
+      - name: Install binaryen
+        run: grammars/setup-binaryen.sh
 
       # The smoke test adds a grammar through the API; one is enough.
       - name: Build a grammar
