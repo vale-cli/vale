@@ -697,9 +697,9 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 	for _, k := range global.KeyStrings() {
 		if k == "Vocab" {
 			continue // read below, once every rule setting is known
-		} else if _, option := coreOpts[k]; option {
-			return nil, NewE201FromTarget(fmt.Sprintf(coreError, k), k, cfg.RootINI)
 		} else if f, found := globalOpts[k]; found {
+			// Before the core check: `Lang` is both, and `[*]` is one of
+			// its places.
 			f(global, cfg)
 		} else if _, found = syntaxOpts[k]; found {
 			msg := fmt.Sprintf("'%s' is a syntax-specific option", k)

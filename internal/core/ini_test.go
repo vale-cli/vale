@@ -582,6 +582,9 @@ func TestBasedOnStylesNone(t *testing.T) {
 func Test_processConfig_lang(t *testing.T) {
 	body := `Lang = de
 
+[*]
+Lang = nl
+
 [docs/fr/*.md]
 Lang = fr
 `
@@ -597,7 +600,8 @@ Lang = fr
 		t.Fatal(err)
 	}
 
-	want := map[string]string{"*": "de", "docs/fr/*.md": "fr"}
+	// The `[*]` section is read after the top level, so it wins there.
+	want := map[string]string{"*": "nl", "docs/fr/*.md": "fr"}
 	for k, v := range want {
 		if got := conf.FormatToLang[k]; got != v {
 			t.Errorf("FormatToLang[%q] = %q, want %q", k, got, v)

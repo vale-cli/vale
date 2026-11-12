@@ -35,21 +35,37 @@ import (
 var (
 	runtimeOnce sync.Once
 	runtime     wazero.Runtime
+
+	plainOnce sync.Once
+	plain     wazero.Runtime
 )
 
 func sharedRuntime() wazero.Runtime {
 	runtimeOnce.Do(func() {
-		ctx := context.Background()
 		cfg := wazero.NewRuntimeConfig()
 		if dir := cacheDir(); dir != "" {
 			if cache, err := wazero.NewCompilationCacheWithDir(dir); err == nil {
 				cfg = cfg.WithCompilationCache(cache)
 			}
 		}
-		runtime = wazero.NewRuntimeWithConfig(ctx, cfg)
-		wasi_snapshot_preview1.MustInstantiate(ctx, runtime)
+		runtime = newRuntime(cfg)
 	})
 	return runtime
+}
+
+// plainRuntime compiles without the cache, for when the cache can't be
+// written: two runs compiling the same grammar at once race to publish the
+// entry, and Windows refuses the rename for the one that loses.
+func plainRuntime() wazero.Runtime {
+	plainOnce.Do(func() { plain = newRuntime(wazero.NewRuntimeConfig()) })
+	return plain
+}
+
+func newRuntime(cfg wazero.RuntimeConfig) wazero.Runtime {
+	ctx := context.Background()
+	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
+	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
+	return rt
 }
 
 // cacheDir is where compiled grammars are kept between runs, or "" where
@@ -73,6 +89,7 @@ const Built = true
 // A Language is one compiled grammar module.
 type Language struct {
 	name     string
+	rt       wazero.Runtime // the one that compiled it
 	compiled wazero.CompiledModule
 
 	// free holds instances between uses. A free list rather than a
@@ -83,11 +100,17 @@ type Language struct {
 
 // Load compiles a grammar module. name labels it in errors.
 func Load(name string, wasm []byte) (*Language, error) {
-	compiled, err := sharedRuntime().CompileModule(context.Background(), wasm)
+	ctx := context.Background()
+	rt := sharedRuntime()
+	compiled, err := rt.CompileModule(ctx, wasm)
+	if err != nil && cacheDir() != "" {
+		rt = plainRuntime()
+		compiled, err = rt.CompileModule(ctx, wasm)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("grammar %s: %w", name, err)
 	}
-	return &Language{name: name, compiled: compiled, free: make(chan *instance, instances)}, nil
+	return &Language{name: name, rt: rt, compiled: compiled, free: make(chan *instance, instances)}, nil
 }
 
 // acquire takes a free instance or makes one.
@@ -132,7 +155,7 @@ type instance struct {
 
 func (l *Language) instantiate() (*instance, error) {
 	ctx := context.Background()
-	mod, err := sharedRuntime().InstantiateModule(ctx, l.compiled, wazero.NewModuleConfig().WithName(""))
+	mod, err := l.rt.InstantiateModule(ctx, l.compiled, wazero.NewModuleConfig().WithName(""))
 	if err != nil {
 		return nil, fmt.Errorf("grammar %s: %w", l.name, err)
 	}
