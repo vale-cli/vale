@@ -1,3 +1,5 @@
+//go:build !vale_nocode
+
 // Package tsw runs tree-sitter grammars compiled to WebAssembly.
 //
 // A grammar module holds tree-sitter's core and one grammar behind the small
@@ -64,6 +66,9 @@ func cacheDir() string {
 // has a handful of files in flight; one instance each is enough, and one
 // past that is made and dropped.
 const instances = 8
+
+// Built reports whether this build carries the runtime.
+const Built = true
 
 // A Language is one compiled grammar module.
 type Language struct {

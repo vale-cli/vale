@@ -1,3 +1,5 @@
+//go:build !vale_nocode
+
 package code
 
 import (

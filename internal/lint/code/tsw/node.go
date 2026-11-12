@@ -1,3 +1,5 @@
+//go:build !vale_nocode
+
 package tsw
 
 // handle widens a node handle for a call; handles are never negative here.

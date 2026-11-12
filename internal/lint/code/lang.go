@@ -87,6 +87,9 @@ var grammars sync.Map // name -> *tsw.Language
 // Grammar returns the compiled grammar of the given name, loading it on
 // first use.
 func Grammar(name string) (*tsw.Language, error) {
+	if !tsw.Built {
+		return nil, tsw.ErrNotBuilt
+	}
 	if g, ok := grammars.Load(name); ok {
 		return g.(*tsw.Language), nil //nolint:errcheck // only *tsw.Language is stored
 	}

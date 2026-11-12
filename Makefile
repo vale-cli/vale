@@ -43,6 +43,11 @@ wasm:
 test-wasm: wasm
 	node testdata/wasm/smoke.mjs bin/wasm_exec.js bin/vale.wasm
 
+# The slim browser build: no grammar runtime, so code is read by its comment
+# delimiters. See the vale_nocode tag.
+wasm-slim:
+	GOOS=js GOARCH=wasm go build ${LDFLAGS} -tags vale_nocode -o bin/vale-slim.wasm ./cmd/valew
+
 bench:
 	go test -bench=. -benchmem ./internal/core ./internal/lint ./internal/check
 

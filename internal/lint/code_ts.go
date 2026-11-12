@@ -13,6 +13,7 @@ import (
 
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/lint/code"
+	"github.com/vale-cli/vale/v3/internal/lint/code/tsw"
 )
 
 // grammarLoader finds a grammar's module for the configuration: under
@@ -38,10 +39,17 @@ func grammarLoader(cfg *core.Config) func(name string) ([]byte, error) {
 // it once however many files it reads.
 var missingGrammars sync.Map
 
-// grammarMissing reports whether err is a grammar that isn't installed,
-// warning the first time. The file is still read, by its comment
-// delimiters, so a project that never asked for grammars lints as it did.
+// grammarMissing reports whether err is a grammar that isn't installed, or
+// a build that has no grammar runtime at all, warning the first time. The
+// file is still read, by its comment delimiters, so a project that never
+// asked for grammars lints as it did.
 func grammarMissing(err error) bool {
+	if errors.Is(err, tsw.ErrNotBuilt) {
+		if _, seen := missingGrammars.LoadOrStore("", true); !seen {
+			core.Warn(err.Error() + "; comments are read by their delimiters")
+		}
+		return true
+	}
 	var missing *code.NotInstalledError
 	if !errors.As(err, &missing) {
 		return false

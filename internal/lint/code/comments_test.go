@@ -1,6 +1,9 @@
+//go:build !vale_nocode
+
 package code
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -187,4 +190,9 @@ func TestDelimitersInsideProse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func toJSON(comments []Comment) string {
+	j, _ := json.MarshalIndent(comments, "", "    ")
+	return string(j)
 }

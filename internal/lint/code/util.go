@@ -1,16 +1,10 @@
 package code
 
 import (
-	"encoding/json"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 )
-
-func toJSON(comments []Comment) string {
-	j, _ := json.MarshalIndent(comments, "", "    ")
-	return string(j)
-}
 
 func cStyle(s string) int {
 	return computePadding(s, []string{"/*", "//"})

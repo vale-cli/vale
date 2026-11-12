@@ -170,3 +170,9 @@ jobs:
 
       - name: Build and test the wasm module
         run: make test-wasm
+
+      # The slim module leaves the grammar runtime out; it has to keep
+      # building, and reading code by its delimiters is covered under the
+      # tag by the lint packages.
+      - name: Build the slim wasm module
+        run: make wasm-slim && go test -tags vale_nocode ./internal/lint/...
