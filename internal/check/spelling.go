@@ -206,9 +206,11 @@ func (s Spelling) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 	if s.byLanguage && f != nil && !nlp.IsEnglish(f.NLP.Lang) {
 		gs := spellerFor(cfg, f.NLP.Lang)
 		if gs == nil {
+			// The directory is shown with slashes on every platform: it is
+			// a place in the StylesPath, not a path on this machine.
 			warnOnce(s.Name+":"+f.NLP.Lang, fmt.Sprintf(
 				"%s has no dictionary for '%s'; add <name>.dic and <name>.aff under %s, or set %s = NO",
-				s.Name, f.NLP.Lang, core.DictDir, s.Name))
+				s.Name, f.NLP.Lang, filepath.ToSlash(core.DictDir), s.Name))
 			return alerts, nil
 		}
 		s.gs = gs
