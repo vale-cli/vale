@@ -1,9 +1,11 @@
 package lint
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vale-cli/vale/v3/internal/core"
+	"github.com/vale-cli/vale/v3/internal/nlp"
 )
 
 // Both readers of a source file consult skipsComment, so a scope excluded from
@@ -67,6 +69,55 @@ func TestLanguageForMappedExtension(t *testing.T) {
 			if got := langErr == nil && lang != nil; got != tt.want {
 				t.Errorf("languageFor(%q) with %v found a grammar = %v, want %v",
 					tt.ext, tt.formats, got, tt.want)
+			}
+		})
+	}
+}
+
+// A comment is prose, so it is segmented like a text file: a rule scoped to
+// `sentence` or `paragraph` gets a block of its own to run on. A comment
+// found by its delimiters is located by search, so its parts carry no offset;
+// one a grammar found is its own context, and its parts are placed in it.
+func TestCommentIsSegmented(t *testing.T) {
+	text := "// One sentence. Then another one.\n"
+
+	tests := []struct {
+		name   string
+		block  nlp.Block
+		placed bool
+	}{
+		{"by delimiters", nlp.NewBlock(text, text, "text.comment.line.rs"), false},
+		{"by grammar", nlp.NewBlock("", text, "text.comment.line.rs"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			linter := demoLinter(t)
+
+			f, err := core.NewFileFromContent(text, "main.rs", linter.Manager.Config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.NLP = nlp.Info{Lang: "en", Segmentation: true, Splitting: true}
+
+			seen := map[string]int{}
+			linter.BlockHook = func(b nlp.Block) {
+				kind, _, _ := strings.Cut(b.Scope, ".")
+				seen[kind]++
+				if placed := b.Offset >= 0; placed != tt.placed {
+					t.Errorf("%s block %q: placed = %v, want %v", kind, b.Text, placed, tt.placed)
+				}
+			}
+
+			if err = linter.lintCommentBlock(f, tt.block, 1, 0); err != nil {
+				t.Fatal(err)
+			}
+
+			want := map[string]int{"sentence": 2, "paragraph": 1, "text": 1}
+			for kind, n := range want {
+				if seen[kind] != n {
+					t.Errorf("got %d %s blocks, want %d", seen[kind], kind, n)
+				}
 			}
 		})
 	}

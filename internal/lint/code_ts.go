@@ -14,6 +14,7 @@ import (
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/lint/code"
 	"github.com/vale-cli/vale/v3/internal/lint/code/tsw"
+	"github.com/vale-cli/vale/v3/internal/nlp"
 )
 
 // grammarLoader finds a grammar's module for the configuration: under
@@ -207,7 +208,8 @@ func dropMasked(alerts []core.Alert, last int, comment code.Comment) []core.Aler
 func (l *Linter) lintComment(f *core.File, comment code.Comment, format, html string) error {
 	if format == "" {
 		f.SetText(maskURLs(comment.Text))
-		return l.lintLines(f)
+		block := nlp.NewBlock("", f.Content, "text"+f.MetaScope+f.RealExt)
+		return l.lintCommentBlock(f, block, len(f.Lines), 0)
 	}
 
 	kind, ext := f.Format, f.NormedExt

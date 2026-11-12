@@ -50,6 +50,30 @@ func maskURLs(s string) string {
 	return urlRE.ReplaceAllStringFunc(s, nlp.BlankRunes)
 }
 
+// lintCommentBlock lints a comment as prose: the comment itself, plus its
+// sentences and paragraphs, so a rule scoped to either reaches a comment as
+// it does a text file.
+func (l *Linter) lintCommentBlock(f *core.File, blk nlp.Block, lines, pad int) error {
+	placed := blk.Offset >= 0
+
+	blks, err := f.NLP.Compute(&blk, true)
+	if err != nil {
+		return core.NewE100(f.Path, err)
+	}
+
+	for _, b := range blks {
+		if !placed {
+			// A comment found by its delimiters is located by search, in
+			// file lines; an offset would place its parts in the comment.
+			b.Offset = -1
+		}
+		if err = l.lintBlock(f, b, lines, pad, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (l *Linter) lintCodeOld(f *core.File) error {
 	var line, match, txt string
 	var lnLength, padding int
@@ -91,7 +115,7 @@ func (l *Linter) lintCodeOld(f *core.File) error {
 				b := nlp.NewBlock(
 					txt, txt, fmt.Sprintf(scope, "text.comment.block"))
 				if !(skipAll || skipBlock) {
-					if err := l.lintBlock(f, b, lines+1, 0, true); err != nil {
+					if err := l.lintCommentBlock(f, b, lines+1, 0); err != nil {
 						return err
 					}
 				}
@@ -111,7 +135,7 @@ func (l *Linter) lintCodeOld(f *core.File) error {
 			b := nlp.NewBlock(
 				match, match, fmt.Sprintf(scope, "text.comment.line"))
 			if !(skipAll || skipInline) {
-				if err := l.lintBlock(f, b, lines, padding-1, true); err != nil {
+				if err := l.lintCommentBlock(f, b, lines, padding-1); err != nil {
 					return err
 				}
 			}

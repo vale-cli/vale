@@ -1961,6 +1961,126 @@ cases:
     want: |
       doc.go:3:46:Vale.Spelling:Did you really mean 'detials'?
 
+  - name: sentence-in-code-comment
+    about: "A comment is prose, so a rule scoped to `sentence` or
+      `paragraph` reaches it, and a sentence that spans two comment lines
+      is one sentence. A rule with no scope still fires once."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*]
+        BasedOnStyles = T
+      styles/T/Long.yml: |
+        extends: occurrence
+        message: "more than 8 words"
+        level: error
+        scope: sentence
+        max: 8
+        token: \b(\w+)\b
+      styles/T/Bang.yml: |
+        extends: existence
+        message: "no exclamation marks"
+        level: error
+        scope: sentence
+        nonword: true
+        tokens:
+          - '\w!(?:\s|$)'
+      styles/T/Para.yml: |
+        extends: existence
+        message: "saw '%s' in a paragraph"
+        level: error
+        scope: paragraph
+        tokens:
+          - wombat
+      styles/T/Any.yml: |
+        extends: existence
+        message: "saw '%s'"
+        level: error
+        tokens:
+          - short
+      doc.go: |
+        package x
+
+        // A short one. This sentence has one two three four five six words.
+        var a = 1
+
+        // It works!
+        var b = 1
+
+        // This sentence starts on one line, and then
+        // it ends on the next. A wombat follows.
+        var c = 1
+    args: --output=line --no-exit doc.go
+    exit: 0
+    want: |
+      doc.go:3:6:T.Any:saw 'short'
+      doc.go:3:17:T.Long:more than 8 words
+      doc.go:6:11:T.Bang:no exclamation marks
+      doc.go:9:4:T.Long:more than 8 words
+      doc.go:10:27:T.Para:saw 'wombat' in a paragraph
+
+  - name: sentence-in-code-comment-delimiters
+    about: "The same rules reach a comment read by its delimiters, where
+      each line comment is a block of its own."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*]
+        BasedOnStyles = T
+      styles/T/Long.yml: |
+        extends: occurrence
+        message: "more than 8 words"
+        level: error
+        scope: sentence
+        max: 8
+        token: \b(\w+)\b
+      styles/T/Bang.yml: |
+        extends: existence
+        message: "no exclamation marks"
+        level: error
+        scope: sentence
+        nonword: true
+        tokens:
+          - '\w!(?:\s|$)'
+      styles/T/Para.yml: |
+        extends: existence
+        message: "saw '%s' in a paragraph"
+        level: error
+        scope: paragraph
+        tokens:
+          - wombat
+      styles/T/Any.yml: |
+        extends: existence
+        message: "saw '%s'"
+        level: error
+        tokens:
+          - short
+      doc.go: |
+        package x
+
+        // A short one. This sentence has one two three four five six words.
+        var a = 1
+
+        // It works!
+        var b = 1
+
+        // This sentence starts on one line, and then
+        // it ends on the next. A wombat follows.
+        var c = 1
+    env:
+      VALE_GRAMMARS_PATH: ""
+    args: --output=line --no-exit doc.go
+    exit: 0
+    contains: |
+      doc.go:3:6:T.Any:saw 'short'
+      doc.go:3:17:T.Long:more than 8 words
+      doc.go:6:11:T.Bang:no exclamation marks
+      doc.go:10:27:T.Para:saw 'wombat' in a paragraph
+
   - name: rst-url-and-link-text
     about: "A reStructuredText link's text is linted where it is written,
       and a bare URL is not linted at all. A spelling alert is placed by
