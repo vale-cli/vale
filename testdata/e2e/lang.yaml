@@ -16,8 +16,8 @@ cases:
       VALE_MODELS_URL: ../models
     exit: 0
     contains: |
-      Synced de
-      Synced fr
+      Synced de: tagger (universal, 1.6 MB), segmenter — prose v3.2.3-5-g5e77b40
+      Synced fr: tagger (universal, 1.6 MB), segmenter — prose v3.2.3-5-g5e77b40
     absent:
       - Synced ja
 
@@ -79,3 +79,14 @@ cases:
     exit: 2
     contains: |
       no model for language "ja"
+
+  - name: test-lang
+    about: "a rule's test case names its language, and runs with that
+      language's model rather than English's"
+    args: test styles/Lang/Adjectives.test.yml
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 0
+    contains: |
+      1 file — 2 passed, 0 failed

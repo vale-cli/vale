@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ const modelsURLVar = "VALE_MODELS_URL"
 //
 // A language prose publishes no model for is a warning, not an error: it may
 // be one Vale segments by rules alone, as Japanese is.
-func syncModels(cfg *core.Config, stylesPath string, idx int, report func(name string)) (int, error) {
+func syncModels(cfg *core.Config, stylesPath string, idx int, report func(name, detail string)) (int, error) {
 	synced := 0
 	for i, lang := range cfg.Languages() {
 		if _, ok := models.Lookup(lang); !ok {
@@ -49,7 +50,7 @@ func syncModels(cfg *core.Config, stylesPath string, idx int, report func(name s
 		if err = loadPkg(lang, src, stylesPath, idx+i); err != nil {
 			return synced, err
 		}
-		report(lang)
+		report(lang, describeModel(stylesPath, lang))
 		synced++
 	}
 	return synced, nil
@@ -126,7 +127,13 @@ const grammarsURLVar = "VALE_GRAMMARS_URL"
 // since nothing would be found for it.
 func grammarsToSync(cfg *core.Config) ([]string, error) {
 	if cfg.Grammars == nil {
-		return impliedGrammars(cfg), nil
+		implied := impliedGrammars(cfg)
+		names := make([]string, 0, len(implied))
+		for name := range implied {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return names, nil
 	}
 	known := map[string]bool{}
 	for _, name := range code.Names() {
@@ -150,9 +157,9 @@ func grammarsToSync(cfg *core.Config) ([]string, error) {
 // sections name: `*.go`, `*.{py,rs}`, `src/**/*.ts`. Named, not matched: a
 // `[*]` section matches every file, but asking for it is not asking for
 // every grammar, which is what `Grammars = ALL` is for.
-func impliedGrammars(cfg *core.Config) []string {
-	seen := map[string]bool{}
-	for _, pat := range cfg.SecToPat {
+func impliedGrammars(cfg *core.Config) map[string][]string {
+	by := map[string][]string{}
+	for label, pat := range cfg.SecToPat {
 		if pat.Negated {
 			continue
 		}
@@ -161,17 +168,75 @@ func impliedGrammars(cfg *core.Config) []string {
 				continue
 			}
 			if lang, err := code.GetLanguageFromExt(ext); err == nil && lang.Grammar != "" {
-				seen[lang.Grammar] = true
+				if !core.StringInSlice(label, by[lang.Grammar]) {
+					by[lang.Grammar] = append(by[lang.Grammar], label)
+				}
 			}
 		}
 	}
-
-	out := make([]string, 0, len(seen))
-	for name := range seen {
-		out = append(out, name)
+	for _, sections := range by {
+		sort.Strings(sections)
 	}
-	sort.Strings(out)
+	return by
+}
+
+// grammarDetail says why a grammar is installed: the sections that implied
+// it, or nothing when the `Grammars` key named it.
+func grammarDetail(cfg *core.Config, name string) string {
+	if cfg.Grammars != nil {
+		return ""
+	}
+	sections := impliedGrammars(cfg)[name]
+	if len(sections) == 0 {
+		return ""
+	}
+	return "for [" + strings.Join(sections, "], [") + "]"
+}
+
+// describeModel reads what a synced language model holds from its
+// model.json: "tagger (universal, 1.3 MB), segmenter — prose v3.3.1".
+func describeModel(stylesPath, lang string) string {
+	dir := filepath.Join(stylesPath, core.ModelDir, lang)
+	raw, err := os.ReadFile(filepath.Join(dir, "model.json"))
+	if err != nil {
+		return ""
+	}
+	var meta struct {
+		Prose  string `json:"prose"`
+		Tagger *struct {
+			Tagset string `json:"tagset"`
+		} `json:"tagger"`
+		Segmenter *struct{} `json:"segmenter"`
+	}
+	if err = json.Unmarshal(raw, &meta); err != nil {
+		return ""
+	}
+
+	var parts []string
+	if meta.Tagger != nil {
+		tagset := meta.Tagger.Tagset
+		if tagset == "upos" {
+			tagset = "universal"
+		}
+		parts = append(parts, fmt.Sprintf("tagger (%s, %s)", tagset, fileSize(filepath.Join(dir, "tagger.bin"))))
+	}
+	if meta.Segmenter != nil {
+		parts = append(parts, "segmenter")
+	}
+	out := strings.Join(parts, ", ")
+	if meta.Prose != "" {
+		out += " — prose " + meta.Prose
+	}
 	return out
+}
+
+// fileSize is a file's size for a report: "1.3 MB".
+func fileSize(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "?"
+	}
+	return fmt.Sprintf("%.1f MB", float64(info.Size())/1e6)
 }
 
 // namesExt reports whether a glob spells out an extension: `go` in `*.go`
@@ -198,7 +263,7 @@ func isWordByte(b byte) bool {
 
 // syncGrammars installs the grammars the configuration asks for, after the
 // packages and models; idx continues their numbering.
-func syncGrammars(cfg *core.Config, stylesPath string, idx int, report func(name string)) (int, error) {
+func syncGrammars(cfg *core.Config, stylesPath string, idx int, report func(name, detail string)) (int, error) {
 	names, err := grammarsToSync(cfg)
 	if err != nil {
 		return 0, core.NewE100("sync", err)
@@ -212,7 +277,7 @@ func syncGrammars(cfg *core.Config, stylesPath string, idx int, report func(name
 		if lerr := loadPkg(pkg, src, stylesPath, idx+i); lerr != nil {
 			return i, lerr
 		}
-		report(pkg)
+		report(pkg, grammarDetail(cfg, name))
 	}
 	return len(names), nil
 }

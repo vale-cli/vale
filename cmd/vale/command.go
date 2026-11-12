@@ -209,38 +209,50 @@ func sync(_ []string, flags *core.CLIFlags) error {
 
 	// The models for the languages the configuration names, after the
 	// packages: a package may be what names a language.
-	nModels, err := syncModels(cfg, stylesPath, len(pkgs), func(lang string) {
-		if bar != nil {
-			bar.UpdateTitle("Syncing " + lang)
-			bar.Increment()
-		} else {
-			fmt.Printf("Synced %s\n", lang)
-		}
-	})
-	if err != nil {
-		return err
-	}
-
-	nGrammars, err := syncGrammars(cfg, stylesPath, len(pkgs)+nModels, func(name string) {
-		if bar != nil {
+	synced := func(name, detail string) {
+		switch {
+		case bar != nil:
 			bar.UpdateTitle("Syncing " + name)
 			bar.Increment()
-		} else {
+		case detail != "":
+			fmt.Printf("Synced %s: %s\n", name, detail)
+		default:
 			fmt.Printf("Synced %s\n", name)
 		}
-	})
+	}
+
+	nModels, err := syncModels(cfg, stylesPath, len(pkgs), synced)
 	if err != nil {
 		return err
 	}
 
-	synced := []string{fmt.Sprintf("%d package(s)", len(pkgs))}
+	nGrammars, err := syncGrammars(cfg, stylesPath, len(pkgs)+nModels, synced)
+	if err != nil {
+		return err
+	}
+
+	// A model makes a language's rules work; its spelling needs a
+	// dictionary Vale doesn't carry, so say so here rather than at every
+	// lint run.
+	var undictionaried []string
+	for _, lang := range cfg.Languages() {
+		if dic, _ := core.DictionaryFor(cfg, lang); dic == "" {
+			undictionaried = append(undictionaried, lang)
+		}
+	}
+
+	summary := []string{fmt.Sprintf("%d package(s)", len(pkgs))}
 	if nModels > 0 {
-		synced = append(synced, fmt.Sprintf("%d language model(s)", nModels))
+		summary = append(summary, fmt.Sprintf("%d language model(s)", nModels))
 	}
 	if nGrammars > 0 {
-		synced = append(synced, fmt.Sprintf("%d grammar(s)", nGrammars))
+		summary = append(summary, fmt.Sprintf("%d grammar(s)", nGrammars))
 	}
-	pterm.Success.Printf("Synced %s to '%s'.\n", strings.Join(synced, ", "), stylesPath)
+	pterm.Success.Printf("Synced %s to '%s'.\n", strings.Join(summary, ", "), stylesPath)
+	if len(undictionaried) > 0 {
+		pterm.Info.Printf("No dictionary for %s: Vale.Spelling skips those files until <name>.dic and <name>.aff are under %s.\n",
+			strings.Join(undictionaried, ", "), filepath.Join(stylesPath, core.DictDir))
+	}
 
 	return nil
 }

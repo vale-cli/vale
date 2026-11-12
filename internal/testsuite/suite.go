@@ -46,6 +46,12 @@ type Case struct {
 	// of a View's rules can live beside them.
 	View string `yaml:"view"`
 
+	// Lang is the language Input is written in, as `Lang` names it, for an
+	// isolated case: the rule runs with that language's segmenter and
+	// tagger, read from config/models on the search path. A project case
+	// takes its language from the project's sections instead.
+	Lang string `yaml:"lang"`
+
 	// Rule isolates the case to a single rule, named by a path relative to the
 	// test file. Nothing else is loaded -- not the rest of the style, not the
 	// project's configuration -- so the case says exactly what the rule does

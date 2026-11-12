@@ -3,6 +3,7 @@ package testsuite
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vale-cli/vale/v3/internal/core"
@@ -99,5 +100,21 @@ func TestIsolatedSearchSkipsInstalled(t *testing.T) {
 	c := Case{Path: filepath.Join(root, "Pkg/styles/Pkg/Rule.yml"), Rule: "Rule.yml"}
 	if _, err := r.isolatedSearch(c); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A failing sequence case carries the input as tagged, in the case's
+// language; `lang` without `rule` is refused, since a project case has a
+// language already.
+func TestLangAndTags(t *testing.T) {
+	if got := tagged(Case{Input: "The old house.\n"}); got != "The/DT old/JJ house/NN ./." {
+		t.Errorf("tagged = %q", got)
+	}
+
+	r := NewRunner(&core.CLIFlags{})
+	defer r.Close()
+	res := r.Run(Case{Name: "x", Path: "x.test.yml", Lang: "de", Input: "Das Haus."})
+	if res.Err == nil || !strings.Contains(res.Err.Error(), "`lang` needs `rule`") {
+		t.Errorf("lang without rule: err = %v", res.Err)
 	}
 }

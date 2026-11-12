@@ -357,3 +357,39 @@ cases:
     args: test
     exit: 0
     contains: 1 passed, 0 failed
+
+  - name: sequence-tags
+    about: "a failing case of a `sequence` rule shows the input as tagged,
+      since the tags are what the rule matched and the YAML never shows them"
+    files:
+      styles/T/Adjectives.yml: |
+        extends: sequence
+        message: "Two adjectives in a row: '%s'."
+        level: warning
+        tokens:
+          - tag: JJ
+          - tag: JJ
+      styles/T/Adjectives.test.yml: |
+        - name: expects a match that is not there
+          rule: Adjectives.yml
+          input: The old house.
+          want: |
+            1:5:T.Adjectives:Two adjectives in a row: 'old'.
+    args: test styles/T/Adjectives.test.yml
+    exit: 1
+    contains: |
+      tags  The/DT old/JJ house/NN ./.
+
+  - name: lang-needs-rule
+    about: "`lang` is for an isolated case; a project case takes its language
+      from the project's sections"
+    files:
+      styles/T/Weasel.test.yml: |
+        - name: a project case in German
+          lang: de
+          input: Wir brauchen das wirklich.
+          want: ""
+    args: test styles/T/Weasel.test.yml
+    exit: 2
+    contains: |
+      `lang` needs `rule`

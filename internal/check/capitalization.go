@@ -1,11 +1,13 @@
 package check
 
 import (
+	"fmt"
+
 	"github.com/jdkato/prose/v3/strcase"
-	rx "github.com/vale-cli/vale/v3/internal/regex"
 
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/nlp"
+	rx "github.com/vale-cli/vale/v3/internal/regex"
 )
 
 // Capitalization checks the case of a string.
@@ -112,10 +114,36 @@ func NewCapitalization(cfg *core.Config, generic baseCheck, path string) (Capita
 }
 
 // Run checks the capitalization style of the provided text.
-func (c Capitalization) Run(blk nlp.Block, _ *core.File, cfg *core.Config) ([]core.Alert, error) {
+func (c Capitalization) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Alert, error) {
 	alerts := []core.Alert{}
 
-	expected, matched := c.Check(blk.Text, c.exceptRe)
+	check := c.Check
+	if f != nil && !nlp.IsEnglish(f.NLP.Lang) {
+		switch c.Match {
+		case "$title":
+			// Title case is an English convention; there is nothing to
+			// hold a German heading to.
+			warnOnce(c.Name+":"+f.NLP.Lang, fmt.Sprintf(
+				"%s matches $title, which is English only; it skips files in '%s'", c.Name, f.NLP.Lang))
+			return alerts, nil
+		case "$sentence":
+			// Sentence case elsewhere keeps what the language capitalizes:
+			// every noun, in German. The tagger says which words those are,
+			// and they join the exceptions for this heading.
+			if nouns, err := nounsIn(blk.Text, &f.NLP); err == nil && len(nouns) > 0 {
+				sc := strcase.NewSentenceConverter(
+					strcase.UsingVocab(append(append([]string{}, c.Exceptions...), nouns...)),
+					strcase.UsingPrefix(c.Prefix),
+					strcase.UsingIndicator(wasIndicator(c.Indicators)),
+				)
+				check = func(s string, re *rx.Regexp) (string, bool) {
+					return sentence(s, re, sc, c.Threshold)
+				}
+			}
+		}
+	}
+
+	expected, matched := check(blk.Text, c.exceptRe)
 	if !matched {
 		action := c.Fields().Action
 		if action.Name == "replace" && len(action.Params) == 0 {

@@ -1,0 +1,14 @@
+# `lang` runs an isolated case with that language's tagger, so `upos: ADJ`
+# matches German adjectives here as it does in a lint run.
+- name: two adjectives in a row
+  rule: Adjectives.yml
+  lang: de
+  input: Ein sehr großes schönes Haus.
+  want: |
+    1:10:Lang.Adjectives:Two adjectives in a row: 'großes'.
+
+- name: one adjective is fine
+  rule: Adjectives.yml
+  lang: de
+  input: Das alte Haus.
+  want: ""

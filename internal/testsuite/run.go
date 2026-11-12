@@ -8,6 +8,7 @@ import (
 
 	"github.com/vale-cli/vale/v3/internal/core"
 	"github.com/vale-cli/vale/v3/internal/lint"
+	"github.com/vale-cli/vale/v3/internal/nlp"
 	"github.com/vale-cli/vale/v3/internal/system"
 )
 
@@ -24,6 +25,11 @@ type Result struct {
 	// not compile is not a failing assertion.
 	Reason string
 	Err    error
+
+	// Tags is Input as the tagger read it, `word/TAG` per token, for a
+	// failing case of a `sequence` rule: the tags are what the rule matched
+	// against, and they are invisible in the YAML.
+	Tags string
 }
 
 // Failed reports whether the case did not pass, for either reason.
@@ -82,26 +88,36 @@ func (r *Runner) Close() {
 
 // Run lints one case and compares what came back.
 func (r *Runner) Run(c Case) Result {
-	got, err := r.lint(c)
+	if c.Lang != "" && c.Rule == "" {
+		return Result{Case: c, Err: fmt.Errorf("%s: %q: `lang` needs `rule`; a project case takes its language from the project's sections",
+			filepath.Base(c.Path), c.Name)}
+	}
+
+	got, sequence, err := r.lint(c)
 	if err != nil {
 		return Result{Case: c, Err: err}
 	}
 
-	return Result{Case: c, Got: got, Reason: compare(c, got)}
+	result := Result{Case: c, Got: got, Reason: compare(c, got)}
+	if result.Reason != "" && sequence {
+		result.Tags = tagged(c)
+	}
+	return result
 }
 
-// lint converts a case's input and returns its alerts, one per line.
-func (r *Runner) lint(c Case) (string, error) {
+// lint converts a case's input and returns its alerts, one per line, and
+// whether a `sequence` rule was among those run.
+func (r *Runner) lint(c Case) (string, bool, error) {
 	linter, err := r.linterFor(c)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	linter.Manager.Config.Flags.InExt = c.Ext()
 
 	linted, err := linter.LintString(c.Input)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	var out strings.Builder
@@ -111,7 +127,31 @@ func (r *Runner) lint(c Case) (string, error) {
 		}
 	}
 
-	return out.String(), nil
+	sequence := false
+	for _, rule := range linter.Manager.Rules() {
+		if rule.Fields().Extends == "sequence" {
+			sequence = true
+			break
+		}
+	}
+
+	return out.String(), sequence, nil
+}
+
+// tagged is a case's input as the tagger reads it, `word/TAG` per token,
+// in the case's language. Markup is tagged as written: a sequence case is
+// almost always plain sentences, and the point is to see the tags the rule
+// saw.
+func tagged(c Case) string {
+	tokens, err := nlp.TextToTokens(strings.TrimSpace(c.Input), &nlp.Info{Lang: c.Lang})
+	if err != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		parts = append(parts, t.Text+"/"+t.Tag)
+	}
+	return strings.Join(parts, " ")
 }
 
 // linterFor returns the linter a case runs under.
@@ -282,6 +322,9 @@ func isolate(c Case, search []string, fsys system.FS) (*lint.Linter, error) {
 	// and not whether a run would show it.
 	cfg.MinAlertLevel = 0
 	cfg.GBaseStyles = []string{style}
+	if c.Lang != "" {
+		cfg.FormatToLang["*"] = c.Lang
+	}
 
 	// A rule that extends another rule resolves its parent against the search
 	// paths; isolation changes what runs, not what a reference means.

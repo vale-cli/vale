@@ -1,0 +1,72 @@
+# The checks built for English, on a file in another language: spelling
+# reads the language's own dictionary when the StylesPath has one and
+# steps aside when it doesn't, sentence case keeps the nouns German keeps,
+# and the English-only rules say so once rather than guess.
+name: lang-checks
+dir: fixtures/lang-checks
+
+cases:
+  - name: spelling-dictionary
+    about: "`Vale.Spelling` on a German file reads config/dictionaries/de.dic,
+      so the German words pass and the misspelling is caught"
+    args: test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 1
+    want: |
+      W101 Checks.Title matches $title, which is English only; it skips files in 'de'
+      W101 Checks.Readability measures English readability; it skips files in 'de'
+      test.md:3:30:Vale.Spelling:Did you really mean 'Strase'?
+
+  - name: sentence-case-keeps-nouns
+    about: "German sentence case keeps every noun capitalized, so a heading
+      with its nouns in capitals and the rest in lower case passes"
+    args: test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 1
+    absent:
+      - Checks.Heading
+
+  - name: sentence-case-flags-the-rest
+    about: "a lower-case noun and a capitalized preposition are still wrong"
+    args: heading.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 1
+    want: |
+      W101 Checks.Title matches $title, which is English only; it skips files in 'de'
+      W101 Checks.Readability measures English readability; it skips files in 'de'
+      heading.md:1:3:Checks.Heading:'Die straße Nach Berlin' should be in sentence case
+
+  - name: english-only-rules-step-aside
+    about: "$title and readability are English conventions; on a German file
+      each says so once and produces nothing"
+    args: test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 1
+    contains: |
+      W101 Checks.Title matches $title, which is English only; it skips files in 'de'
+      W101 Checks.Readability measures English readability; it skips files in 'de'
+    absent:
+      - "Checks.Title:"
+      - "Checks.Readability:"
+
+  - name: spelling-without-dictionary
+    dir: ../lang-nodict
+    about: "with no German dictionary, Vale.Spelling skips the file and says
+      what to add, rather than flagging every German word"
+    args: test.md
+    sync: true
+    env:
+      VALE_MODELS_URL: ../models
+    exit: 0
+    contains: |
+      W101 Vale.Spelling has no dictionary for 'de'; add <name>.dic and <name>.aff under config/dictionaries, or set Vale.Spelling = NO
+    absent:
+      - "Vale.Spelling:"

@@ -118,6 +118,14 @@ func TestImpliedGrammars(t *testing.T) {
 		t.Errorf("implied: got %v", names)
 	}
 
+	// Each implied grammar can say which sections asked for it.
+	if got := grammarDetail(cfg, "python"); got != "for [*.{py,rs}]" {
+		t.Errorf("detail: got %q", got)
+	}
+	if got := grammarDetail(cfg, "bash"); got != "" {
+		t.Errorf("detail for an unimplied grammar: got %q", got)
+	}
+
 	// With the key, the sections are not consulted.
 	cfg.Grammars = []string{}
 	if names, _ := grammarsToSync(cfg); len(names) != 0 {

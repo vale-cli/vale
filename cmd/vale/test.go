@@ -38,6 +38,8 @@ type testResult struct {
 	Error string `json:"error,omitempty"`
 	Got   string `json:"got,omitempty"`
 	Want  string `json:"want,omitempty"`
+	// Tags is the input as tagged, for a failing sequence case.
+	Tags string `json:"tags,omitempty"`
 }
 
 // runTests runs the test cases in the given files or directories.
@@ -151,6 +153,9 @@ func reportTests(results []testsuite.Result, files int, uncovered []string) erro
 		default:
 			fmt.Print(indentBlock(blockOrNone(r.Got)))
 		}
+		if r.Tags != "" {
+			fmt.Printf("\n  %s  %s\n", pterm.Gray("tags"), r.Tags)
+		}
 	}
 
 	if len(uncovered) > 0 {
@@ -198,6 +203,7 @@ func reportTestsJSON(results []testsuite.Result, uncovered []string) error {
 			Passed: !r.Failed(),
 			Reason: r.Reason,
 			Got:    r.Got,
+			Tags:   r.Tags,
 		}
 		if r.Case.Want != nil {
 			out.Want = *r.Case.Want

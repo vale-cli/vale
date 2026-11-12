@@ -1,0 +1,13 @@
+{
+  "language": "de",
+  "prose": "v3.2.3-5-g5e77b40",
+  "tagger": {
+    "source": "UD_German-GSD@ce54dbe (2026-05-06)",
+    "license": "CC BY-SA 4.0",
+    "tagset": "upos"
+  },
+  "segmenter": {
+    "source": "gopkg.in/neurosnap/sentences",
+    "license": "MIT"
+  }
+}

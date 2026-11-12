@@ -1,0 +1,6 @@
+extends: readability
+message: "Grade level %s is too high"
+level: error
+grade: 0
+metrics:
+  - Flesch-Kincaid

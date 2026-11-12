@@ -49,6 +49,11 @@ type Spelling struct {
 	Custom       bool
 	Append       bool
 
+	// byLanguage is set when the rule names no dictionary of its own, so it
+	// reads the built-in English one, and a file in another language reads
+	// that language's instead.
+	byLanguage bool
+
 	// `split` (`bool`): Check the parts of an identifier -- `recieveMessage`,
 	// `recieve_message`, `RecieveMessage` -- rather than skipping it or
 	// checking it whole. A part is reported at its own position.
@@ -185,6 +190,7 @@ func NewSpelling(cfg *core.Config, generic baseCheck, path string) (Spelling, er
 		rule.stdFilters = true
 	}
 	rule.gs = model
+	rule.byLanguage = len(rule.Dictionaries) == 0 && rule.Dic == "" && rule.Dicpath == ""
 
 	return rule, nil
 }
@@ -193,6 +199,20 @@ func NewSpelling(cfg *core.Config, generic baseCheck, path string) (Spelling, er
 func (s Spelling) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Alert, error) {
 	var alerts []core.Alert
 	vocab := vocabFor(cfg, f)
+
+	// The built-in dictionary is English; a file in another language reads
+	// the one its StylesPath has for it, or nothing, since checking German
+	// against en_US flags every word.
+	if s.byLanguage && f != nil && !nlp.IsEnglish(f.NLP.Lang) {
+		gs := spellerFor(cfg, f.NLP.Lang)
+		if gs == nil {
+			warnOnce(s.Name+":"+f.NLP.Lang, fmt.Sprintf(
+				"%s has no dictionary for '%s'; add <name>.dic and <name>.aff under %s, or set %s = NO",
+				s.Name, f.NLP.Lang, core.DictDir, s.Name))
+			return alerts, nil
+		}
+		s.gs = gs
+	}
 
 	// Mask any accepted multi-word phrases (e.g. `mea culpa`) so their
 	// component words aren't spell-checked individually, while the same words

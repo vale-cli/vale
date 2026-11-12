@@ -88,3 +88,30 @@ func readOptional(cfg *Config, path string) ([]byte, error) {
 	}
 	return cfg.FS.ReadFile(path)
 }
+
+// DictionaryNames lists the file names a language's Hunspell dictionary may
+// go by under config/dictionaries: the tag itself, Hunspell's underscore
+// form with the region in capitals, the base language, and the base doubled,
+// as de_DE.
+func DictionaryNames(lang string) []string {
+	lang = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(lang), "_", "-"))
+	base, region, _ := strings.Cut(lang, "-")
+	names := []string{lang}
+	if region != "" {
+		names = append(names, base+"_"+strings.ToUpper(region), base)
+	}
+	return append(names, base+"_"+strings.ToUpper(base))
+}
+
+// DictionaryFor finds a language's dictionary on the StylesPath: the paths
+// of its .dic and .aff files, or two empty strings.
+func DictionaryFor(cfg *Config, lang string) (string, string) {
+	for _, name := range DictionaryNames(lang) {
+		dic := FindConfigAsset(cfg, name+".dic", DictDir)
+		aff := FindConfigAsset(cfg, name+".aff", DictDir)
+		if dic != "" && aff != "" {
+			return dic, aff
+		}
+	}
+	return "", ""
+}
