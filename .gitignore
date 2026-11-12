@@ -15,6 +15,7 @@ site
 target
 dist
 _vendor-*
+.zig-cache
 docs/public/
 fixtures/formats/Sphinx/_build/
 
