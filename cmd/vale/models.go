@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strings"
 
 	"github.com/jdkato/prose/v3/models"
@@ -119,10 +120,14 @@ const grammarReleases = "https://github.com/vale-cli/vale/releases/download/%s/%
 const grammarsURLVar = "VALE_GRAMMARS_URL"
 
 // grammarsToSync is the grammars a configuration asks for with its
-// `Grammars` key: the ones it names, or every one for `ALL`; none without
-// the key, since most projects lint no code and a grammar is a download. An
-// unknown name is an error, since nothing would be found for it.
+// `Grammars` key: the ones it names, or every one for `ALL`. Without the
+// key, the ones its sections imply: a `[*.go]` section is going to lint Go,
+// so it gets the Go grammar without naming it. An unknown name is an error,
+// since nothing would be found for it.
 func grammarsToSync(cfg *core.Config) ([]string, error) {
+	if cfg.Grammars == nil {
+		return impliedGrammars(cfg), nil
+	}
 	known := map[string]bool{}
 	for _, name := range code.Names() {
 		known[name] = true
@@ -139,6 +144,56 @@ func grammarsToSync(cfg *core.Config) ([]string, error) {
 		out = append(out, name)
 	}
 	return out, nil
+}
+
+// impliedGrammars is the grammars of the code extensions the configuration's
+// sections name: `*.go`, `*.{py,rs}`, `src/**/*.ts`. Named, not matched: a
+// `[*]` section matches every file, but asking for it is not asking for
+// every grammar, which is what `Grammars = ALL` is for.
+func impliedGrammars(cfg *core.Config) []string {
+	seen := map[string]bool{}
+	for _, pat := range cfg.SecToPat {
+		if pat.Negated {
+			continue
+		}
+		for _, ext := range code.Extensions() {
+			if !namesExt(pat.Pattern, ext) {
+				continue
+			}
+			if lang, err := code.GetLanguageFromExt(ext); err == nil && lang.Grammar != "" {
+				seen[lang.Grammar] = true
+			}
+		}
+	}
+
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// namesExt reports whether a glob spells out an extension: `go` in `*.go`
+// or `*.{go,py}`, as a whole word, so `*.golden` is not Go.
+func namesExt(pattern, ext string) bool {
+	word := ext[1:]
+	for at := 0; ; {
+		i := strings.Index(pattern[at:], word)
+		if i < 0 {
+			return false
+		}
+		i += at
+		end := i + len(word)
+		if (i == 0 || !isWordByte(pattern[i-1])) && (end == len(pattern) || !isWordByte(pattern[end])) {
+			return true
+		}
+		at = i + 1
+	}
+}
+
+func isWordByte(b byte) bool {
+	return b == '_' || (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 // syncGrammars installs the grammars the configuration asks for, after the

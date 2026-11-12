@@ -448,6 +448,8 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		return nil
 	},
 	"Grammars": func(sec *ini.Section, cfg *Config) error {
+		// Present but empty, `Grammars = NONE`, is an empty list rather
+		// than nil: sync infers grammars only when the key is absent.
 		cfg.Grammars = valuesAfterNone(sec.Key("Grammars"))
 		return nil
 	},

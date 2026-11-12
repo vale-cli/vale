@@ -64,6 +64,16 @@ func Names() []string {
 	}
 }
 
+// Extensions lists every file extension a grammar reads, as languageFor
+// knows them.
+func Extensions() []string {
+	return []string{
+		".go", ".rs", ".py", ".rb", ".ex", ".cpp", ".c", ".cs", ".js", ".jsx",
+		".hs", ".jl", ".java", ".kt", ".lua", ".php", ".ts", ".tsx", ".proto",
+		".qml", ".r", ".yml", ".yaml", ".toml", ".css",
+	}
+}
+
 // A NotInstalledError is a grammar the configuration has no module for.
 type NotInstalledError struct {
 	Name string

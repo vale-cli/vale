@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/vale-cli/vale/v3/internal/core"
+	"github.com/vale-cli/vale/v3/internal/glob"
 	"github.com/vale-cli/vale/v3/internal/lint/code"
 )
 
@@ -95,5 +96,31 @@ func TestGrammarsToSync(t *testing.T) {
 	cfg.Grammars = []string{"cobol"}
 	if _, bad := grammarsToSync(cfg); bad == nil || !strings.Contains(bad.Error(), `"cobol"`) {
 		t.Errorf("unknown: %v", bad)
+	}
+}
+
+func TestImpliedGrammars(t *testing.T) {
+	cfg, err := core.NewConfig(&core.CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pat := range []string{"*", "*.md", "*.go", "*.{py,rs}", "src/**/*.ts", "*.golden", "!*.rb"} {
+		g, gerr := glob.Compile(pat)
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		cfg.SecToPat[pat] = g
+	}
+
+	// Without the key, the sections decide; `[*]` and the negated section
+	// add nothing.
+	if names, _ := grammarsToSync(cfg); strings.Join(names, ",") != "go,python,rust,typescript" {
+		t.Errorf("implied: got %v", names)
+	}
+
+	// With the key, the sections are not consulted.
+	cfg.Grammars = []string{}
+	if names, _ := grammarsToSync(cfg); len(names) != 0 {
+		t.Errorf("NONE with sections: got %v", names)
 	}
 }

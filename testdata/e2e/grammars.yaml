@@ -13,6 +13,23 @@ files:
     func main() {}
 
 cases:
+  - name: sync-implied
+    about: "without a `Grammars` key, the sections say which grammars to
+      install: a section for Go files gets the Go grammar"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.go]
+        BasedOnStyles = Vale
+    args: sync --plain-progress
+    sync: true
+    exit: 0
+    contains: |
+      Synced grammar-go
+    absent:
+      - Synced grammar-python
+
   - name: sync-named
     about: "`Grammars` names the grammars to install; the rest are left alone"
     files:
