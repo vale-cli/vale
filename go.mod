@@ -13,7 +13,7 @@ require (
 	github.com/d5/tengo/v2 v2.17.0
 	github.com/errata-ai/ini v1.63.0
 	github.com/expr-lang/expr v1.17.7
-	github.com/gobwas/glob v0.2.3
+	github.com/gobwas/glob v1.1.0
 	github.com/jdkato/go-tree-sitter-julia v0.1.0
 	github.com/jdkato/prose/v3 v3.3.1
 	github.com/jdkato/regexp2/v2 v2.5.6

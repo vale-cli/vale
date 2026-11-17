@@ -15,7 +15,7 @@ type Glob struct {
 
 	// compiled is the `gobwas/glob` form of Pattern, built once by NewGlob.
 	// It's nil for a `**` pattern, which doublestar matches instead.
-	compiled glob.Glob
+	compiled *glob.Pattern
 }
 
 // Match returns whether or not the Glob g matches the string query.
