@@ -304,6 +304,29 @@ func TestWrappedRuns(t *testing.T) {
 	}
 }
 
+// A run that wraps inside a list item is mapped where it is, not to a later
+// copy outside the item, and the cursor stops there. See #1227.
+func TestMapRunWrapped(t *testing.T) {
+	ctx := "- Hello there. This is some text,\n  and this is some more.\n\nMore text, unrelated,\nand yet more.\n"
+	raw := ",\nand"
+
+	w := &walker{context: []byte(ctx)}
+	w.mapRun(5, raw)
+
+	want := []nlp.Run{{At: 5, Src: 32, N: 1}, {At: 7, Src: 36, N: 3}}
+	if !reflect.DeepEqual(w.spans, want) {
+		t.Fatalf("spans = %v, want %v", w.spans, want)
+	}
+	if w.srcCursor != 39 {
+		t.Errorf("srcCursor = %d, want 39", w.srcCursor)
+	}
+
+	w.mapRun(0, "More text")
+	if w.spans[len(w.spans)-1].Src != 60 {
+		t.Errorf("the run after the list item was placed at %d, want 60", w.spans[len(w.spans)-1].Src)
+	}
+}
+
 // A run the converter rewrote is mapped by its words, so a match in it is
 // placed where the word is rather than wherever the text first appears.
 func TestMapWords(t *testing.T) {

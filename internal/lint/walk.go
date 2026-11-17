@@ -699,6 +699,22 @@ func (w *walker) mapRun(at int, raw string) {
 		return
 	}
 
+	// A run that wraps inside a list item or blockquote has the item's
+	// indentation or `>` after each line break in the source, which raw does
+	// not. Searching for raw as written misses it, or finds a copy further
+	// down and drags the cursor past every run after it, leaving each of
+	// their alerts to be placed by searching the file. See #1227.
+	if strings.Contains(raw, "\n") {
+		if runs, end := wrappedRuns(raw, ctx, w.srcCursor); runs != nil {
+			for _, r := range runs {
+				r.At += at
+				w.spans = append(w.spans, r)
+			}
+			w.srcCursor = end
+			return
+		}
+	}
+
 	i := strings.Index(ctx[w.srcCursor:], raw)
 	if i < 0 {
 		w.mapWords(at, raw, ctx)
