@@ -118,16 +118,16 @@ func (mgr *Manager) resolveRule(name string) (string, error) {
 		return "", fmt.Errorf("'%s' is not a rule name", name)
 	}
 
-	rel := filepath.Join(parts[1:]...) + ".yml"
+	rel := filepath.Join(parts[1:]...)
 	for _, p := range mgr.Config.SearchPaths() {
-		candidate := filepath.Join(p, parts[0], rel)
-		if mgr.Config.FS.Exists(candidate) {
+		stem := filepath.Join(p, parts[0], rel)
+		if candidate, found := core.FindRuleFile(mgr.Config.FS, stem); found {
 			return candidate, nil
 		}
 	}
 
 	return "", fmt.Errorf(
-		"'%s' does not exist on the search path (looked for '%s')",
+		"'%s' does not exist on the search path (looked for '%s.yml' or '.yaml')",
 		name, filepath.Join(parts[0], rel))
 }
 

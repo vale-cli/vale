@@ -261,7 +261,11 @@ func spelling(alert core.Alert, cfg *core.Config) ([]string, error) {
 	if len(name) != 2 {
 		return suggestions, fmt.Errorf("unknown check '%s'", alert.Check)
 	}
-	path := filepath.Join(cfg.StylesPath(), name[0], name[1]+".yml")
+	stem := filepath.Join(cfg.StylesPath(), name[0], name[1])
+	path, found := core.FindRuleFile(cfg.FS, stem)
+	if !found {
+		path = stem + ".yml"
+	}
 
 	mgr, err := NewManager(cfg)
 	if err != nil {
