@@ -144,7 +144,6 @@ cases:
 
   - name: asciidoc
     args: test.adoc
-    requires: asciidoctor
     exit: 0
     want: |
       test.adoc:10:39:vale.Annotations:'TODO' left in text
@@ -165,7 +164,6 @@ cases:
       `[refid]` or the file path, which a chapter of a book linted on its own
       gets for every reference into another chapter, and none of it is in the
       source. Authored text is still linted.
-    requires: asciidoctor
     files:
       .vale.ini: |
         MinAlertLevel = suggestion
@@ -1824,7 +1822,6 @@ cases:
   - name: ignored-role-covers-alt-text
     about: "#1219 -- the same through Asciidoctor, where `role=\"vale-off\"`
       on an image becomes the class of the block around it"
-    requires: asciidoctor
     files:
       .vale.ini: |
         StylesPath = styles
@@ -2086,7 +2083,6 @@ cases:
       and a bare URL is not linted at all. A spelling alert is placed by
       the block's own position, so a word in link text is no longer found
       inside the URL that follows it."
-    requires: rst2html
     files:
       .vale.ini: |
         StylesPath = styles
@@ -2110,7 +2106,6 @@ cases:
 
   - name: restructuredtext
     args: test.rst
-    requires: rst2html
     exit: 0
     want: |
       test.rst:4:34:vale.Annotations:'XXX' left in text

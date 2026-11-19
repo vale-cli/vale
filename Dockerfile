@@ -25,8 +25,6 @@ RUN go build -ldflags "-s -w -X main.version=$ltag" -o /app/vale ./cmd/vale
 FROM alpine
 
 RUN apk add --no-cache \
-    py3-docutils \
-    asciidoctor \
     nodejs \
     npm
 

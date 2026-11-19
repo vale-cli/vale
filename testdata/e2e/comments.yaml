@@ -51,7 +51,6 @@ cases:
 
   - name: rst
     args: test.rst
-    requires: rst2html
     exit: 1
     want: |
       test.rst:15:19:vale.Redundancy:'ACT test' is redundant
@@ -78,7 +77,6 @@ cases:
 
   - name: asciidoc
     args: test.adoc
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:15:19:vale.Redundancy:'ACT test' is redundant
@@ -271,7 +269,6 @@ cases:
       the source. The comment's position is searched for from the last
       comment, not from the block cursor, so the region still begins at
       the comment."
-    requires: rst2html
     files:
       .vale.ini: |
         StylesPath = styles

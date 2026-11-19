@@ -104,7 +104,6 @@ cases:
 
   - name: blockquote
     args: .
-    requires: asciidoctor, rst2html
     exit: 1
     want: |
       test.adoc:5:12:rules.Quote:Don't use 'here' in a blockquote.
@@ -113,7 +112,6 @@ cases:
 
   - name: class
     args: .
-    requires: asciidoctor
     exit: 0
     want: |
       test.adoc:3:4:rules.Class:class scope matched 'widget'
@@ -122,7 +120,6 @@ cases:
     about: "#1002"
     dir: inline
     args: .
-    requires: asciidoctor
     exit: 0
     want: |
       test.adoc:1:27:rules.LinkText:link: 'here'
@@ -161,7 +158,6 @@ cases:
 
   - name: skip
     args: .
-    requires: rst2html
     exit: 0
     want: |
       test.md:3:1:vale.Annotations:'TODO' left in text
@@ -248,7 +244,6 @@ cases:
       on the heading."
     dir: inline-space
     args: .
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:3:6:rules.InlineTitle:'Mixing ****************s' should use title-style capitalization.
@@ -288,7 +283,6 @@ cases:
 
   - name: attr
     args: .
-    requires: asciidoctor, rst2html
     exit: 0
     want: |
       test.adoc:3:16:rules.Alt:alt text should be less than 125 characters.
@@ -298,7 +292,6 @@ cases:
   - name: inline
     dir: link
     args: .
-    requires: asciidoctor, rst2html
     exit: 1
     want: |
       test.adoc:1:34:rules.Link:Don't use '[here]' as the content of a link.
@@ -313,7 +306,7 @@ cases:
 
   - name: heading
     args: .
-    requires: asciidoctor, dita, rst2html, xsltproc
+    requires: dita, xsltproc
     exit: 1
     want: |
       test.adoc:1:20:rules.Heading:'XXX' left in text
@@ -345,7 +338,6 @@ cases:
     about: "#1101"
     dir: headings-attrs
     args: .
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:1:3:Test.Headings:'document title' should use title-style capitalization.
@@ -355,7 +347,6 @@ cases:
     about: "#1109"
     dir: adoc-heading-xref
     args: .
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:4:4:Test.Headings:'first heading lowercase' should use title-style capitalization.
@@ -444,7 +435,6 @@ cases:
 
   - name: table
     args: .
-    requires: asciidoctor, rst2html
     exit: 1
     want: |
       test.adoc:9:2:rules.Table:'TODO' left in text
@@ -457,7 +447,6 @@ cases:
 
   - name: list
     args: .
-    requires: asciidoctor, rst2html
     exit: 1
     want: |
       test.adoc:7:11:rules.List:'TODO' left in text

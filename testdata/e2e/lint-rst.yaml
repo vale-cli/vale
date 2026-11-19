@@ -5,7 +5,6 @@ dir: fixtures/formats/rst
 cases:
   - name: basic
     args: test.rst
-    requires: rst2html
     exit: 1
     want: |
       test.rst:15:1:Test.Rule:Use 'BIG Needles' rather than 'BIG needles'.
@@ -20,7 +19,6 @@ cases:
       instead, and the roles whose text is prose. A literal, a code block, a
       toctree and a `vale off` block are not read."
     args: sphinx.rst
-    requires: rst2html
     exit: 1
     want: |
       sphinx.rst:4:18:Test.Rule:Use 'BIG Needles' rather than 'BIG needles'.
@@ -54,7 +52,6 @@ cases:
 
         Run ``rsp | grep x`` and keep |rsp-a b| as written.
     args: subst.rst
-    requires: rst2html
     exit: 1
     want: |
       subst.rst:1:57:Test.Rule:found 'rsp'
@@ -85,7 +82,6 @@ cases:
         Files (\*.in.rst) with rsp-only
         =================================
     args: roles.rst
-    requires: rst2html
     exit: 1
     want: |
       roles.rst:4:15:Test.Rule:found 'rsp'
@@ -112,7 +108,6 @@ cases:
         Using ``a-b`` is supported, however some plugins might use it.
         Using ``ab`` is supported, however.
     args: literal.rst
-    requires: rst2html
     exit: 1
     want: |
       literal.rst:1:29:Test.Rule:found 'however'

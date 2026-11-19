@@ -927,7 +927,6 @@ cases:
         Push to github, then set apiVersion and created_at in kubernetes on vSphere, not githbu.
       page.txt: |
         Push to github, then set apiVersion and created_at in kubernetes on vSphere, not githbu.
-    requires: rst2html
     args: --output=JSON page.md page.rst page.txt
     exit: 1
     want: |

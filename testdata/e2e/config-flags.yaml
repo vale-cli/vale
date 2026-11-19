@@ -51,7 +51,7 @@ cases:
 
   - name: glob
     args: "--glob=*.{py,cc} ."
-    requires: asciidoctor, dita, rst2html, xsltproc
+    requires: dita, xsltproc
     exit: 0
     want: |
       test.cc:1:4:vale.Annotations:'XXX' left in text
@@ -74,7 +74,7 @@ cases:
     exit: 0
     absent:
       - py
-    requires: asciidoctor, dita, rst2html, xsltproc
+    requires: dita, xsltproc
 
   - name: glob-negated-dir
     dir: ../glob
@@ -92,7 +92,7 @@ cases:
     absent:
       - md
       - py
-    requires: asciidoctor, dita, rst2html, xsltproc
+    requires: dita, xsltproc
 
   - name: glob-invalid
     about: "a pattern gobwas/glob rejects used to panic mid-walk"
@@ -105,7 +105,7 @@ cases:
   - name: no-config-found
     dir: ../../../..
     args: .
-    requires: asciidoctor, dita, rst2html, xsltproc
+    requires: dita, xsltproc
     exit: 2
     contains: |
       [.vale.ini not found]:E100:no config file found

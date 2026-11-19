@@ -120,7 +120,6 @@ cases:
             A really important line.
           want: ""
     args: test
-    requires: [rst2html]
     exit: 0
     contains: 3 passed, 0 failed
 

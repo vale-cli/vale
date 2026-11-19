@@ -5,7 +5,6 @@ dir: fixtures/formats/adoc
 cases:
   - name: basic
     args: test.adoc
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:1:24:Test.Rule:Use 'Web source' instead of 'Web Source'.
@@ -32,7 +31,6 @@ cases:
 
   - name: listing-block
     args: test2.adoc
-    requires: asciidoctor
     exit: 1
     want: |
       test2.adoc:3:17:Test.Rule2:Consider using 'AsciiDoc' instead of 'Asciidoc'
@@ -41,14 +39,12 @@ cases:
 
   - name: attributes
     args: test3.adoc
-    requires: asciidoctor
     exit: 0
     want: ""
 
   - name: header-attribute
     about: "#1112"
     args: test4.adoc
-    requires: asciidoctor
     exit: 1
     want: |
       test4.adoc:2:283:Test.Semicolons:semicolon match
@@ -104,7 +100,6 @@ cases:
 
         c. Verify the result.
     args: test.adoc
-    requires: asciidoctor
     exit: 0
     want: |
       test.adoc:1:2:Test.Caption:'Valid' in a caption.

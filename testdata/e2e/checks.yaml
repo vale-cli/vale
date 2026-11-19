@@ -98,7 +98,6 @@ cases:
   - name: repetition
     dir: Repetition
     args: .
-    requires: rst2html
     exit: 1
     want: |
       test.md:5:170:Vale.Repetition:'plan' is repeated!
@@ -783,7 +782,6 @@ cases:
   - name: sequence
     dir: Sequence
     args: .
-    requires: asciidoctor
     exit: 1
     want: |
       test.adoc:3:4:LanguageTool.WOULD_BE_JJ_VB:The infinitive 'write' after 'be' requries 'to'. Did you mean 'be great *to* write'?

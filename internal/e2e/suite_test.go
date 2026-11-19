@@ -248,10 +248,8 @@ func (x *tools) UnmarshalYAML(node *yaml.Node) error {
 // when none of the alternatives resolve.
 func (x tools) missing() []string {
 	alternatives := map[string][]string{
-		"rst2html":    {"rst2html", "rst2html.py", "rst2html-3", "rst2html-3.py"},
-		"dita":        {"dita", "dita.bat"},
-		"xsltproc":    {"xsltproc", "xsltproc.exe"},
-		"asciidoctor": {"asciidoctor", "asciidoctor.bat"},
+		"dita":     {"dita", "dita.bat"},
+		"xsltproc": {"xsltproc", "xsltproc.exe"},
 	}
 
 	var absent []string

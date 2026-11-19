@@ -21,7 +21,6 @@ cases:
   - name: demo
     dir: demo
     args: .
-    requires: asciidoctor, rst2html
     exit: 1
     want: |
       test.adoc:1:1:demo.SentenceLength:Sentences should be less than 25 words

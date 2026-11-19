@@ -48,7 +48,7 @@ func ConverterOptions(cfg *core.Config, format string) (map[string]any, error) {
 	switch format {
 	case "adoc", ".adoc":
 		attrs := append([]string{}, adocAttributes(adocArgs)...)
-		attrs = append(attrs, parseAttributes(cfg.Asciidoctor)...)
+		attrs = append(attrs, adocCLIAttributes(cfg.Asciidoctor)...)
 		return map[string]any{
 			"attributes": attrs,
 			"standalone": false,

@@ -96,6 +96,16 @@ for (const [format, want] of builtCases) {
   alerts = JSON.parse(out.result)[`input.${format}`];
   assert.deepEqual(alerts.map((a) => [a.Line, a.Span]), want, format);
 }
+
+// AsciiDoc and reStructuredText are also converted inside the module, by
+// Go ports of Asciidoctor and Docutils, and land every alert where the
+// real converters' HTML did.
+for (const [format, want] of builtCases.slice(0, 2)) {
+  out = ValeLint(built(`doc.${format}`), format, custom);
+  assert.equal(out.error, undefined, `${format}: ${out.error}`);
+  alerts = JSON.parse(out.result)[`input.${format}`];
+  assert.deepEqual(alerts.map((a) => [a.Line, a.Span]), want, `${format}, converted in the module`);
+}
 out = ValeLintBuilt("# Title\n", "md", "<h1>Title</h1>", custom);
 assert.match(out.error, /no built form/);
 

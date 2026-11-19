@@ -38,23 +38,15 @@ type Linter struct {
 	// prepareDITA.
 	ditaHTML map[string][]byte
 
-	// adoc holds the Asciidoctor processes this run is using, and adocOnce
-	// starts them the first time an AsciiDoc file is seen.
+	// typst holds the typst2vast processes this run is using, and
+	// typstPoolOnce starts them the first time a Typst file is seen.
 	//
 	// These belong to the Linter rather than to the package: a long-lived
 	// caller -- the language server, or anything embedding Vale -- lints many
 	// times in one process, and a pool with no owner is a pool nothing ever
 	// stops.
-	adoc     *procPool
-	adocOnce sync.Once
-
-	// typst is the same arrangement for typst2vast.
 	typst         *procPool
 	typstPoolOnce sync.Once
-
-	// rst is the same arrangement for Docutils.
-	rst     *procPool
-	rstOnce sync.Once
 
 	// singleDoc marks a run that lints exactly one document.
 	//
@@ -155,15 +147,15 @@ func (l *Linter) poolSize() int {
 	if l.singleDoc {
 		return 1
 	}
-	return adocConcurrency
+	return poolConcurrency
 }
 
 // LintString src according to its format.
 func (l *Linter) LintString(src string) ([]*core.File, error) {
 	l.singleDoc = true
 
-	// A string is linted by the same helpers a file is -- `cat page.rst |
-	// vale` reaches Docutils exactly as `vale page.rst` does -- so it owes
+	// A string is linted by the same helpers a file is -- `cat page.typ |
+	// vale` reaches typst2vast exactly as `vale page.typ` does -- so it owes
 	// them the same shutdown. Without this the run left its processes to be
 	// noticed by the closing of a pipe rather than being waited for, which is
 	// the one way this path differed from Lint.
@@ -915,20 +907,10 @@ func (l *Linter) skip(old string) bool {
 
 // stopExternal shuts down the helper processes a run started.
 func (l *Linter) stopExternal() {
-	if l.adoc != nil {
-		l.adoc.stop()
-		l.adoc = nil
-		l.adocOnce = sync.Once{}
-	}
 	if l.typst != nil {
 		l.typst.stop()
 		l.typst = nil
 		l.typstPoolOnce = sync.Once{}
-	}
-	if l.rst != nil {
-		l.rst.stop()
-		l.rst = nil
-		l.rstOnce = sync.Once{}
 	}
 	l.singleDoc = false
 }

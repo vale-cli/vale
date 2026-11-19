@@ -34,15 +34,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # For Asciidoctor, below -- the end-to-end suite lints AsciiDoc.
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -55,8 +46,6 @@ jobs:
             sudo apt-get -qq update
             sudo apt-get install -y xsltproc
           fi
-          python -m pip install --upgrade docutils sphinx  # rst2html
-          gem install asciidoctor
           cargo install --locked typst2vast  # runners ship a Rust toolchain
           curl -fsSL -o dita-ot-3.6.zip \
             https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
@@ -96,15 +85,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # For Asciidoctor, below -- the end-to-end suite lints AsciiDoc.
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -112,9 +92,8 @@ jobs:
 
       # The same converters the Linux job installs.
       - name: Install documentation toolchain
+        shell: bash
         run: |
-          python -m pip install --upgrade docutils sphinx  # rst2html
-          gem install asciidoctor
           cargo install --locked typst2vast  # runners ship a Rust toolchain
           choco install --no-progress -y xsltproc
           curl -fsSL -o dita-ot-3.6.zip \

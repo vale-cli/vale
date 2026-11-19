@@ -3,26 +3,13 @@ package lint
 import (
 	"strings"
 	"testing"
-
-	"github.com/vale-cli/vale/v3/internal/system"
 )
 
-// The executable path loads the same converter the server does: a
-// cross-reference without authored text renders as an empty link.
-func TestAdocConverterFile(t *testing.T) {
-	exe := system.Which([]string{"asciidoctor"})
-	if exe == "" {
-		t.Skip("asciidoctor not installed")
-	}
-	conv := adocConverterFile(adocIsJS(exe))
-	if conv == "" {
-		t.Fatal("no converter file was written")
-	}
-
-	args := append([]string{}, adocArgs...)
-	args = append(args, "-r", conv, "--safe-mode", "secure", "-")
-	html, err := system.ExecuteWithInput(exe,
-		"= T\n\nSee <<zorbblat>> and xref:other.adoc#x[] and xref:x[kept].\n", args...)
+// A cross-reference without authored text renders as an empty link, whether
+// or not it resolves; authored text is kept. See #1224 for the host-side
+// converter that does the same.
+func TestADocXrefKeepsOnlyAuthoredText(t *testing.T) {
+	html, err := convertADoc("= T\n\nSee <<zorbblat>> and xref:other.adoc#x[] and xref:x[kept].\n", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,27 +24,40 @@ func TestAdocConverterFile(t *testing.T) {
 	}
 }
 
-// Asciidoctor.js names itself in its version line, and gets the converter
-// as a module its CLI can require; the Ruby gem gets the Ruby one. See
-// #1224.
-func TestIsAsciidoctorJS(t *testing.T) {
-	for out, want := range map[string]bool{
-		"Asciidoctor.js 3.0.4 (Asciidoctor 2.0.20) [https://asciidoctor.org]\nRuntime Environment (node v22.22.3 on darwin)": true,
-		"Asciidoctor 2.0.18 [https://asciidoctor.org]\nRuntime Environment (ruby 3.2.2 [arm64-darwin23])":                    false,
-		"": false,
+// Vale's own attributes hold until the configuration's `[asciidoctor]`
+// section speaks, read the way the CLI read `-a`: YES sets, NO unsets, and
+// the configuration's word is last.
+func TestADocOptions(t *testing.T) {
+	got := adocOptions(map[string]string{"experimental": "YES", "sectnums": "YES", "icons": "font", "toc": "NO"})
+	for k, want := range map[string]string{
+		"notitle!":          "",
+		"attribute-missing": "drop",
+		"experimental":      "",
+		"sectnums":          "",
+		"icons":             "font",
+		"toc!":              "",
 	} {
-		if got := isAsciidoctorJS(out); got != want {
-			t.Errorf("isAsciidoctorJS(%q) = %t, want %t", out, got, want)
+		if v, ok := got[k]; !ok || v != want {
+			t.Errorf("attribute %q = %q, %t; want %q", k, v, ok, want)
 		}
 	}
+	if _, ok := got["sectnums!"]; ok {
+		t.Error("the configuration's sectnums = YES left Vale's sectnums! in place")
+	}
 
-	for _, want := range []string{
-		`require.resolve("@asciidoctor/core"`,
-		"class ValeHtml5Converter",
-		`asciidoctor.ConverterFactory.register(new ValeHtml5Converter(asciidoctor), ["html5"]);`,
-	} {
-		if !strings.Contains(adocConverterModule, want) {
-			t.Errorf("the converter module lacks %q", want)
-		}
+	doc := "= T\n\n== One\n\nText.\n"
+	html, err := convertADoc(doc, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(html, "1. One") {
+		t.Errorf("section numbers are off by default:\n%s", html)
+	}
+	html, err = convertADoc(doc, map[string]string{"sectnums": "YES"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(html, "1. One") {
+		t.Errorf("the configuration's sectnums = YES should turn them on:\n%s", html)
 	}
 }

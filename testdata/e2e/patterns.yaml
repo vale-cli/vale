@@ -21,7 +21,6 @@ cases:
 
   - name: asciidoc
     args: test.adoc
-    requires: asciidoctor
     exit: 0
     want: |
       test.adoc:1:19:vale.Redundancy:'ACT test' is redundant
@@ -30,7 +29,6 @@ cases:
 
   - name: rst
     args: test.rst
-    requires: rst2html
     exit: 0
     want: |
       test.rst:1:19:vale.Redundancy:'ACT test' is redundant
@@ -109,7 +107,6 @@ cases:
 
   - name: inline-ignored-classes
     args: test2.rst
-    requires: rst2html
     exit: 1
     want: |
       test2.rst:93:7:Vale.Spelling:Did you really mean 'Mautic'?
