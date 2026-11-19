@@ -30,9 +30,10 @@ cases:
     contains: |
       test.md:3:5:Vale.Spelling:Did you really mean 'Myproduct'?
       test.md:7:5:Vale.Spelling:Did you really mean 'Myproduct'?
-      test.md:9:34:write-good.Passive:'be flagged' may be passive voice. Use active voice if you can.
+      test.md:9:34:write-good.Passive:'be flagged' may be passive voice
       test.md:11:1:Vale.Spelling:Did you really mean 'peut'?
-      test.md:13:11:write-good.Weasel:'very' is a weasel word!
+      test.md:13:11:write-good.Adverbs:'very' can weaken meaning
+      test.md:13:11:write-good.Weasel:'very' is a weasel word
 
   - name: config-only
     dir: config
