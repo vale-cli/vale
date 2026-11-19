@@ -1,0 +1,51 @@
+---
+title: Getting started
+---
+
+# {% $markdoc.frontmatter.title %} {% #overview %}
+
+Body prose with a TODO in it, and a {% highlight %}span with FIXME inside{% /highlight %}.
+The release is {% $version %} and {% uppercase($name) %} is a function.
+
+{% callout type="check" title="A title with NOTE in it" %}
+Callout prose with an XXX in it.
+
+- One item with a TODO in it. {% .FIXME %}
+- Another item.
+{% /callout %}
+
+{% if equals($flag, true) %}
+Conditional prose with an XXX in it.
+{% else /%}
+Fallback prose with a TODO in it.
+{% /if %}
+
+{% partial file="header-FIXME.md" /%}
+
+{% table %}
+* Heading with an XXX
+* Heading 2
+---
+* Cell with a TODO {% colspan=2 %}
+* Cell 2
+{% /table %}
+
+```md
+{% callout %}
+A fenced NOTE is code.
+{% /callout %}
+```
+
+{% card
+   title="Spread NOTE"
+   size="large" %}
+A card's prose with an XXX in it.
+
+{% card title="Inner" %}
+Nested card prose with a TODO in it.
+{% /card %}
+
+Still the outer card, with a FIXME.
+{% /card %}
+
+Press {% kbd %}Enter{% /kbd %} to finish with an XXX.

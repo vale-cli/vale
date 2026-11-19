@@ -375,6 +375,91 @@ cases:
       doc.md:21:96:T.Rule:found wombat
       doc.md:23:10:T.Rule:found wombat
 
+  - name: markdoc
+    about: "#1213 -- Markdoc tags are markup, not prose: a paired tag's body
+      is linted, its attributes, variables, functions, and annotations say
+      nothing, a self-closing tag has no body, tags nest by name, and a tag
+      inside a fence is code"
+    args: test.mdoc
+    exit: 0
+    want: |
+      test.mdoc:7:19:vale.Annotations:'TODO' left in text
+      test.mdoc:7:62:vale.Annotations:'FIXME' left in text
+      test.mdoc:11:23:vale.Annotations:'XXX' left in text
+      test.mdoc:13:19:vale.Annotations:'TODO' left in text
+      test.mdoc:18:27:vale.Annotations:'XXX' left in text
+      test.mdoc:20:23:vale.Annotations:'TODO' left in text
+      test.mdoc:26:19:vale.Annotations:'XXX' left in text
+      test.mdoc:29:15:vale.Annotations:'TODO' left in text
+      test.mdoc:42:24:vale.Annotations:'XXX' left in text
+      test.mdoc:45:26:vale.Annotations:'TODO' left in text
+      test.mdoc:48:30:vale.Annotations:'FIXME' left in text
+      test.mdoc:51:50:vale.Annotations:'XXX' left in text
+    absent:
+      - NOTE
+
+  - name: markdoc-attributes
+    about: "a Markdoc tag's string attributes are metadata: an ordinary rule
+      passes over them, a rule scoped to `meta.class.<attribute>` reaches
+      one by name, and the tag's name scopes its body as a class. A `.md`
+      file opts in through `[formats]`."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [formats]
+        md = mdoc
+
+        [*.md]
+        T.Prose = YES
+        T.Title = YES
+        T.Callout = YES
+      styles/T/Prose.yml: |
+        extends: existence
+        message: "'%s' as prose"
+        level: error
+        nonword: true
+        raw:
+          - ZQX
+      styles/T/Title.yml: |
+        extends: existence
+        message: "'%s' in a title attribute"
+        scope: meta.class.title
+        level: error
+        nonword: true
+        raw:
+          - ZQX
+      styles/T/Callout.yml: |
+        extends: existence
+        message: "'%s' in a callout"
+        scope: text.class.callout
+        level: error
+        nonword: true
+        raw:
+          - ZQX
+      page.md: |
+        # Overview {% #overview %}
+
+        A ZQX in a paragraph.
+
+        {% callout type="ZQX" title="A ZQX in a title" %}
+        A ZQX in a callout.
+        {% /callout %}
+
+        {% card title="A ZQX on a card" %}
+        A ZQX on a card.
+        {% /card %}
+    args: page.md
+    exit: 1
+    want: |
+      page.md:3:3:T.Prose:'ZQX' as prose
+      page.md:5:32:T.Title:'ZQX' in a title attribute
+      page.md:6:3:T.Callout:'ZQX' in a callout
+      page.md:6:3:T.Prose:'ZQX' as prose
+      page.md:9:18:T.Title:'ZQX' in a title attribute
+      page.md:10:3:T.Prose:'ZQX' as prose
+
   - name: typst
     about: "#651 -- Typst parses through typst2vast, the compiler's own
       parser without its evaluator: markup is prose, code mode is masked,

@@ -378,6 +378,8 @@ func (l *Linter) lintPrepared(file *core.File, built []byte) lintResult {
 			err = l.lintMDX(file)
 		case ".myst":
 			err = l.lintMyST(file)
+		case ".mdoc":
+			err = l.lintMarkdoc(file)
 		case ".qdoc":
 			err = l.lintQDoc(file)
 		case ".qmd":

@@ -87,7 +87,7 @@ cases:
       content/c.md:1:7:Vale.Spelling:Did you really mean 'ipsum'?
 
   - name: glob-negated-multi
-    args: "--glob=!**/*.{md,py,mdx,Rmd,qmd,myst} ."
+    args: "--glob=!**/*.{md,py,mdx,mdoc,Rmd,qmd,myst} ."
     exit: 0
     absent:
       - md

@@ -344,7 +344,7 @@ func (s Spelling) alert(word string, at, length int) core.Alert {
 
 // inlineCode wraps text as inline code, by format.
 var inlineCode = map[string]string{
-	".md": "`%s`", ".mdx": "`%s`", ".myst": "`%s`", ".qmd": "`%s`", ".ipynb": "`%s`",
+	".md": "`%s`", ".mdx": "`%s`", ".myst": "`%s`", ".mdoc": "`%s`", ".qmd": "`%s`", ".ipynb": "`%s`",
 	".adoc": "`%s`", ".typ": "`%s`", ".rst": "``%s``", ".org": "~%s~",
 	".html": "<code>%s</code>",
 }
