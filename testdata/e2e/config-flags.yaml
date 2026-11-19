@@ -100,7 +100,7 @@ cases:
     args: "--glob=[a-]* ."
     exit: 2
     want: |
-      [--glob]:E100:expected close range character
+      [--glob]:E100:glob: syntax error at 5: expected close range character
 
   - name: no-config-found
     dir: ../../../..
