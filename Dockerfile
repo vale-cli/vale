@@ -1,36 +1,56 @@
 # syntax=docker/dockerfile:1
-ARG GOLANG_VER=1.25
-FROM golang:${GOLANG_VER}-alpine AS build
+ARG GOLANG_VER=1.27
+ARG ALPINE_VER=3.23
 
-# See https://cloud.docker.com/repository/docker/jdkato/vale
+# The build runs on the host's platform and cross-compiles for the target.
+FROM --platform=$BUILDPLATFORM golang:${GOLANG_VER}-alpine AS build
 
-# TODO: DITA / XML:
+# See https://hub.docker.com/r/jdkato/vale
+
+# TODO: DITA:
 #    openjdk11 \
-#    libxslt \
 # COPY bin/dita-ot-3.6 /
 #
 # This currently isn't packaged because it makes the size 7x as big.
 
 # Debug shell: $ docker run -it --entrypoint /bin/sh jdkato/vale -s
 
-COPY . /app/
 WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG ltag
 
 ENV CGO_ENABLED=0
 
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+    -trimpath \
+    -ldflags "-s -w -X main.version=$ltag" \
+    -o /out/vale ./cmd/vale
+
+FROM alpine:${ALPINE_VER}
+
 ARG ltag
 
-RUN go build -ldflags "-s -w -X main.version=$ltag" -o /app/vale ./cmd/vale
+LABEL org.opencontainers.image.title="Vale" \
+      org.opencontainers.image.description="A linter for prose." \
+      org.opencontainers.image.url="https://vale.sh" \
+      org.opencontainers.image.source="https://github.com/vale-cli/vale" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="$ltag"
 
-FROM alpine
+# xsltproc reads XML.
+RUN apk add --no-cache libxslt
 
-RUN apk add --no-cache \
-    nodejs \
-    npm
-
-RUN npm install -g mdx2vast
-
-COPY --from=build /app/vale /bin
+COPY --from=build /out/vale /bin/vale
 
 # ENV PATH="/bin:/dita-ot-3.6/bin:$PATH"
 ENTRYPOINT ["/bin/vale"]
