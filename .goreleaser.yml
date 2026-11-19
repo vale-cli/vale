@@ -113,6 +113,27 @@ builds:
     ldflags:
       - -s -w
 
+  # The minimal browser build, for a host that lints Markdown, HTML, and
+  # text under a fixed configuration; see `make wasm-min`.
+  - id: vale-wasm-min
+    main: ./cmd/valew
+    binary: vale-min
+    goarch:
+      - wasm
+    goos:
+      - js
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    tags:
+      - vale_nocode
+      - vale_noconvert
+      - vale_noviews
+      - vale_noexpr
+    ldflags:
+      - -s -w
+
 archives:
   - id: native
     builds:
@@ -138,6 +159,15 @@ archives:
       - vale-wasm
     format: tar.gz
     name_template: vale_{{ .Version }}_wasm
+    files:
+      - src: bin/wasm_exec.js
+        dst: wasm_exec.js
+
+  - id: wasm-min
+    builds:
+      - vale-wasm-min
+    format: tar.gz
+    name_template: vale_{{ .Version }}_wasm_min
     files:
       - src: bin/wasm_exec.js
         dst: wasm_exec.js
