@@ -23,9 +23,9 @@ import (
 // differs between its pattern and the joined one, which is what splittable
 // checks.
 type tokenSplit struct {
-	template string       // the rule's pattern, with %s where a token goes
-	tokens   []string     // each token, as joined
-	filters  [][][]string // what each token requires; nothing means it always runs
+	template string        // the rule's pattern, with %s where a token goes
+	tokens   []string      // each token, as joined
+	filters  *rx.FilterSet // what each token requires; nothing means it always runs
 
 	once     []sync.Once
 	compiled []*rx.Regexp
@@ -63,7 +63,7 @@ func newTokenSplit(template string, tokens []string) *tokenSplit {
 	return &tokenSplit{
 		template: template,
 		tokens:   tokens,
-		filters:  filters,
+		filters:  rx.NewFilterSet(filters),
 		once:     make([]sync.Once, len(tokens)),
 		compiled: make([]*rx.Regexp, len(tokens)),
 	}
@@ -95,13 +95,7 @@ func stripEscapes(expr string) string {
 
 // active lists the tokens that could match text, by its lower-cased form.
 func (s *tokenSplit) active(lowered string) []int {
-	var out []int
-	for i, tests := range s.filters {
-		if rx.Holds(tests, lowered) {
-			out = append(out, i)
-		}
-	}
-	return out
+	return s.filters.Active(lowered)
 }
 
 // pattern returns token i's own pattern, compiled the first time it wakes.

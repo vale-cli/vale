@@ -147,24 +147,6 @@ func usable(clause []string) []string {
 	return out
 }
 
-// Holds reports whether lowered passes every test in tests. A false return
-// is definitive: a pattern with those requirements cannot match.
-func Holds(tests [][]string, lowered string) bool {
-	for _, clause := range tests {
-		found := false
-		for _, lit := range clause {
-			if strings.Contains(lowered, lit) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
-}
-
 // oneRune reports the rune a node always matches, compared lower-cased: a
 // literal of one character, or a class of one letter's cases, such as `[Ii]`.
 func oneRune(re *syntax.Regexp) (rune, bool) {

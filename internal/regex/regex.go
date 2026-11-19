@@ -35,9 +35,9 @@ type Match = regexp2.Match
 type Regexp struct {
 	*regexp2.Regexp
 
-	// filter holds the tests a subject must pass to match. Empty means the
+	// filter holds the tests a subject must pass to match. Nil means the
 	// pattern has to be run to find out. See prefilter.go.
-	filter [][]string
+	filter *FilterSet
 }
 
 // String returns the source text of the pattern.
@@ -63,7 +63,11 @@ func Compile(expr string) (*Regexp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Regexp{Regexp: re, filter: Requirements(expr)}, nil
+	compiled := &Regexp{Regexp: re}
+	if tests := Requirements(expr); len(tests) > 0 {
+		compiled.filter = NewFilterSet([][][]string{tests})
+	}
+	return compiled, nil
 }
 
 // MightMatch reports whether lowered could contain a match.
@@ -72,7 +76,7 @@ func Compile(expr string) (*Regexp, error) {
 // rather than once per rule. A false return is definitive: the pattern cannot
 // match. A true return means the pattern still has to be run.
 func (re *Regexp) MightMatch(lowered string) bool {
-	return re == nil || Holds(re.filter, lowered)
+	return re == nil || re.filter == nil || re.filter.Any(lowered)
 }
 
 // A MatchError is what the wrappers here panic with when the engine fails
