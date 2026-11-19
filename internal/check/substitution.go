@@ -93,7 +93,7 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 		rule.msgMap = append(rule.msgMap, regexstr)
 		replacement := rule.Swap[regexstr]
 
-		regexstr = wrapSpaces(strings.TrimPrefix(regexstr, shared))
+		regexstr = wrapSpaces(strings.TrimPrefix(regexstr, shared), rule.Scope)
 
 		opens := strings.Count(regexstr, "(")
 		if opens != strings.Count(regexstr, "(?")+strings.Count(regexstr, `\(`) {

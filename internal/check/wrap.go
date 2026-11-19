@@ -2,6 +2,7 @@ package check
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -10,20 +11,26 @@ var lineWrap = regexp.MustCompile(`[ \t]*\n\s*`)
 
 // wrapSpaces returns pattern with each run of spaces between words matching
 // a line wrap too, so a phrase in a rule is found however the paragraph was
-// wrapped; a group counts as a word. Any other space keeps its meaning.
-func wrapSpaces(pattern string) string {
+// wrapped. A space inside a character class, after a backslash, or ahead of
+// a quantifier keeps its meaning, as does every space in a free-spacing
+// pattern and one that is a whole branch of an alternation. A raw-scoped
+// rule is left alone: there a line break is markup, not a wrap.
+func wrapSpaces(pattern string, scope []string) string {
+	if slices.Contains(scope, "raw") {
+		return pattern
+	}
 	if !strings.ContainsAny(pattern, " \t") || strings.Contains(pattern, "(?x") {
 		return pattern
 	}
 
 	var b strings.Builder
 	inClass := false
-	// afterWord: the last byte written ended a word or a group.
-	afterWord := false
+	// opens: the last byte written began a group or a branch.
+	opens := false
 	for i := 0; i < len(pattern); i++ {
 		c := pattern[i]
-		wasWord := afterWord
-		afterWord = false
+		opened := opens
+		opens = false
 		switch {
 		case c == '\\' && i+1 < len(pattern):
 			b.WriteByte(c)
@@ -42,24 +49,19 @@ func wrapSpaces(pattern string) string {
 			for j < len(pattern) && (pattern[j] == ' ' || pattern[j] == '\t') {
 				j++
 			}
-			if wasWord && j < len(pattern) && (phraseByte(pattern[j]) || pattern[j] == '(') {
-				b.WriteString(`\s+`)
-			} else {
+			branch := opened && j < len(pattern) && (pattern[j] == '|' || pattern[j] == ')')
+			if branch || (j < len(pattern) && strings.IndexByte("*+?{", pattern[j]) >= 0) {
 				b.WriteString(pattern[i:j])
+			} else {
+				b.WriteString(`\s+`)
 			}
 			i = j - 1
 		default:
-			afterWord = phraseByte(c) || c == ')'
+			opens = c == '(' || c == '|'
 			b.WriteByte(c)
 		}
 	}
 	return b.String()
-}
-
-// phraseByte reports whether c can end or start a word in a phrase: a `\w`
-// byte, or part of a multi-byte character.
-func phraseByte(c byte) bool {
-	return isWordByte(c) || c >= 0x80
 }
 
 // unwrap joins the lines of a match that wraps across a line, so a message
