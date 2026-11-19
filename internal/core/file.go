@@ -66,9 +66,9 @@ type File struct {
 	// occurrence skip. Reset with ChkToCtx, in StartBlock.
 	chkMasked map[string]int
 
-	// sanShifts records, per line, where the sanitizer's `&rsquo;` rewrite
+	// sanShifts records, per line, where the sanitizer's apostrophe rewrites
 	// shortened the text, so spans can be mapped back to the file's bytes.
-	sanShifts  map[int][]int
+	sanShifts  map[int][]shift
 	regions    map[string][]commentRegion // spans covered by comment directives
 	Comments   map[string]bool            // comment control statements
 	Metrics    map[string]int             // count-based metrics
@@ -310,7 +310,7 @@ func (f *File) StartBlock() {
 }
 
 // MapAlertsToSource shifts and widens alert spans to account for the
-// sanitizer's `&rsquo;` rewrite, so every span indexes the file's actual
+// sanitizer's apostrophe rewrites, so every span indexes the file's actual
 // text rather than the sanitized copy that was linted. See #687.
 func (f *File) MapAlertsToSource() {
 	if len(f.sanShifts) == 0 {
@@ -324,14 +324,14 @@ func (f *File) MapAlertsToSource() {
 		}
 
 		d0, d1 := 0, 0
-		for _, col := range f.sanShifts[a.Line] {
-			if col < a.Span[0] {
+		for _, s := range f.sanShifts[a.Line] {
+			if s.col < a.Span[0] {
 				// A rewrite before the match moves the whole span right.
-				d0 += rsquoShift
-				d1 += rsquoShift
-			} else if col <= a.Span[1] {
+				d0 += s.width
+				d1 += s.width
+			} else if s.col <= a.Span[1] {
 				// A rewrite inside the match widens it.
-				d1 += rsquoShift
+				d1 += s.width
 			}
 		}
 

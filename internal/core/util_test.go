@@ -57,15 +57,26 @@ func TestFindShifts(t *testing.T) {
 	}
 
 	got := findShifts("a&rsquo;b\nplain\nx &rsquo; y&rsquo;\n")
-	want := map[int][]int{1: {2}, 3: {3, 6}}
+	want := map[int][]shift{1: {{2, 6}}, 3: {{3, 6}, {6, 6}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("expected %v, got %v", want, got)
+	}
+
+	// Every apostrophe entity is rewritten, each by its own width; an
+	// entity for anything else is left alone.
+	got = findShifts("Couldn&apos;t, couldn&#39;t, couldn&#x27;t, couldn&#8217;t, couldn&#x2019;t &amp; more\n")
+	want = map[int][]shift{1: {{7, 5}, {17, 4}, {27, 5}, {37, 6}, {47, 7}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("expected %v, got %v", want, got)
+	}
+	if s := Sanitize("Couldn&apos;t &amp; couldn&#39;t"); s != "Couldn't &amp; couldn't" {
+		t.Errorf("Sanitize: got %q", s)
 	}
 }
 
 func TestMapAlertsToSource(t *testing.T) {
 	f := File{
-		sanShifts: map[int][]int{1: {15}, 2: {6}},
+		sanShifts: map[int][]shift{1: {{15, 6}}, 2: {{6, 6}}, 4: {{3, 5}, {12, 4}}},
 		Alerts: []Alert{
 			// The rewrite sits inside the match: the span widens.
 			{Line: 1, Span: []int{13, 16}},
@@ -73,11 +84,14 @@ func TestMapAlertsToSource(t *testing.T) {
 			{Line: 2, Span: []int{11, 14}},
 			// A line with no rewrites is untouched.
 			{Line: 3, Span: []int{2, 5}},
+			// Two rewrites of different widths: one before the match, one
+			// inside it.
+			{Line: 4, Span: []int{10, 14}},
 		},
 	}
 	f.MapAlertsToSource()
 
-	want := [][]int{{13, 22}, {17, 20}, {2, 5}}
+	want := [][]int{{13, 22}, {17, 20}, {2, 5}, {15, 23}}
 	for i, a := range f.Alerts {
 		if !reflect.DeepEqual(a.Span, want[i]) {
 			t.Errorf("alert %d: expected %v, got %v", i, want[i], a.Span)

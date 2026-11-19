@@ -26,6 +26,36 @@ cases:
     want: |
       page.tsx:1:45:Vale.Spelling:Did you really mean 'agian'?
 
+  - name: tsx-apostrophes
+    about: "#1231 -- an apostrophe written as an entity is read as one before
+      the file is parsed, so a contraction in JSX text stays one word: the
+      grammar had parsed `&apos;` as a node of its own, splitting `Couldn`
+      from `t`. The span still covers the file's bytes."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.tsx]
+        BasedOnStyles = Vale
+        View = Copy
+      styles/config/views/Copy.yml: |
+        engine: tree-sitter
+        scopes:
+          - expr: (jsx_text) @text
+            type: md
+      page.tsx: |
+        export const A = () => <p>Couldn&rsquo;t load events.</p>;
+        export const B = () => <p>Couldn&apos;t load events.</p>;
+        export const C = () => <p>Couldn&#39;t load events.</p>;
+        export const D = () => <p>Couldn&#x27;t load events.</p>;
+        export const E = () => <p>Couldn&#8217;t load events.</p>;
+        export const F = () => <p>Couldn&apos;t load evvents.</p>;
+    args: page.tsx
+    exit: 1
+    want: |
+      page.tsx:6:46:Vale.Spelling:Did you really mean 'evvents'?
+
   - name: yaml
     args: .
     exit: 1

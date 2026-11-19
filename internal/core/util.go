@@ -15,37 +15,46 @@ var defaultIgnoreDirectories = []string{
 	"node_modules", ".git",
 }
 var reANSI = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))")
-var sanitizer = strings.NewReplacer(
-	"&rsquo;", "'",
-	"\r\n", "\n",
-	"\r", "\n")
 
-// rsquoShift is how many bytes the sanitizer removes per `&rsquo;` rewrite.
-const rsquoShift = len("&rsquo;") - len("'")
+// apostrophes are the entities written for an apostrophe, each rewritten to
+// `'` before a file is parsed. Left as written, `Couldn&apos;t` reaches a
+// grammar as text, a character reference, and more text, and Spelling sees
+// `Couldn`. See #687, #1231.
+var apostrophes = []string{"&rsquo;", "&apos;", "&#39;", "&#x27;", "&#8217;", "&#x2019;"}
 
-// findShifts records, per 1-based line, the rune column (in Sanitize's
-// output) of each rewrite that shortened the text, so a reported span can be
-// mapped back to the file's actual bytes. Only `&rsquo;` changes a line's
-// width -- the line-ending rewrites don't move columns.
-func findShifts(raw string) map[int][]int {
-	if !strings.Contains(raw, "&rsquo;") {
+var reApostrophe = regexp.MustCompile(`&(?:rsquo|apos|#39|#x27|#8217|#x2019);`)
+
+var sanitizer = func() *strings.Replacer {
+	pairs := []string{"\r\n", "\n", "\r", "\n"}
+	for _, e := range apostrophes {
+		pairs = append(pairs, e, "'")
+	}
+	return strings.NewReplacer(pairs...)
+}()
+
+// shift is one rewrite that shortened a line: the rune column (in Sanitize's
+// output) of the `'` it left, and how many bytes it took off.
+type shift struct {
+	col, width int
+}
+
+// findShifts records, per 1-based line, each rewrite that shortened the
+// text, so a reported span can be mapped back to the file's actual bytes.
+// Only the apostrophes change a line's width -- the line-ending rewrites
+// don't move columns.
+func findShifts(raw string) map[int][]shift {
+	if !strings.Contains(raw, "&") {
 		return nil
 	}
 
-	shifts := make(map[int][]int)
+	var shifts map[int][]shift
 	for i, line := range strings.Split(raw, "\n") {
-		at := 0
-		for {
-			j := strings.Index(line[at:], "&rsquo;")
-			if j < 0 {
-				break
+		for _, m := range reApostrophe.FindAllStringIndex(line, -1) {
+			if shifts == nil {
+				shifts = make(map[int][]shift)
 			}
-			at += j
-
-			col := nlp.StrLen(Sanitize(line[:at])) + 1
-			shifts[i+1] = append(shifts[i+1], col)
-
-			at += len("&rsquo;")
+			col := nlp.StrLen(Sanitize(line[:m[0]])) + 1
+			shifts[i+1] = append(shifts[i+1], shift{col, m[1] - m[0] - len("'")})
 		}
 	}
 
