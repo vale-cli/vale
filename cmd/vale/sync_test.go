@@ -289,3 +289,20 @@ func TestSyncZipTopLevelDirCaseDiffersPackage(t *testing.T) {
 		t.Fatalf("expected the package config as '0-Casefold-Pkg.ini', got %v", names)
 	}
 }
+
+func TestSyncZipTopLevelDirNameDiffers(t *testing.T) {
+	// renamed-pkg.zip holds `other-root/styles/CaseFoldStyle` and a
+	// `.vale.ini`; the package is named after the file, `renamed-pkg`.
+	stylesPath := syncZipPkg(t, "renamed-pkg.zip")
+
+	rule := filepath.Join(stylesPath, "CaseFoldStyle", "Rule.yml")
+	if !system.FileExists(rule) {
+		t.Fatalf("expected installed rule: %s", rule)
+	}
+
+	pipe := filepath.Join(stylesPath, core.PipeDir)
+	names := installedNames(t, pipe)
+	if len(names) != 1 || names[0] != "0-other-root.ini" {
+		t.Fatalf("expected the package config as '0-other-root.ini', got %v", names)
+	}
+}

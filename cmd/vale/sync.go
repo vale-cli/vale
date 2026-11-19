@@ -92,11 +92,11 @@ func download(name, url, styles string, index int) error {
 }
 
 // pkgRoot returns the entry in dir that holds the package named name: an
-// exact match, or failing that one that differs only in case.
+// exact match, one that differs only in case, or the archive's only
+// top-level directory.
 //
-// A remote package is named after its URL, and GitHub serves a release asset
-// under any casing of its name, so the directory inside the archive may not
-// match. See #1181.
+// A package is named after its URL, file, or library entry, none of which
+// has to match the directory inside the archive. See #1181.
 func pkgRoot(dir, name string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -113,6 +113,10 @@ func pkgRoot(dir, name string) string {
 		if strings.EqualFold(entry.Name(), name) {
 			return entry.Name()
 		}
+	}
+
+	if len(entries) == 1 && entries[0].IsDir() {
+		return entries[0].Name()
 	}
 
 	return name
