@@ -17,6 +17,15 @@ func TestWrapSpaces(t *testing.T) {
 		{`a ?b`, `a ?b`},
 		{`(?x) a b`, `(?x) a b`},
 		{`(?i)for example`, `(?i)for\s+example`},
+		{"déjà vu", `déjà\s+vu`},
+		{`( |  |    )`, `( |  |    )`},
+		{`^1\. [^\n]*\n\n?( |  |    )[` + "`" + `\w-]`, `^1\. [^\n]*\n\n?( |  |    )[` + "`" + `\w-]`},
+		{`^- item`, `^- item`},
+		{`a, b`, `a, b`},
+		{`\w b`, `\w b`},
+		{`(a|b) c`, `(a|b)\s+c`},
+		{`this (page|topic)`, `this\s+(page|topic)`},
+		{`a( |  )b`, `a( |  )b`},
 	}
 	for _, c := range cases {
 		if got := wrapSpaces(c.in); got != c.want {

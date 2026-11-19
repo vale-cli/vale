@@ -30,6 +30,20 @@ files:
     nonword: true
     tokens:
       - '\S {2,}\S'
+  styles/T/Indent.yml: |
+    extends: existence
+    message: "indent nested text three spaces"
+    level: error
+    nonword: true
+    scope: raw
+    tokens:
+      - '^1\. [^\n]*\n( |  |    )[\w-]'
+  indent.md: |
+    1. A step that runs on to
+       a second line.
+
+    1. A step that is indented
+      one space short.
   wrap.md: |
     One line: a team, for example Sales.
 
@@ -59,6 +73,13 @@ cases:
     exit: 0
     want: |
       spaces.md:1:3:T.Spaces:double space in 'o  w'
+
+  - name: a space beside punctuation keeps its meaning
+    about: "an alternation of space counts must not match three spaces"
+    args: --output=line indent.md
+    exit: 1
+    want: |
+      indent.md:4:1:T.Indent:indent nested text three spaces
 
   - name: the message shows the phrase on one line
     args: --output=JSON wrap.md

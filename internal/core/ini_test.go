@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -484,6 +485,40 @@ func Test_processConfig_laterSourceWins(t *testing.T) {
 	}
 	if conf.GChecks["S.G"] {
 		t.Error("S.G is on; the project switched it off")
+	}
+}
+
+// A vocabulary is found under the StylesPath wherever the two keys sit: in
+// one file with `Vocab` first, or with `Vocab` in an earlier source.
+func Test_processConfig_vocabBeforeStylesPath(t *testing.T) {
+	styles := t.TempDir()
+	dir := filepath.Join(styles, VocabDir, "Proj")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "accept.txt"), []byte("Quuxly\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := "StylesPath = " + filepath.ToSlash(styles) + "\n"
+
+	for name, sources := range map[string][]interface{}{
+		"one file":    {[]byte("Vocab = Proj\n" + path)},
+		"two sources": {[]byte("Vocab = Proj\n"), []byte(path)},
+	} {
+		uCfg, err := shadowLoad(system.Default, sources[0], sources[1:]...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		conf, err := NewConfig(&CLIFlags{IgnoreGlobal: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = processConfig(uCfg, conf, false); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !StringInSlice("Quuxly", conf.AcceptedTokens) {
+			t.Errorf("%s: accepted = %v, want the vocabulary's term", name, conf.AcceptedTokens)
+		}
 	}
 }
 

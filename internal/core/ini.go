@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/errata-ai/ini"
@@ -649,8 +650,14 @@ func processConfig(uCfg *ini.File, cfg *Config, dry bool) (*ini.File, error) {
 	adoc := uCfg.Section("asciidoctor")
 	sphinx := uCfg.Section("sphinx")
 
+	// StylesPath goes first: other keys, such as Vocab, are found under it.
+	keys := core.KeyStrings()
+	sort.SliceStable(keys, func(i, j int) bool {
+		return keys[i] == "StylesPath" && keys[j] != "StylesPath"
+	})
+
 	// Default settings
-	for _, k := range core.KeyStrings() {
+	for _, k := range keys {
 		if f, found := coreOpts[k]; found {
 			if err := f(core, cfg); err != nil && !dry {
 				return nil, err
