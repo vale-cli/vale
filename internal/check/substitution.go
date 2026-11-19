@@ -26,6 +26,7 @@ type Substitution struct {
 	exceptRe   *rx.Regexp
 	phraseRe   *rx.Regexp
 	pattern    *rx.Regexp
+	split      *tokenSplit
 	Ignorecase bool
 	Nonword    bool
 	Vocab      bool
@@ -89,6 +90,7 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 	shared := sharedLookaround(terms)
 
 	replacements := []string{}
+	parts := []string{}
 	for _, regexstr := range terms {
 		rule.msgMap = append(rule.msgMap, regexstr)
 		replacement := rule.Swap[regexstr]
@@ -104,13 +106,17 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 			}
 		}
 		tokens += `(` + regexstr + `)|`
+		parts = append(parts, regexstr)
 		replacements = append(replacements, replacement)
 	}
 
 	tokens = strings.TrimRight(tokens, "|")
+	each := `(%s)`
 	if shared != "" {
 		tokens = shared + `(?:` + tokens + `)`
+		each = strings.ReplaceAll(shared, "%", "%%") + `(?:(%s))`
 	}
+	template := strings.Replace(regex, "%s", each, 1)
 	regex = fmt.Sprintf(regex, tokens)
 
 	re, err = rx.Compile(regex)
@@ -120,6 +126,11 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 
 	rule.pattern = re
 	rule.repl = replacements
+	// A template of the user's own may match in more than one way around a
+	// term, and then the alternation's order is not the terms' alone.
+	if cfg.WordTemplate == "" || rule.Nonword {
+		rule.split = newTokenSplit(template, parts)
+	}
 	return rule, nil
 }
 
@@ -180,6 +191,115 @@ func (s Substitution) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core
 	var alerts []core.Alert
 
 	txt := blk.Text
+	// A substring search is far cheaper than the pattern, and a false answer
+	// is definitive.
+	if !s.pattern.MightMatch(blk.Lower) {
+		return alerts, nil
+	}
+
+	locs, terms := s.matches(blk)
+	for n, loc := range locs {
+		converted, err := re2Loc(blk, loc)
+		if err != nil {
+			return alerts, err
+		}
+
+		observed := converted
+		expected, msgErr := subMsg(s, terms[n], observed)
+		if msgErr != nil {
+			return alerts, msgErr
+		}
+
+		// Determine whether `observed` is already in an acceptable
+		// form (a no-op suggestion). For a `replace` action the swap
+		// value is literal replacement text -- one or more `|`-separated
+		// suggestions (the same split used to build `action.Params`
+		// below) -- so we compare each option literally. Otherwise an
+		// option like `...` would be read as a regex matching any three
+		// characters (e.g. `,,,`), suppressing a real finding (#1038).
+		//
+		// For non-`replace` rules the value may instead be a regex that
+		// describes the acceptable forms (e.g. a vocab term `[pP]y.*\b`,
+		// or a `LookAround`-style pattern), which we still match as one.
+		var same bool
+		switch {
+		case s.Fields().Action.Name == "replace":
+			same = core.StringInSlice(observed, getOptions(expected))
+		case s.terms:
+			// A phrase may wrap across a line where the term has a space.
+			same = matchToken(termPattern(expected), observed, false)
+		default:
+			same = matchToken(expected, observed, false)
+		}
+		if !same && !isMatch(s.exceptRe, observed) && !withinPhrase(s.phraseRe, txt, loc) &&
+			!vocab.accepts(observed, txt, loc) {
+			action := s.Fields().Action
+			if action.Name == "replace" && len(action.Params) == 0 {
+				action.Params = getOptions(expected)
+				if s.Capitalize && observed == core.CapFirst(observed) {
+					cased := []string{}
+					for _, param := range action.Params {
+						cased = append(cased, core.CapFirst(param))
+					}
+					action.Params = cased
+				}
+
+				if s.MatchCase {
+					action.Params = recase(action.Params, observed)
+				}
+
+				expected = core.ToSentence(action.Params, "or")
+				// NOTE: For backwards-compatibility, we need to ensure
+				// that we don't double quote.
+				s.Message = convertMessage(s.Message)
+			} else if action.Name != "replace" {
+				// For non-`replace` rules (e.g. Vale.Terms built from a
+				// vocab), the swap value may be a regex describing the
+				// term. Show the observed text re-cased to the term's
+				// canonical form instead of the raw pattern -- e.g.
+				// `OAuth2?` -> `OAuth2`. See #997.
+				expected = recaseToTerm(expected, observed)
+			}
+
+			a, aerr := alertFor(s.Definition, loc, observed, cfg)
+			if aerr != nil {
+				return alerts, aerr
+			}
+
+			a.Message, a.Description = formatMessages(s.Message,
+				s.Description, expected, observed)
+			a.Action = action
+			if action.Name == "replace" {
+				a.Suggestions = action.Params
+			} else if s.terms && expected != observed && literalTerm(expected) {
+				a.Action = core.Action{Name: "replace", Params: []string{keepWrap(expected, observed)}}
+				a.Suggestions = a.Action.Params
+			}
+
+			anchor(&a, blk)
+			alerts = append(alerts, a)
+		}
+	}
+
+	return alerts, nil
+}
+
+// matches returns the rune bounds of each match in the block and the index
+// of the term that made it. A rule whose terms can run apart runs only those
+// the block could match; see tokenSplit.
+func (s Substitution) matches(blk nlp.Block) ([][]int, []int) {
+	if s.split != nil {
+		active := s.split.active(blk.Lower)
+		if len(active) == 0 {
+			return nil, nil
+		}
+		if len(active) <= splitCeiling {
+			if found, by, ok := s.split.find(blk.Text, active); ok {
+				return found, by
+			}
+		}
+	}
+
 	// Leave early if we can to avoid calling `FindAllStringSubmatchIndex`
 	// unnecessarily.
 	//
@@ -187,105 +307,26 @@ func (s Substitution) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core
 	// measured as the cheaper arrangement anyway: MatchString stops at the
 	// first hit, and a block with no match skips the allocation the Find below
 	// makes for its submatch slices.
-	if !s.pattern.MightMatch(blk.Lower) || !s.pattern.MatchStringStd(txt) {
-		return alerts, nil
+	if !s.pattern.MatchStringStd(blk.Text) {
+		return nil, nil
 	}
 
-	for _, submat := range s.pattern.FindAllStringSubmatchIndex(txt, -1) {
-		for idx, mat := range submat {
-			if mat != -1 && idx > 0 && idx%2 == 0 {
-				loc := []int{mat, submat[idx+1]}
-
-				converted, err := re2Loc(blk, loc)
-				if err != nil {
-					return alerts, err
-				}
-
-				observed := converted
-				expected, msgErr := subMsg(s, (idx/2)-1, observed)
-				if msgErr != nil {
-					return alerts, msgErr
-				}
-
-				// Determine whether `observed` is already in an acceptable
-				// form (a no-op suggestion). For a `replace` action the swap
-				// value is literal replacement text -- one or more `|`-separated
-				// suggestions (the same split used to build `action.Params`
-				// below) -- so we compare each option literally. Otherwise an
-				// option like `...` would be read as a regex matching any three
-				// characters (e.g. `,,,`), suppressing a real finding (#1038).
-				//
-				// For non-`replace` rules the value may instead be a regex that
-				// describes the acceptable forms (e.g. a vocab term `[pP]y.*\b`,
-				// or a `LookAround`-style pattern), which we still match as one.
-				var same bool
-				switch {
-				case s.Fields().Action.Name == "replace":
-					same = core.StringInSlice(observed, getOptions(expected))
-				case s.terms:
-					// A phrase may wrap across a line where the term has a space.
-					same = matchToken(termPattern(expected), observed, false)
-				default:
-					same = matchToken(expected, observed, false)
-				}
-				if !same && !isMatch(s.exceptRe, observed) && !withinPhrase(s.phraseRe, txt, loc) &&
-					!vocab.accepts(observed, txt, loc) {
-					action := s.Fields().Action
-					if action.Name == "replace" && len(action.Params) == 0 {
-						action.Params = getOptions(expected)
-						if s.Capitalize && observed == core.CapFirst(observed) {
-							cased := []string{}
-							for _, param := range action.Params {
-								cased = append(cased, core.CapFirst(param))
-							}
-							action.Params = cased
-						}
-
-						if s.MatchCase {
-							action.Params = recase(action.Params, observed)
-						}
-
-						expected = core.ToSentence(action.Params, "or")
-						// NOTE: For backwards-compatibility, we need to ensure
-						// that we don't double quote.
-						s.Message = convertMessage(s.Message)
-					} else if action.Name != "replace" {
-						// For non-`replace` rules (e.g. Vale.Terms built from a
-						// vocab), the swap value may be a regex describing the
-						// term. Show the observed text re-cased to the term's
-						// canonical form instead of the raw pattern -- e.g.
-						// `OAuth2?` -> `OAuth2`. See #997.
-						expected = recaseToTerm(expected, observed)
-					}
-
-					a, aerr := alertFor(s.Definition, loc, observed, cfg)
-					if aerr != nil {
-						return alerts, aerr
-					}
-
-					a.Message, a.Description = formatMessages(s.Message,
-						s.Description, expected, observed)
-					a.Action = action
-					if action.Name == "replace" {
-						a.Suggestions = action.Params
-					} else if s.terms && expected != observed && literalTerm(expected) {
-						a.Action = core.Action{Name: "replace", Params: []string{keepWrap(expected, observed)}}
-						a.Suggestions = a.Action.Params
-					}
-
-					anchor(&a, blk)
-					alerts = append(alerts, a)
-				}
-
-				// An alternation sets exactly one group, so the rest of the
-				// slots only hold -1. Reading them is free per slot and not
-				// free per match when a rule has hundreds of swaps.
+	var (
+		locs  [][]int
+		terms []int
+	)
+	for _, submat := range s.pattern.FindAllStringSubmatchIndex(blk.Text, -1) {
+		// An alternation sets exactly one group, so the rest of the slots
+		// only hold -1.
+		for idx := 2; idx < len(submat); idx += 2 {
+			if submat[idx] != -1 {
+				locs = append(locs, []int{submat[idx], submat[idx+1]})
+				terms = append(terms, (idx/2)-1)
 				break
 			}
 		}
 	}
-
-	return alerts, nil
+	return locs, terms
 }
 
 // Fields provides access to the internal rule definition.

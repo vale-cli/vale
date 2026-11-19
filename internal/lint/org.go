@@ -1,3 +1,5 @@
+//go:build !vale_noconvert
+
 package lint
 
 import (
@@ -12,8 +14,6 @@ import (
 )
 
 var orgConverter = org.New()
-
-var orgExample = "\n#+BEGIN_EXAMPLE\n$1\n#+END_EXAMPLE\n"
 
 var reOrgAttribute = regexp.MustCompile(`(#(?:\+| )[^\s]+:.+)`)
 

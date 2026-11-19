@@ -1,3 +1,5 @@
+//go:build !vale_noviews
+
 package core
 
 import (

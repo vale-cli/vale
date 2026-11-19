@@ -21,8 +21,6 @@
 package regex
 
 import (
-	"strings"
-
 	"github.com/jdkato/regexp2/v2"
 )
 
@@ -37,9 +35,9 @@ type Match = regexp2.Match
 type Regexp struct {
 	*regexp2.Regexp
 
-	// filter holds literals a subject must contain one of. Empty means the
+	// filter holds the tests a subject must pass to match. Empty means the
 	// pattern has to be run to find out. See prefilter.go.
-	filter []string
+	filter [][]string
 }
 
 // String returns the source text of the pattern.
@@ -65,7 +63,7 @@ func Compile(expr string) (*Regexp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Regexp{Regexp: re, filter: Required(expr)}, nil
+	return &Regexp{Regexp: re, filter: Requirements(expr)}, nil
 }
 
 // MightMatch reports whether lowered could contain a match.
@@ -74,16 +72,17 @@ func Compile(expr string) (*Regexp, error) {
 // rather than once per rule. A false return is definitive: the pattern cannot
 // match. A true return means the pattern still has to be run.
 func (re *Regexp) MightMatch(lowered string) bool {
-	if re == nil || len(re.filter) == 0 {
-		return true
-	}
-	for _, lit := range re.filter {
-		if strings.Contains(lowered, lit) {
-			return true
-		}
-	}
-	return false
+	return re == nil || Holds(re.filter, lowered)
 }
+
+// A MatchError is what the wrappers here panic with when the engine fails
+// during a match, most often on a pattern too large for its backtracking
+// stack. A caller that knows which rule was running recovers it to say so.
+type MatchError struct{ Err error }
+
+func (e *MatchError) Error() string { return e.Err.Error() }
+
+func (e *MatchError) Unwrap() error { return e.Err }
 
 // MustCompile is Compile but panics on an invalid pattern. It is meant for
 // patterns fixed at compile time.
@@ -100,7 +99,7 @@ func MustCompile(expr string) *Regexp {
 func (re *Regexp) MatchStringStd(s string) bool {
 	matched, err := re.MatchString(s)
 	if err != nil {
-		panic(err)
+		panic(&MatchError{Err: err})
 	}
 	return matched
 }
@@ -213,7 +212,7 @@ func (re *Regexp) Split(s string, n int) []string {
 	}
 	parts, err := re.Regexp.Split(s, n)
 	if err != nil {
-		panic(err)
+		panic(&MatchError{Err: err})
 	}
 	return parts
 }
@@ -229,7 +228,7 @@ func (re *Regexp) eachMatch(s string, n int, fn func(*regexp2.Match)) {
 
 	m, err := re.FindStringMatch(s)
 	if err != nil {
-		panic(err)
+		panic(&MatchError{Err: err})
 	}
 
 	count := 0
@@ -242,7 +241,7 @@ func (re *Regexp) eachMatch(s string, n int, fn func(*regexp2.Match)) {
 
 		m, err = re.FindNextMatch(m)
 		if err != nil {
-			panic(err)
+			panic(&MatchError{Err: err})
 		}
 	}
 }

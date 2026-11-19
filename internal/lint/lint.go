@@ -2,6 +2,7 @@ package lint
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"github.com/vale-cli/vale/v3/internal/glob"
 	"github.com/vale-cli/vale/v3/internal/lint/code"
 	"github.com/vale-cli/vale/v3/internal/nlp"
+	"github.com/vale-cli/vale/v3/internal/regex"
 	"github.com/vale-cli/vale/v3/internal/system"
 )
 
@@ -64,6 +66,19 @@ type Linter struct {
 	// so the answer was being recomputed for every rule on every block, which
 	// was the largest part of deciding what to run.
 	inScope *sync.Map
+
+	// memo, when set, carries the block-only rules' findings from one lint
+	// to the next. See Memoize.
+	memo *blockMemo
+}
+
+// Memoize makes the linter reuse what it found in a block the next time it
+// is given the same one, for a host that lints a document again on each edit.
+// A memoized run takes the serial path.
+func (l *Linter) Memoize() {
+	if l.memo == nil {
+		l.memo = newBlockMemo()
+	}
 }
 
 // scopedRule is a rule together with the name it was registered under.
@@ -171,6 +186,9 @@ func (l *Linter) LintString(src string) ([]*core.File, error) {
 func (l *Linter) LintStringAs(content, virtualName string) ([]*core.File, error) {
 	l.singleDoc = true
 	defer l.stopExternal()
+	if l.memo != nil {
+		l.memo.rotate()
+	}
 
 	file, err := core.NewFileFromContent(content, virtualName, l.Manager.Config)
 	if err != nil {
@@ -188,6 +206,9 @@ func (l *Linter) LintStringAs(content, virtualName string) ([]*core.File, error)
 func (l *Linter) LintBuilt(content, virtualName, html string) ([]*core.File, error) {
 	l.singleDoc = true
 	defer l.stopExternal()
+	if l.memo != nil {
+		l.memo.rotate()
+	}
 
 	file, err := core.NewFileFromContent(content, virtualName, l.Manager.Config)
 	if err != nil {
@@ -601,7 +622,7 @@ func (l *Linter) lintBlock(f *core.File, blk nlp.Block, lines, pad int, lookup b
 	// Below the floor the bookkeeping concurrency needs -- two slices the
 	// length of the rule set, per block -- costs more than the rules do. Most
 	// blocks are a paragraph.
-	if len(blk.Text) < parallelFloor || l.RuleHook != nil {
+	if len(blk.Text) < parallelFloor || l.RuleHook != nil || l.memo != nil {
 		return l.lintBlockSerial(f, blk, rules, lines, pad, lookup)
 	}
 
@@ -627,7 +648,7 @@ func (l *Linter) lintBlock(f *core.File, blk nlp.Block, lines, pad int, lookup b
 		if !wanted[i] || found[i] != nil {
 			continue
 		}
-		alerts, err := r.rule.Run(blockFor(blk, r.rule), f, l.Manager.Config)
+		alerts, err := l.run(r, blk, f)
 		if err != nil {
 			return err
 		}
@@ -668,6 +689,11 @@ func setLevel(a *core.Alert, f *core.File, info check.Definition, name string) {
 // lintBlockSerial is lintBlock without the concurrency, and without what it
 // costs to set up.
 func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule, lines, pad int, lookup bool) error {
+	var key memoKey
+	if l.memo != nil {
+		key = l.memo.key(f, blk)
+	}
+
 	for _, r := range rules {
 		name, chk := r.name, r.rule
 		if !l.shouldRun(name, f, chk) {
@@ -676,16 +702,30 @@ func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule
 
 		info := chk.Fields()
 
+		memoize := l.memo != nil && concurrentKinds[info.Extends]
+		if memoize {
+			key.rule = name
+		}
+
 		var start time.Time
 		if l.RuleHook != nil {
 			start = time.Now()
 		}
-		alerts, err := chk.Run(blockFor(blk, chk), f, l.Manager.Config)
+		alerts, hit := []core.Alert(nil), false
+		if memoize {
+			alerts, hit = l.memo.get(key, blockFor(blk, chk))
+		}
+		if !hit {
+			var err error
+			if alerts, err = l.run(r, blk, f); err != nil {
+				return err
+			}
+			if memoize {
+				l.memo.put(key, alerts)
+			}
+		}
 		if l.RuleHook != nil {
 			l.RuleHook(name, time.Since(start))
-		}
-		if err != nil {
-			return err
 		}
 		for i := range alerts {
 			if f.QueryComments(name + "[" + alerts[i].Match + "]") {
@@ -697,6 +737,26 @@ func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule
 	}
 
 	return nil
+}
+
+// run runs one rule over blk. The engine failing mid-match -- a pattern too
+// large for its backtracking stack does, on any text that reaches it -- is
+// reported as an error naming the rule, where it used to end the process.
+//
+//nolint:nonamedreturns // the recovered error has to reach the caller
+func (l *Linter) run(r scopedRule, blk nlp.Block, f *core.File) (alerts []core.Alert, err error) {
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+		failed, ok := p.(*regex.MatchError)
+		if !ok {
+			panic(p)
+		}
+		alerts, err = nil, core.NewE100(f.Path, fmt.Errorf("rule '%s': %w", r.name, failed))
+	}()
+	return r.rule.Run(blockFor(blk, r.rule), f, l.Manager.Config)
 }
 
 // runConcurrently fills found[i] for each rule named in todo.
@@ -721,7 +781,7 @@ func (l *Linter) runConcurrently(f *core.File, blk nlp.Block, rules []scopedRule
 			blockWorkers <- struct{}{}
 			defer func() { <-blockWorkers }()
 
-			alerts, err := rules[i].rule.Run(blockFor(blk, rules[i].rule), f, l.Manager.Config)
+			alerts, err := l.run(rules[i], blk, f)
 			if alerts == nil {
 				alerts = []core.Alert{}
 			}

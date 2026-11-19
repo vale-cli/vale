@@ -10,6 +10,9 @@ import (
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
+// orgExample is how Org marks text the converter must leave alone.
+var orgExample = "\n#+BEGIN_EXAMPLE\n$1\n#+END_EXAMPLE\n"
+
 var reFrontMatter = regexp.MustCompile(
 	`^(?s)(?:---|\+\+\+)\n(.+?)\n(?:---|\+\+\+)`)
 

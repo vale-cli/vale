@@ -7,9 +7,6 @@ import (
 	"strings"
 
 	"github.com/adrg/frontmatter"
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/ast"
-	"github.com/expr-lang/expr/vm"
 
 	"github.com/vale-cli/vale/v3/internal/glob"
 	"github.com/vale-cli/vale/v3/internal/system"
@@ -38,36 +35,25 @@ type FileFields struct {
 	Meta map[string]any // the front matter, keyed as written
 }
 
-// condEnv wraps the file the way a filter wraps the rules, so `.Path` means
-// this file's path.
-type condEnv struct {
-	Files []FileFields
-}
-
 // A Condition is a section header's compiled `if` expression.
 type Condition struct {
-	Source  string
-	program *vm.Program
-	meta    bool // whether the expression reads front matter
+	Source string
+	holds  func(FileFields) (bool, error)
+	meta   bool // whether the expression reads front matter
 }
 
 // NewCondition compiles a section's condition.
 func NewCondition(src string) (*Condition, error) {
-	program, err := expr.Compile(fmt.Sprintf("any(Files, {%s})", src),
-		expr.Env(condEnv{}), expr.AsBool(), expr.Patch(missingIsFalse{}))
+	holds, err := compileCondition(src)
 	if err != nil {
 		return nil, err
 	}
-	return &Condition{Source: src, program: program, meta: strings.Contains(src, ".Meta")}, nil
+	return &Condition{Source: src, holds: holds, meta: strings.Contains(src, ".Meta")}, nil
 }
 
 // Holds reports whether the condition is true for the file at path.
 func (c *Condition) Holds(f FileFields) (bool, error) {
-	out, err := expr.Run(c.program, condEnv{Files: []FileFields{f}})
-	if err != nil {
-		return false, err
-	}
-	return out.(bool), nil
+	return c.holds(f)
 }
 
 // NewFileFields describes the file at path, holding content. Front matter is
@@ -146,33 +132,6 @@ func (c *Config) SectionApplies(sec string, held map[string]bool, names ...strin
 // slashes, so `[docs/*.md]` matches a path written with the OS separator.
 func globMatches(pat glob.Glob, name string) bool {
 	return pat.Match(name) || pat.Match(filepath.ToSlash(name))
-}
-
-// missingIsFalse reads a field used as a condition as false when it's
-// missing: `.Meta.draft` on a file with no `draft` is nil, which `or`, `not`,
-// and the expression as a whole would otherwise reject.
-type missingIsFalse struct{}
-
-func (missingIsFalse) Visit(node *ast.Node) {
-	switch n := (*node).(type) {
-	case *ast.BinaryNode:
-		if n.Operator == "and" || n.Operator == "or" || n.Operator == "&&" || n.Operator == "||" {
-			n.Left, n.Right = orFalse(n.Left), orFalse(n.Right)
-		}
-	case *ast.UnaryNode:
-		if n.Operator == "not" || n.Operator == "!" {
-			n.Node = orFalse(n.Node)
-		}
-	case *ast.PredicateNode:
-		n.Node = orFalse(n.Node)
-	}
-}
-
-func orFalse(n ast.Node) ast.Node {
-	if _, ok := n.(*ast.MemberNode); ok {
-		return &ast.BinaryNode{Operator: "??", Left: n, Right: &ast.BoolNode{Value: false}}
-	}
-	return n
 }
 
 // relToRoot makes path relative to the project root: the directory the

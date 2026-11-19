@@ -24,6 +24,7 @@ func anchor(a *core.Alert, blk nlp.Block) {
 	if len(a.Span) != 2 {
 		return
 	}
+	a.BlockSpan = []int{a.Span[0], a.Span[1]}
 
 	lo, hi, ok := blk.ByteSpan(a.Span[0], a.Span[1])
 	if !ok {
@@ -74,6 +75,17 @@ func anchor(a *core.Alert, blk nlp.Block) {
 
 	a.Span = []int{blk.Offset + lo, blk.Offset + hi}
 	a.HasByteOffsets = true
+}
+
+// Reanchor places an alert that anchor has seen before in blk, which holds
+// the same text at what may be a new position.
+func Reanchor(a *core.Alert, blk nlp.Block) {
+	if len(a.BlockSpan) != 2 {
+		return
+	}
+	a.Span = []int{a.BlockSpan[0], a.BlockSpan[1]}
+	a.HasByteOffsets = false
+	anchor(a, blk)
 }
 
 // runeSpanToBytes converts a rune-indexed span into byte offsets by walking

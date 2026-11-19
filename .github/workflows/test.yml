@@ -164,3 +164,8 @@ jobs:
       # tag by the lint packages.
       - name: Build the slim wasm module
         run: make wasm-slim && go test -tags vale_nocode ./internal/lint/...
+
+      # The minimal module adds the other tags; what it leaves out has to
+      # be refused, and the rest has to pass under them.
+      - name: Build and test the minimal wasm module
+        run: make test-wasm-min && go test -tags "vale_nocode vale_noconvert vale_noviews vale_noexpr" ./internal/...

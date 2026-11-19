@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/expr-lang/expr"
-
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
@@ -57,18 +55,13 @@ func filter(mgr *Manager) (map[string]Rule, error) {
 	}
 	code := fmt.Sprintf(`filter(Rules, {%s})`, filter)
 
-	program, err := expr.Compile(code, expr.Env(env))
-	if err != nil {
-		return mgr.rules, err
-	}
-
-	output, err := expr.Run(program, env)
+	output, err := runFilter(code, env)
 	if err != nil {
 		return mgr.rules, err
 	}
 
 	filtered := map[string]Rule{}
-	for _, entry := range output.([]interface{}) {
+	for _, entry := range output {
 		rule, _ := entry.(Definition)
 
 		name := mgr.RuleForAlert(rule.Name)

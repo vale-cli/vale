@@ -1,3 +1,5 @@
+//go:build !vale_noconvert
+
 package lint
 
 import (

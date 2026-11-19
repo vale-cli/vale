@@ -23,6 +23,7 @@ type Existence struct {
 	exceptRe   *rx.Regexp
 	phraseRe   *rx.Regexp
 	pattern    *rx.Regexp
+	split      *tokenSplit
 	groups     []groupSpan
 	Append     bool
 	IgnoreCase bool
@@ -75,6 +76,7 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 			parsed = append(parsed, wrapSpaces(token, rule.Scope))
 		}
 	}
+	template := regex
 	regex = fmt.Sprintf(regex, strings.Join(parsed, "|"))
 
 	re, err = rx.Compile(regex)
@@ -82,7 +84,17 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 		return rule, patternError(err, path, append(parsed, rule.Raw...)...)
 	}
 	rule.pattern = re
-	rule.groups = groupSpans(parsed, strings.Join(rule.Raw, ""), rule.Append)
+	// Raw text or a template of the user's own may match in more than one
+	// way around a token, and then the alternation's order is not the
+	// tokens' alone.
+	if len(rule.Raw) == 0 && (cfg.WordTemplate == "" || rule.Nonword) {
+		rule.split = newTokenSplit(template, parsed)
+	}
+	// Counting each token's groups compiles it again, which a pattern with
+	// no groups at all has no need of.
+	if len(re.SubexpNames()) > 1 {
+		rule.groups = groupSpans(parsed, strings.Join(rule.Raw, ""), rule.Append)
+	}
 
 	return rule, nil
 }
@@ -191,7 +203,7 @@ func (e Existence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Al
 		return alerts, nil
 	}
 
-	for _, sub := range e.pattern.FindAllStringSubmatchIndex(blk.Text, -1) {
+	for _, sub := range e.matches(blk) {
 		loc := sub[:2]
 		converted, err := re2Loc(blk, loc)
 		if err != nil {
@@ -212,6 +224,24 @@ func (e Existence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Al
 	}
 
 	return alerts, nil
+}
+
+// matches returns the rune bounds of each match in the block, and of its
+// groups. A rule whose tokens can run apart runs only those the block could
+// match; see tokenSplit.
+func (e Existence) matches(blk nlp.Block) [][]int {
+	if e.split != nil {
+		active := e.split.active(blk.Lower)
+		if len(active) == 0 {
+			return nil
+		}
+		if len(active) <= splitCeiling {
+			if found, _, ok := e.split.find(blk.Text, active); ok {
+				return found
+			}
+		}
+	}
+	return e.pattern.FindAllStringSubmatchIndex(blk.Text, -1)
 }
 
 // Fields provides access to the internal rule definition.

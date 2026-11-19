@@ -1,3 +1,5 @@
+//go:build !vale_noexpr
+
 package core
 
 import (

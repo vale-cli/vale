@@ -49,6 +49,19 @@ test-wasm: wasm
 wasm-slim:
 	GOOS=js GOARCH=wasm go build ${LDFLAGS} -tags vale_nocode -o bin/vale-slim.wasm ./cmd/valew
 
+# The minimal browser build, for a host that lints Markdown, HTML, and text
+# under a fixed configuration: no grammar runtime (vale_nocode), no
+# reStructuredText, AsciiDoc, or Org converter (vale_noconvert), no dasel
+# views (vale_noviews), and no conditional sections or filters (vale_noexpr).
+MIN_TAGS := vale_nocode vale_noconvert vale_noviews vale_noexpr
+
+wasm-min:
+	GOOS=js GOARCH=wasm go build ${LDFLAGS} -tags "$(MIN_TAGS)" -o bin/vale-min.wasm ./cmd/valew
+	install -m 0644 "$$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm_exec.js
+
+test-wasm-min: wasm-min
+	node testdata/wasm/smoke.mjs bin/wasm_exec.js bin/vale-min.wasm min
+
 bench:
 	go test -bench=. -benchmem ./internal/core ./internal/lint ./internal/check
 

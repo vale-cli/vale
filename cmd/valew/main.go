@@ -22,6 +22,32 @@ func errResult(msg string) interface{} {
 	return map[string]interface{}{"error": msg}
 }
 
+// cached is the linter for the last configuration linted under. Building
+// one compiles every rule, so a host that lints as its user types reuses it;
+// a write to the filesystem drops it, since that is where the rules are read.
+var cached struct {
+	ini    string
+	linter *lint.Linter
+}
+
+// linterFor returns the linter for a configuration, building it if needed.
+func linterFor(ini string) (*lint.Linter, error) {
+	if cached.linter != nil && cached.ini == ini {
+		return cached.linter, nil
+	}
+	cfg, err := core.LoadConfigFromString(ini)
+	if err != nil {
+		return nil, err
+	}
+	linter, err := lint.NewLinter(cfg)
+	if err != nil {
+		return nil, err
+	}
+	linter.Memoize()
+	cached.ini, cached.linter = ini, linter
+	return linter, nil
+}
+
 // readBytes accepts either a JS string or a Uint8Array / ArrayBuffer and
 // returns the raw bytes.
 func readBytes(v js.Value) ([]byte, error) {
@@ -61,6 +87,7 @@ func ValeAddFile(_ js.Value, args []js.Value) interface{} {
 		return errResult(err.Error())
 	}
 	memFS.AddFile(args[0].String(), data)
+	cached.linter = nil
 	return map[string]interface{}{"ok": true}
 }
 
@@ -80,12 +107,14 @@ func ValeAddPackage(_ js.Value, args []js.Value) interface{} {
 	if err := memFS.AddZip(args[0].String(), data); err != nil {
 		return errResult(err.Error())
 	}
+	cached.linter = nil
 	return map[string]interface{}{"ok": true}
 }
 
 // ValeResetFS() drops every entry from the in-memory filesystem.
 func ValeResetFS(_ js.Value, _ []js.Value) interface{} {
 	memFS.Reset()
+	cached.linter = nil
 	return map[string]interface{}{"ok": true}
 }
 
@@ -145,17 +174,12 @@ func ValeLint(_ js.Value, args []js.Value) interface{} {
 	format := args[1].String() // e.g., "md", "adoc"
 	configINI := args[2].String()
 
-	cfg, err := core.LoadConfigFromString(configINI)
+	linter, err := linterFor(configINI)
 	if err != nil {
 		return errResult(err.Error())
 	}
 
 	virtualName := "input." + format
-
-	linter, err := lint.NewLinter(cfg)
-	if err != nil {
-		return errResult(err.Error())
-	}
 
 	linted, err := linter.LintStringAs(text, virtualName)
 	if err != nil {
@@ -184,12 +208,7 @@ func ValeLintBuilt(_ js.Value, args []js.Value) interface{} {
 	html := args[2].String()
 	configINI := args[3].String()
 
-	cfg, err := core.LoadConfigFromString(configINI)
-	if err != nil {
-		return errResult(err.Error())
-	}
-
-	linter, err := lint.NewLinter(cfg)
+	linter, err := linterFor(configINI)
 	if err != nil {
 		return errResult(err.Error())
 	}
@@ -270,17 +289,12 @@ func ValeTransform(_ js.Value, args []js.Value) interface{} {
 	format := args[1].String()
 	configINI := args[2].String()
 
-	cfg, err := core.LoadConfigFromString(configINI)
+	linter, err := linterFor(configINI)
 	if err != nil {
 		return errResult(err.Error())
 	}
 
-	linter, err := lint.NewLinter(cfg)
-	if err != nil {
-		return errResult(err.Error())
-	}
-
-	file, err := core.NewFileFromContent(text, "input."+format, cfg)
+	file, err := core.NewFileFromContent(text, "input."+format, linter.Manager.Config)
 	if err != nil {
 		return errResult(err.Error())
 	}

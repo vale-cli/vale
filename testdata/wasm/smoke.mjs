@@ -2,7 +2,10 @@
 // no filesystem, so wasm_exec.js's stub answers every os call, and every
 // asset arrives through ValeAddFile. Run with `make test-wasm`.
 //
-//   node smoke.mjs <wasm_exec.js> <vale.wasm>
+//   node smoke.mjs <wasm_exec.js> <vale.wasm> [min]
+//
+// `min` is the build from `make wasm-min`: the cases for what it leaves out
+// check that each one is refused, not that it works.
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -20,6 +23,7 @@ require(path.resolve(process.argv[2]));
 const go = new Go();
 const { instance } = await WebAssembly.instantiate(fs.readFileSync(path.resolve(process.argv[3])), go.importObject);
 go.run(instance);
+const min = process.argv[4] === "min";
 await new Promise((r) => setTimeout(r, 50));
 
 for (const name of ["ValeLint", "ValeSuggest", "ValeTransform", "ValeAddFile", "ValeAddPackage", "ValeResetFS", "ValeListFS"]) {
@@ -63,7 +67,13 @@ assert.deepEqual(JSON.parse(out.result)["input.js"].map((a) => a.Line), [1, 2]);
 // With the grammar in place, under config/grammars, the file is parsed and
 // only the comment is linted. The module comes from grammars/build.sh.
 const grammar = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "grammars", "dist", "javascript.wasm");
-if (fs.existsSync(grammar)) {
+if (min) {
+  // No grammar runtime: the module is ignored and the delimiters still read.
+  ValeAddFile("/styles/config/grammars/javascript.wasm", new Uint8Array([0, 97, 115, 109]));
+  out = ValeLint(js, "js", custom);
+  assert.equal(out.error, undefined, out.error);
+  assert.deepEqual(JSON.parse(out.result)["input.js"].map((a) => a.Line), [1, 2]);
+} else if (fs.existsSync(grammar)) {
   ValeAddFile("/styles/config/grammars/javascript.wasm", new Uint8Array(fs.readFileSync(grammar)));
   out = ValeLint(js, "js", custom);
   assert.equal(out.error, undefined, out.error);
@@ -71,6 +81,13 @@ if (fs.existsSync(grammar)) {
 } else {
   console.log("skipping the grammar case: run grammars/build.sh");
 }
+
+// A rule added after a lint is picked up by the next one.
+ValeAddFile("/styles/T/Later.yml", "extends: existence\nmessage: \"'%s'\"\nlevel: error\ntokens:\n  - good\n");
+out = ValeLint("This is very good.\n", "md", custom);
+assert.deepEqual(JSON.parse(out.result)["input.md"].map((a) => a.Check), ["T.W", "T.Later"]);
+ValeResetFS();
+ValeAddFile("/styles/T/W.yml", "extends: existence\nmessage: \"'%s'\"\nlevel: error\ntokens:\n  - very\n");
 
 // Plain text and HTML are read.
 out = ValeLint("This is very good.\n", "txt", custom);
@@ -102,6 +119,10 @@ for (const [format, want] of builtCases) {
 // real converters' HTML did.
 for (const [format, want] of builtCases.slice(0, 2)) {
   out = ValeLint(built(`doc.${format}`), format, custom);
+  if (min) {
+    assert.match(out.error ?? out.result, /no converter/, `${format}, without its converter`);
+    continue;
+  }
   assert.equal(out.error, undefined, `${format}: ${out.error}`);
   alerts = JSON.parse(out.result)[`input.${format}`];
   assert.deepEqual(alerts.map((a) => [a.Line, a.Span]), want, `${format}, converted in the module`);
@@ -130,6 +151,14 @@ assert.deepEqual(resolved.sections.map((s) => [s.glob, s.active, s.overridden, s
 out = ValeResolveConfig("MinAlertLevel = suggestion\n\n[*]\nBasedOnStyles = Vale\n");
 assert.deepEqual(JSON.parse(out.result).sections.map((s) => [s.glob, s.active > 0]), [["*", true]]);
 assert.deepEqual(resolved.sections[0].rules.map((r) => [r.ref, r.state, r.level ?? ""]), [["T.Off", "disabled", ""], ["T.W", "override", "suggestion"]]);
+
+// A conditional section needs the expression engine.
+out = ValeLint("Very good.\n", "md", "StylesPath = /styles\n\n[*.md if .Path matches 'input']\nBasedOnStyles = T\n");
+if (min) {
+  assert.match(out.error ?? "", /no expression engine/);
+} else {
+  assert.equal(out.error, undefined, out.error);
+}
 
 ValeResetFS();
 assert.deepEqual(ValeListFS().paths, []);

@@ -3,6 +3,7 @@ package regex
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWithoutLookarounds(t *testing.T) {
@@ -67,5 +68,62 @@ func TestRequiredThroughLookaroundsStaysSound(t *testing.T) {
 					c.expr, lits, subject)
 			}
 		}
+	}
+}
+
+// Every test Requirements reports must hold for every string the pattern
+// matches, and side-by-side parts must read as one literal.
+func TestRequirements(t *testing.T) {
+	cases := []struct {
+		expr    string
+		want    [][]string // nil to check soundness alone
+		matches []string
+	}{
+		{`[Ii]t is`, [][]string{{"it is"}}, []string{"It is", "it is"}},
+		{`\bThe \w+ (?:is|are) (?:thin|clean)`, [][]string{{"the "}, {"thin", "clean"}, {"is", "are"}},
+			[]string{"The api is clean", "The walls are thin"}},
+		{`(?i)\b(?:very|really)\b`, [][]string{{"very", "really"}}, []string{"VERY", "Really"}},
+		{`[Ii]t'?s not just [^;,]+[;,] it'?s [^.!?]+`, nil, []string{"It's not just a; its b", "its not just a, it's b"}},
+		{`a(?:bc|de)?f`, [][]string(nil), []string{"af", "abcf"}},
+		{`[A-Z][a-z]+ are [^,]+, not [^.]+`, [][]string{{", not "}, {" are "}}, []string{"Dogs are loud, not quiet"}},
+		{`colou?r`, [][]string{{"colo"}}, []string{"color", "colour"}},
+		{`x|[a-z]+`, [][]string(nil), []string{"x", "word"}},
+	}
+
+	for _, c := range cases {
+		tests := Requirements(c.expr)
+		if c.want != nil || len(c.matches) == 0 {
+			if len(tests) != len(c.want) {
+				t.Errorf("Requirements(%q) = %v, want %v", c.expr, tests, c.want)
+			}
+		}
+		for i := range c.want {
+			if i < len(tests) && strings.Join(tests[i], "|") != strings.Join(c.want[i], "|") {
+				t.Errorf("Requirements(%q)[%d] = %v, want %v", c.expr, i, tests[i], c.want[i])
+			}
+		}
+		for _, subject := range c.matches {
+			if !MustCompile(c.expr).MatchStringStd(subject) {
+				t.Fatalf("%q does not match %q, so this proves nothing", c.expr, subject)
+			}
+			if !Holds(tests, strings.ToLower(subject)) {
+				t.Errorf("%q: tests %v reject %q, which the pattern matches", c.expr, tests, subject)
+			}
+		}
+	}
+}
+
+// Stripping lookarounds reads the pattern once: a generated rule runs to
+// hundreds of kilobytes, and a rescan per byte took seconds on one.
+func TestWithoutLookaroundsIsLinear(t *testing.T) {
+	expr := strings.Repeat(`(?:alpha|beta)\s+`, 40_000) + `(?=gamma)delta`
+
+	start := time.Now()
+	got, changed := withoutLookarounds(expr)
+	if took := time.Since(start); took > 2*time.Second {
+		t.Errorf("took %v on a %d KB pattern", took, len(expr)/1024)
+	}
+	if !changed || !strings.HasSuffix(got, `\s+delta`) || strings.Contains(got, "gamma") {
+		t.Errorf("the lookaround was not removed: ...%q", got[len(got)-24:])
 	}
 }
