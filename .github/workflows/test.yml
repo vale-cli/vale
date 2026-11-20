@@ -166,6 +166,7 @@ jobs:
         run: make wasm-slim && go test -tags vale_nocode ./internal/lint/...
 
       # The minimal module adds the other tags; what it leaves out has to
-      # be refused, and the rest has to pass under them.
+      # be refused, and the rest has to pass under them. The e2e suite runs
+      # the full binary, so it is left out.
       - name: Build and test the minimal wasm module
-        run: make test-wasm-min && go test -tags "vale_nocode vale_noconvert vale_noviews vale_noexpr" ./internal/...
+        run: make test-wasm-min && go test -tags "vale_nocode vale_noconvert vale_noviews vale_noexpr" $(go list ./internal/... | grep -v /internal/e2e)
