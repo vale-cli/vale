@@ -89,6 +89,11 @@ type walker struct {
 	// scopes all three, not just the first.
 	enclosing []openTag
 
+	// ignore is the classes whose text is skipped, and skipping counts the
+	// open containers that carry one.
+	ignore   []string
+	skipping int
+
 	// aggs holds the selections open around the current block, innermost
 	// last. Like enclosing, it spans blocks rather than resetting with them.
 	// closed is the one whose element just ended, awaiting the flush.
@@ -312,6 +317,9 @@ type openTag struct {
 	tag string
 	cls string
 
+	// skip is whether cls holds an ignored class.
+	skip bool
+
 	// ids names the selections the element belongs to, and agg gathers its
 	// text for them.
 	ids []string
@@ -330,7 +338,10 @@ type aggregate struct {
 // enclose records a block container as open. `marks` names the selections
 // that matched it, if any.
 func (w *walker) enclose(tag, cls, marks string) {
-	open := openTag{tag: tag, cls: cls}
+	open := openTag{tag: tag, cls: cls, skip: checkClasses(cls, w.ignore)}
+	if open.skip {
+		w.skipping++
+	}
 	if ids := strings.Fields(marks); len(ids) > 0 {
 		open.ids = ids
 		open.agg = &aggregate{ids: ids, line: -1}
@@ -419,21 +430,19 @@ func (w *walker) unclose(tag string) {
 			if a := w.enclosing[i].agg; a != nil {
 				w.closed = a
 			}
+			if w.enclosing[i].skip {
+				w.skipping--
+			}
 			w.enclosing = append(w.enclosing[:i], w.enclosing[i+1:]...)
 			return
 		}
 	}
 }
 
-// inClass reports whether a block container still open carries one of the
-// given classes.
-func (w *walker) inClass(classes []string) bool {
-	for _, o := range w.enclosing {
-		if checkClasses(o.cls, classes) {
-			return true
-		}
-	}
-	return false
+// inIgnored reports whether a block container still open carries an ignored
+// class.
+func (w *walker) inIgnored() bool {
+	return w.skipping > 0
 }
 
 // classes returns the classes enclosing the current block, in the order they

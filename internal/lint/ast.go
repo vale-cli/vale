@@ -2,6 +2,7 @@ package lint
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -12,14 +13,14 @@ import (
 	"github.com/vale-cli/vale/v3/internal/nlp"
 )
 
-// skipTags are tags that we don't want to lint.
-var skipTags = []string{"script", "style", "pre", "noscript", "iframe"}
+// defaultSkipTags are tags that we don't want to lint.
+var defaultSkipTags = []string{"script", "style", "pre", "noscript", "iframe"}
 
-// skipClasses are classes that we don't want to lint:
+// defaultSkipClasses are classes that we don't want to lint:
 //   - `problematic` is added by rst2html to processing errors which, in our
 //     case, could be things like file-insertion URLs.
 //   - `pre` is added by rst2html to code spans.
-var skipClasses = []string{"problematic", "pre", "code"}
+var defaultSkipClasses = []string{"problematic", "pre", "code"}
 var inlineTags = []string{
 	"b", "big", "i", "small", "abbr", "acronym", "cite", "dfn", "em", "kbd",
 	"strong", "a", "br", "img", "span", "sub", "sup", "code", "tt", "del", "q",
@@ -75,13 +76,13 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 
 	buf := bytes.NewBufferString("")
 
-	// The user has specified a custom list of tags/classes to ignore.
+	// The user's tags and classes to ignore, built per file: files are
+	// linted concurrently, and the defaults are shared.
+	skipTags := defaultSkipTags
 	if len(l.Manager.Config.SkippedScopes) > 0 {
 		skipTags = l.Manager.Config.SkippedScopes
 	}
-	if len(l.Manager.Config.IgnoredClasses) > 0 {
-		skipClasses = append(skipClasses, l.Manager.Config.IgnoredClasses...)
-	}
+	skipClasses := append(slices.Clip(defaultSkipClasses), l.Manager.Config.IgnoredClasses...)
 
 	skipped := []string{"tt", "code", "kbd", "samp"}
 	if len(l.Manager.Config.IgnoredScopes) > 0 {
@@ -117,6 +118,7 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 	promoted := map[string]int{}
 
 	walker := newWalker(f, raw, offset)
+	walker.ignore = skipClasses
 	for {
 		tokt, tok, txt := walker.walk()
 
@@ -364,7 +366,7 @@ func (l *Linter) lintHTMLTokens(f *core.File, raw []byte, offset int) error { //
 
 		// An attribute's text belongs to the element that holds it: inside
 		// an ignored class, an image's alt text is skipped with the block.
-		if !skipClass && !walker.inClass(skipClasses) {
+		if !skipClass && !walker.inIgnored() {
 			if err := l.lintTags(f, walker, tok); err != nil {
 				return err
 			}
