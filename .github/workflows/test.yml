@@ -170,3 +170,8 @@ jobs:
       # the full binary, so it is left out.
       - name: Build and test the minimal wasm module
         run: make test-wasm-min && go test -tags "vale_nocode vale_noconvert vale_noviews vale_noexpr" $(go list ./internal/... | grep -v /internal/e2e)
+
+      # vale_nodict leaves out the default dictionary; a host whose spelling
+      # rules bring their own uses it. The rest of the spell tests need it.
+      - name: Build without the default dictionary
+        run: GOOS=js GOARCH=wasm go build -tags "$(make -s print-min-tags) vale_nodict" -o /dev/null ./cmd/valew && go test -tags vale_nodict ./internal/spell -run TestNoDefaultDictionary

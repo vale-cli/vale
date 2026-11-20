@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
-
-	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/ianaindex"
 )
 
 // utf8BOM is the byte order mark some dictionaries start with.
@@ -32,14 +29,14 @@ func decodeDictionary(aff, dic []byte) ([]byte, []byte, error) {
 		return aff, dic, nil
 	}
 
-	enc, err := lookupCharset(charset)
+	decode, err := lookupCharset(charset)
 	if err != nil {
 		return nil, nil, err
 	}
-	if aff, err = enc.NewDecoder().Bytes(aff); err != nil {
+	if aff, err = decode(aff); err != nil {
 		return nil, nil, fmt.Errorf("decode .aff as %s: %w", charset, err)
 	}
-	if dic, err = enc.NewDecoder().Bytes(dic); err != nil {
+	if dic, err = decode(dic); err != nil {
 		return nil, nil, fmt.Errorf("decode .dic as %s: %w", charset, err)
 	}
 	return aff, dic, nil
@@ -55,15 +52,4 @@ func declaredCharset(aff []byte) string {
 		}
 	}
 	return ""
-}
-
-// lookupCharset finds an encoding by the name a `.aff` uses; Hunspell writes
-// `ISO8859-1` where the registry spells it `ISO-8859-1`.
-func lookupCharset(name string) (encoding.Encoding, error) {
-	iana := strings.Replace(strings.ToUpper(name), "ISO8859-", "ISO-8859-", 1)
-	enc, err := ianaindex.IANA.Encoding(iana)
-	if err != nil || enc == nil {
-		return nil, fmt.Errorf("SET %s: unsupported encoding", name)
-	}
-	return enc, nil
 }

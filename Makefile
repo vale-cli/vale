@@ -59,6 +59,9 @@ wasm-min:
 	GOOS=js GOARCH=wasm go build ${LDFLAGS} -tags "$(MIN_TAGS)" -o bin/vale-min.wasm ./cmd/valew
 	install -m 0644 "$$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm_exec.js
 
+print-min-tags:
+	@echo $(MIN_TAGS)
+
 test-wasm-min: wasm-min
 	node testdata/wasm/smoke.mjs bin/wasm_exec.js bin/vale-min.wasm min
 

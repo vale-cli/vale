@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,9 @@ import (
 //go:embed data/en_US-web.aff
 var defaultAff []byte
 
-//go:embed data/en_US-web.dic
-var defaultDic []byte
+// ErrNoDictionary reports a spelling check that needs the default
+// dictionary in a build without one (vale_nodict).
+var ErrNoDictionary = errors.New("this build has no default dictionary")
 
 var defaultOpts = Options{
 	path: os.Getenv("DICPATH"),
@@ -127,6 +129,9 @@ func NewCheckerFS(fsys system.FS, options ...CheckerOption) (*Checker, error) {
 
 	if len(checker.checkers) == 0 || base.load {
 		// use default dictionary ...
+		if len(defaultDic) == 0 {
+			return &checker, ErrNoDictionary
+		}
 		c, err := sharedDictionary("embedded\x00en_US-web", func() (*goSpell, error) {
 			return newGoSpellReader(bytes.NewReader(defaultAff), bytes.NewReader(defaultDic))
 		})
