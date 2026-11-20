@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jdkato/prose/v3/tag"
 	"github.com/mitchellh/mapstructure"
@@ -692,6 +693,7 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 					// back to the whole line (#1202). Only a block with neither
 					// is left to be located by searching, which resolves every
 					// repeat of a sentence to the first one.
+					local := span
 					absolute := blk.Offset >= 0
 					if absolute {
 						span = []int{blk.Offset + span[0], blk.Offset + span[1]}
@@ -712,6 +714,12 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 					a.Message, a.Description = formatMessages(s.Message,
 						s.Description, m.text...)
 					a.Offset = offset
+					if absolute && local[1] <= len(txt) {
+						// Where it is in the block, so a memo can place it
+						// again when the block moves; see Reanchor.
+						a.BlockSpan = []int{utf8.RuneCountInString(txt[:local[0]]),
+							utf8.RuneCountInString(txt[:local[1]])}
+					}
 
 					if err := resolveFix(&a, cfg); err != nil {
 						return alerts, err

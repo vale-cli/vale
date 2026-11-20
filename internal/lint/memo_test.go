@@ -1,10 +1,13 @@
 package lint
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vale-cli/vale/v3/internal/core"
 )
 
 // A memoized linter reports what a fresh one does, for a document linted
@@ -48,7 +51,7 @@ func TestMemoizeMatchesFreshLint(t *testing.T) {
 
 		runs := 0
 		memoized.RuleHook = func(name string, _ time.Duration) {
-			if concurrentKinds[memoized.Manager.Rules()[name].Fields().Extends] {
+			if memoKinds[memoized.Manager.Rules()[name].Fields().Extends] {
 				runs++
 			}
 		}
@@ -60,8 +63,8 @@ func TestMemoizeMatchesFreshLint(t *testing.T) {
 			t.Errorf("%s: memoized alerts differ:\n got  %v\n want %v", step.name, lines, want)
 		}
 
-		// RuleHook sees every rule, run or remembered, so count the misses.
-		misses := len(memoized.memo.now) - carried(memoized.memo)
+		// RuleHook sees every rule, run or remembered; the memo counts the runs.
+		misses := memoized.memo.runs
 		switch step.runs {
 		case "all":
 			all = misses
@@ -83,19 +86,66 @@ func TestMemoizeMatchesFreshLint(t *testing.T) {
 	}
 }
 
-// carried counts the current generation's entries that came from the last.
-func carried(m *blockMemo) int {
-	n := 0
-	for k := range m.now {
-		if _, ok := m.last[k]; ok {
-			n++
-		}
-	}
-	return n
-}
-
 func slicesWith(list []string, i int, s string) []string {
 	out := append([]string{}, list...)
 	out[i] = s
 	return out
+}
+
+// A sequence rule is remembered like the block-only rules: what it found in an
+// unchanged block is reported again, in place, without tagging the block again.
+func TestMemoizeKeepsSequenceRules(t *testing.T) {
+	doc := "The meet up is on Friday.\n\nWe should meet up later. The meet-ups were fun.\n\nNothing here.\n"
+	moved := "Nothing here.\n\nThe meet up is on Friday.\n\nWe should meet up later. The meet-ups were fun.\n"
+
+	styles, err := filepath.Abs("../../testdata/styles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	linter := func() *Linter {
+		cfg, cerr := core.LoadConfigFromString("StylesPath = " + filepath.ToSlash(styles) +
+			"\nMinAlertLevel = suggestion\n\n[*]\nBasedOnStyles = demo\n")
+		if cerr != nil {
+			t.Fatal(cerr)
+		}
+		l, lerr := NewLinter(cfg)
+		if lerr != nil {
+			t.Fatal(lerr)
+		}
+		return l
+	}
+
+	memoized := linter()
+	memoized.Memoize()
+	first := 0
+	for i, text := range []string{doc, doc, moved} {
+		fresh, ferr := linter().LintStringAs(text, "input.md")
+		if ferr != nil {
+			t.Fatal(ferr)
+		}
+		got, gerr := memoized.LintStringAs(text, "input.md")
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		want := alertLines(fresh)
+		if !strings.Contains(strings.Join(want, " "), "demo.Meetup") {
+			t.Fatalf("lint %d: no sequence alert, so this proves nothing: %v", i, want)
+		}
+		if lines := alertLines(got); !reflect.DeepEqual(lines, want) {
+			t.Errorf("lint %d: memoized alerts differ:\n got  %v\n want %v", i, lines, want)
+		}
+		switch i {
+		case 0:
+			first = memoized.memo.runs
+		case 1:
+			if memoized.memo.runs != 0 {
+				t.Errorf("unchanged: %d rules run, want none", memoized.memo.runs)
+			}
+		case 2:
+			// Rules that read the whole document see a new one.
+			if memoized.memo.runs >= first {
+				t.Errorf("reordered: %d rules run, want fewer than the first lint's %d", memoized.memo.runs, first)
+			}
+		}
+	}
 }

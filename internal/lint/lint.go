@@ -594,6 +594,18 @@ var concurrentKinds = map[string]bool{
 	"substitution":   true,
 }
 
+// memoKinds names the extension points whose findings depend on nothing but
+// the block and the file's configuration, so a memo can keep them: the
+// concurrent ones, and `sequence`, whose tagging cache is the file's but whose
+// tags are the block's.
+var memoKinds = func() map[string]bool {
+	kinds := map[string]bool{"sequence": true}
+	for k := range concurrentKinds {
+		kinds[k] = true
+	}
+	return kinds
+}()
+
 // blockWorkers bounds rule concurrency across the whole run, not per block:
 // files are already linted in parallel, and a pool per block would multiply by
 // however many are in flight.
@@ -689,12 +701,12 @@ func setLevel(a *core.Alert, f *core.File, info check.Definition, name string) {
 // lintBlockSerial is lintBlock without the concurrency, and without what it
 // costs to set up.
 func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule, lines, pad int, lookup bool) error {
-	var key memoKey
+	var memo *memoEntry
 	if l.memo != nil {
-		key = l.memo.key(f, blk)
+		memo = l.memo.entry(l.memo.key(f, blk), len(rules))
 	}
 
-	for _, r := range rules {
+	for i, r := range rules {
 		name, chk := r.name, r.rule
 		if !l.shouldRun(name, f, chk) {
 			continue
@@ -702,10 +714,7 @@ func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule
 
 		info := chk.Fields()
 
-		memoize := l.memo != nil && concurrentKinds[info.Extends]
-		if memoize {
-			key.rule = name
-		}
+		memoize := memo != nil && memoKinds[info.Extends]
 
 		var start time.Time
 		if l.RuleHook != nil {
@@ -713,7 +722,7 @@ func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule
 		}
 		alerts, hit := []core.Alert(nil), false
 		if memoize {
-			alerts, hit = l.memo.get(key, blockFor(blk, chk))
+			alerts, hit = memo.get(i, blockFor(blk, chk))
 		}
 		if !hit {
 			var err error
@@ -721,7 +730,7 @@ func (l *Linter) lintBlockSerial(f *core.File, blk nlp.Block, rules []scopedRule
 				return err
 			}
 			if memoize {
-				l.memo.put(key, alerts)
+				l.memo.put(memo, i, alerts)
 			}
 		}
 		if l.RuleHook != nil {
