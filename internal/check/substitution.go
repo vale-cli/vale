@@ -192,8 +192,8 @@ func (s Substitution) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core
 
 	txt := blk.Text
 	// A substring search is far cheaper than the pattern, and a false answer
-	// is definitive.
-	if !s.pattern.MightMatch(blk.Lower) {
+	// is definitive. A split rule asks each token instead, in matches.
+	if s.split == nil && !s.pattern.MightMatch(blk.Lower) {
 		return alerts, nil
 	}
 

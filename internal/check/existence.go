@@ -198,8 +198,9 @@ func (e Existence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Al
 
 	// Rule out the pattern before the engine sees it: almost every rule is
 	// asked about text it cannot match, and a substring search is far cheaper
-	// than a regular expression. A false answer here is definitive.
-	if !e.pattern.MightMatch(blk.Lower) {
+	// than a regular expression. A false answer here is definitive. A split
+	// rule asks each token instead, in matches.
+	if e.split == nil && !e.pattern.MightMatch(blk.Lower) {
 		return alerts, nil
 	}
 

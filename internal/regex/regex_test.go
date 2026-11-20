@@ -32,3 +32,25 @@ func TestFindAllStringSubmatchIndexEmptyMatch(t *testing.T) {
 		})
 	}
 }
+
+// A pattern's prefilter is worked out when it is first asked, not when the
+// pattern is compiled: a rule that splits its tokens never asks the joined
+// pattern, and reading it again cost a quarter of a large style's load.
+func TestPrefilterIsDerivedOnFirstUse(t *testing.T) {
+	re := MustCompile(`\bfoo(?:bar|baz)\b`)
+	if re.tests.set != nil {
+		t.Fatal("the prefilter was derived at compile time")
+	}
+	if re.MightMatch("nothing here") {
+		t.Error("a subject without the literal passed")
+	}
+	if !re.MightMatch("a foobar here") {
+		t.Error("a subject with the literal was ruled out")
+	}
+	if re.tests.set == nil {
+		t.Error("the prefilter was not kept after its first use")
+	}
+	if !(&Regexp{}).MightMatch("anything") {
+		t.Error("an unset pattern ruled a subject out")
+	}
+}

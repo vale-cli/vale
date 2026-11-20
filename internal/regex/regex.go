@@ -21,6 +21,8 @@
 package regex
 
 import (
+	"sync"
+
 	"github.com/jdkato/regexp2/v2"
 )
 
@@ -35,9 +37,28 @@ type Match = regexp2.Match
 type Regexp struct {
 	*regexp2.Regexp
 
-	// filter holds the tests a subject must pass to match. Nil means the
-	// pattern has to be run to find out. See prefilter.go.
-	filter *FilterSet
+	// tests works out, the first time it is asked, what a subject must
+	// contain to match; see prefilter.go. Working it out reads the whole
+	// pattern again, and a pattern that is never asked -- one a rule keeps
+	// only to fall back on -- has no need of it.
+	tests *lazyTests
+}
+
+// lazyTests is a pattern's prefilter, derived on first use. A nil set means
+// the pattern has to be run to find out.
+type lazyTests struct {
+	once sync.Once
+	expr string
+	set  *FilterSet
+}
+
+func (l *lazyTests) get() *FilterSet {
+	l.once.Do(func() {
+		if tests := Requirements(l.expr); len(tests) > 0 {
+			l.set = NewFilterSet([][][]string{tests})
+		}
+	})
+	return l.set
 }
 
 // String returns the source text of the pattern.
@@ -63,11 +84,7 @@ func Compile(expr string) (*Regexp, error) {
 	if err != nil {
 		return nil, err
 	}
-	compiled := &Regexp{Regexp: re}
-	if tests := Requirements(expr); len(tests) > 0 {
-		compiled.filter = NewFilterSet([][][]string{tests})
-	}
-	return compiled, nil
+	return &Regexp{Regexp: re, tests: &lazyTests{expr: expr}}, nil
 }
 
 // MightMatch reports whether lowered could contain a match.
@@ -76,7 +93,11 @@ func Compile(expr string) (*Regexp, error) {
 // rather than once per rule. A false return is definitive: the pattern cannot
 // match. A true return means the pattern still has to be run.
 func (re *Regexp) MightMatch(lowered string) bool {
-	return re == nil || re.filter == nil || re.filter.Any(lowered)
+	if re == nil || re.tests == nil {
+		return true
+	}
+	set := re.tests.get()
+	return set == nil || set.Any(lowered)
 }
 
 // A MatchError is what the wrappers here panic with when the engine fails
