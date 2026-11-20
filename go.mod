@@ -17,7 +17,7 @@ require (
 	github.com/jdkato/adocgo v0.0.0-20261119124642-e6a6d671a1c3
 	github.com/jdkato/go-tree-sitter-julia v0.1.0
 	github.com/jdkato/prose/v3 v3.3.1
-	github.com/jdkato/regexp2/v2 v2.5.6
+	github.com/jdkato/regexp2/v2 v2.5.7
 	github.com/jdkato/rstgo v0.0.0-20261119124637-c506aeb5184d
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/mapstructure v1.5.0

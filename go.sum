@@ -67,8 +67,8 @@ github.com/jdkato/go-tree-sitter-julia v0.1.0 h1:z+6zTbd6PHMKAge7GJx9QIwPQX2NOKb
 github.com/jdkato/go-tree-sitter-julia v0.1.0/go.mod h1:lXNEZorcvU63DcANEklLMbDRjwam4VQ44MIV1Cck0w8=
 github.com/jdkato/prose/v3 v3.3.1 h1:LURqj290T6nPgtDRZWozHk0VwxFRP3wxNGljNCxXhM8=
 github.com/jdkato/prose/v3 v3.3.1/go.mod h1:nPWUYnf5cl04JHq+eNftwpVl7ZfMpTufT4A4QPhoWIM=
-github.com/jdkato/regexp2/v2 v2.5.6 h1:h4LX8BWu+tcYxkrPplKMLufUBTMIlxzkzbbHJKAHcqA=
-github.com/jdkato/regexp2/v2 v2.5.6/go.mod h1:1n+mjFZuqC5X6WEkQsenuS9JbxTRoHL6Jzs1UzGLcPk=
+github.com/jdkato/regexp2/v2 v2.5.7 h1:x7uGNYW9EcDucrgII1EUWG6DOz1NHVKMlF0uq8it8Ec=
+github.com/jdkato/regexp2/v2 v2.5.7/go.mod h1:1n+mjFZuqC5X6WEkQsenuS9JbxTRoHL6Jzs1UzGLcPk=
 github.com/jdkato/rstgo v0.0.0-20261119124637-c506aeb5184d h1:tL1lPwfeExQETye5zArReOXWuNQ8TvDpE3oSGtmtGp0=
 github.com/jdkato/rstgo v0.0.0-20261119124637-c506aeb5184d/go.mod h1:OJEMFA3dZSMi/05NajZpZx6saLOYtu6rKbXxKF7BD0k=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
