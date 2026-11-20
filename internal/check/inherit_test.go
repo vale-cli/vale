@@ -168,3 +168,27 @@ message: "leaf"
 		t.Errorf("chain flattened wrong: %v", got)
 	}
 }
+
+// A parent may be written as `.yaml`; with both spellings beside each other,
+// `.yml` is the rule. See #1217.
+func TestResolveRuleExtensions(t *testing.T) {
+	mgr, sp := managerWithStyles(t, map[string]string{
+		"Only/Words.yaml": parentRule,
+		"Both/Words.yml":  parentRule,
+		"Both/Words.yaml": parentRule,
+	})
+
+	cases := []struct{ name, want string }{
+		{"Only.Words", filepath.Join(sp, "Only", "Words.yaml")},
+		{"Both.Words", filepath.Join(sp, "Both", "Words.yml")},
+	}
+	for _, tt := range cases {
+		got, err := mgr.resolveRule(tt.name)
+		if err != nil {
+			t.Fatalf("resolveRule(%q): %v", tt.name, err)
+		}
+		if got != tt.want {
+			t.Errorf("resolveRule(%q) = %q; want %q", tt.name, got, tt.want)
+		}
+	}
+}
