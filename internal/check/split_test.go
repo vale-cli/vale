@@ -59,6 +59,12 @@ func TestTokenSplitMatchesAlternation(t *testing.T) {
 			"abxb",
 		},
 		{
+			"an anchored token among few",
+			nonwordTemplate,
+			[]string{`, (?:\w+ ){0,2}\w+ (?:and|or) \w+`, `^\w+, \w+ (?:and|or) \w+`},
+			"Cats, dogs or birds. We have cats, dogs and birds.",
+		},
+		{
 			"beyond ASCII",
 			ignoreCase + wordTemplate,
 			[]string{"naïve", "café", "über", "résumé"},
@@ -125,5 +131,13 @@ func TestTokenSplitRefuses(t *testing.T) {
 	}
 	if newTokenSplit(wordTemplate, rest) != nil {
 		t.Error("three tokens were split, under the floor")
+	}
+	// An anchored token is split at any count, since the alternation would
+	// try it at every position.
+	if newTokenSplit(nonwordTemplate, []string{`^alpha`, `beta`}) == nil {
+		t.Error("an anchored token was not split")
+	}
+	if newTokenSplit(nonwordTemplate, []string{`^alpha`}) != nil {
+		t.Error("a single token was split")
 	}
 }

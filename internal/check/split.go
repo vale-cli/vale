@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -32,7 +33,10 @@ type tokenSplit struct {
 }
 
 // splitFloor is the fewest tokens worth splitting: below it the alternation
-// is cheap, and a pattern per token is not.
+// is cheap, and a pattern per token is not -- unless a token is anchored. A
+// `^` inside an alternation no longer anchors the pattern, so the engine tries
+// that token at every position; one Microsoft rule ran eight times slower for
+// it.
 const splitFloor = 4
 
 // splitCeiling is the most tokens a block may wake before the alternation is
@@ -45,10 +49,15 @@ const splitCeiling = 32
 // bare inline flag, which reaches into the tokens after it.
 var reUnsplittable = regexp.MustCompile(`\\[1-9]|\\k[<'{]|\(\?[a-zA-Z-]+\)|\(\?P?<[A-Za-z_]|\(\?'|\((?:[^?]|$)`)
 
+// anchored reports whether a token opens with a start anchor.
+func anchored(token string) bool {
+	return strings.HasPrefix(token, "^") || strings.HasPrefix(token, `\A`)
+}
+
 // newTokenSplit returns the split form of a rule's tokens, or nil when the
 // tokens have to stay one pattern.
 func newTokenSplit(template string, tokens []string) *tokenSplit {
-	if len(tokens) < splitFloor {
+	if len(tokens) < 2 || (len(tokens) < splitFloor && !slices.ContainsFunc(tokens, anchored)) {
 		return nil
 	}
 
