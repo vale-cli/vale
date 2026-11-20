@@ -109,15 +109,25 @@ func Requirements(expr string) [][]string {
 		}
 		re, err = syntax.Parse(stripped, syntax.Perl)
 		if err != nil {
-			return nil
+			re = nil
 		}
 	}
 
 	var out [][]string
-	for _, clause := range clauses(re.Simplify()) {
-		if clause = usable(clause); clause != nil {
-			out = append(out, clause)
+	if re != nil {
+		for _, clause := range clauses(re.Simplify()) {
+			if clause = usable(clause); clause != nil {
+				out = append(out, clause)
+			}
 		}
+	}
+	// What a positive lookaround has to find is in the subject too, wherever
+	// every match passes through it.
+	for _, body := range requiredLookarounds(expr) {
+		out = append(out, Requirements(body)...)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	// The most selective test first, so a miss is found early.
 	sort.SliceStable(out, func(i, j int) bool { return Weight(out[i]) > Weight(out[j]) })
@@ -125,6 +135,107 @@ func Requirements(expr string) [][]string {
 		out = out[:maxClauses]
 	}
 	return out
+}
+
+// requiredLookarounds returns the bodies of the positive lookaheads and
+// lookbehinds every match of expr has to pass: those outside any alternation
+// and any optional group. A lookaround must match for the pattern to, so what
+// it requires is in the subject; one that a branch or a quantifier can skip
+// promises nothing.
+func requiredLookarounds(expr string) []string {
+	type frame struct {
+		alt    bool
+		bodies []string
+	}
+	stack := []*frame{{}}
+	optional := func(rest string) bool {
+		return strings.HasPrefix(rest, "?") || strings.HasPrefix(rest, "*") ||
+			strings.HasPrefix(rest, "{0") || strings.HasPrefix(rest, "{,")
+	}
+
+	for i := 0; i < len(expr); i++ {
+		switch c := expr[i]; {
+		case c == '\\':
+			i++
+		case c == '[':
+			i = classEnd(expr, i)
+		case c == '(' && lookaroundAt(expr, i):
+			end := groupEnd(expr, i)
+			if end < 0 {
+				return nil
+			}
+			start := i + 3
+			if expr[i+2] == '<' {
+				start++
+			}
+			if expr[start-1] == '=' && !optional(expr[end+1:]) {
+				top := stack[len(stack)-1]
+				top.bodies = append(top.bodies, expr[start:end])
+			}
+			i = end
+		case c == '(':
+			stack = append(stack, &frame{})
+		case c == '|':
+			stack[len(stack)-1].alt = true
+		case c == ')':
+			if len(stack) < 2 {
+				return nil
+			}
+			f := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if !f.alt && !optional(expr[i+1:]) {
+				parent := stack[len(stack)-1]
+				parent.bodies = append(parent.bodies, f.bodies...)
+			}
+		}
+	}
+	if len(stack) != 1 || stack[0].alt {
+		return nil
+	}
+	return stack[0].bodies
+}
+
+// groupEnd returns the index of the parenthesis that closes the group
+// opening at i, or -1.
+func groupEnd(expr string, i int) int {
+	depth := 0
+	for j := i; j < len(expr); j++ {
+		switch expr[j] {
+		case '\\':
+			j++
+		case '[':
+			j = classEnd(expr, j)
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+// classEnd returns the index of the bracket closing the character class that
+// opens at i, or the end of expr.
+func classEnd(expr string, i int) int {
+	j := i + 1
+	if j < len(expr) && expr[j] == '^' {
+		j++
+	}
+	if j < len(expr) && expr[j] == ']' {
+		j++
+	}
+	for ; j < len(expr); j++ {
+		switch expr[j] {
+		case '\\':
+			j++
+		case ']':
+			return j
+		}
+	}
+	return len(expr) - 1
 }
 
 // maxClauses bounds the tests kept for one pattern: past the first few, a

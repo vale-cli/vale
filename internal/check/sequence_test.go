@@ -479,3 +479,51 @@ func TestSequenceMinConsecutive(t *testing.T) {
 		})
 	}
 }
+
+// A sequence is searched for at its most selective token, which finds what
+// the first token would and more: a leading pattern anchored at both ends
+// matches a sentence once, so searching from it missed a second occurrence.
+func TestSequenceAnchorsOnSelectiveToken(t *testing.T) {
+	build := func(tokens ...map[string]interface{}) Sequence {
+		list := make([]interface{}, len(tokens))
+		for i, tok := range tokens {
+			list[i] = tok
+		}
+		rule, err := NewSequence(testConfig(), baseCheck{
+			"extends": "sequence", "name": "Test.Seq", "level": "error",
+			"message": "'%s'", "tokens": list,
+		}, "Test.Seq")
+		if err != nil {
+			t.Fatalf("building rule: %v", err)
+		}
+		return rule
+	}
+	run := func(rule Sequence, text string) int {
+		alerts, err := rule.Run(nlp.NewBlock(text, text, "text"), &core.File{NLP: nlp.Info{}}, testConfig())
+		if err != nil {
+			t.Fatalf("running rule: %v", err)
+		}
+		return len(alerts)
+	}
+
+	whole := build(
+		map[string]interface{}{"pattern": `^.+$`},
+		map[string]interface{}{"pattern": "every"},
+		map[string]interface{}{"pattern": "day"},
+	)
+	if whole.anchorAt != 1 {
+		t.Errorf("anchored at token %d, want 1", whole.anchorAt)
+	}
+	if n := run(whole, "It is an every day thing, not the every day kind."); n != 2 {
+		t.Errorf("found %d, want 2", n)
+	}
+
+	// A skip loosens where each token sits, so the first pattern stays.
+	skip := build(
+		map[string]interface{}{"pattern": `\S+`, "skip": 2},
+		map[string]interface{}{"pattern": "sort"},
+	)
+	if skip.anchorAt != 0 {
+		t.Errorf("a rule with skip anchored at token %d, want the default", skip.anchorAt)
+	}
+}

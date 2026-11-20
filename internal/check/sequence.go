@@ -118,6 +118,9 @@ type Sequence struct {
 	// This matters more here than elsewhere: Run tags the block before it does
 	// anything else, so ruling the rule out first skips the tagger too.
 	filter []string
+
+	// anchorAt is the token whose matches seed the search; see anchor.
+	anchorAt int
 }
 
 // NewSequence creates a new rule from the provided `baseCheck`.
@@ -232,6 +235,7 @@ func NewSequence(cfg *core.Config, generic baseCheck, path string) (Sequence, er
 
 	rule.Definition.Scope = sentenceScope(rule.Definition.Scope)
 	rule.filter = rule.literals()
+	rule.anchorAt = rule.pickAnchor()
 
 	return rule, nil
 }
@@ -257,6 +261,34 @@ func beginsInside(spans [][]int, pos int) bool {
 		}
 	}
 	return false
+}
+
+// pickAnchor returns the token to search from: the one with the most
+// selective required literal, so a sequence that opens on `\S+` and then
+// names a word is searched for at that word. Every match places each token at
+// a fixed distance from the others, so any token finds the same matches; a
+// `skip` or `min` loosens that, and such a rule keeps its first pattern.
+// 0 means anchor's default.
+func (s *Sequence) pickAnchor() int {
+	first, best, weight := -1, 0, 0
+	for i, tok := range s.Tokens {
+		if tok.Skip > 0 || tok.Min > 1 {
+			return 0
+		}
+		if tok.Negate || tok.Pattern == "" {
+			continue
+		}
+		w := rx.Weight(rx.Required(tok.Pattern))
+		if first < 0 {
+			first, best, weight = i, i, w
+		} else if w > weight {
+			best, weight = i, w
+		}
+	}
+	if best == first {
+		return 0
+	}
+	return best
 }
 
 // literals derives the strongest requirement any single token provides.
@@ -747,6 +779,9 @@ func (s Sequence) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core.Ale
 // directly. Failing that any tagged token will do -- without this, a rule made
 // only of tags matched nothing at all, silently.
 func (s Sequence) anchor() (int, NLPToken, bool) {
+	if s.anchorAt > 0 {
+		return s.anchorAt, s.Tokens[s.anchorAt], true
+	}
 	for i, tok := range s.Tokens {
 		if !tok.Negate && tok.Pattern != "" {
 			return i, tok, true

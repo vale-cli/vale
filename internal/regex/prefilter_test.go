@@ -1,6 +1,7 @@
 package regex
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -125,5 +126,59 @@ func TestWithoutLookaroundsIsLinear(t *testing.T) {
 	}
 	if !changed || !strings.HasSuffix(got, `\s+delta`) || strings.Contains(got, "gamma") {
 		t.Errorf("the lookaround was not removed: ...%q", got[len(got)-24:])
+	}
+}
+
+// A positive lookaround every match passes through adds its literals; one in
+// a branch, behind a quantifier, or negated adds nothing.
+func TestRequiredLookarounds(t *testing.T) {
+	tests := []struct {
+		expr string
+		want []string
+	}{
+		{`(?<=\bimitat\w+\s+\S+\s+)(?:from)`, []string{`\bimitat\w+\s+\S+\s+`}},
+		{`(?:(?<=after)x)y(?=before)`, []string{`after`, `before`}},
+		{`foo(?=(?<=o)bar)`, []string{`(?<=o)bar`}},
+		{`(?:(?<=abc)x|y)`, nil},
+		{`(?<=abc)x|y`, nil},
+		{`(?:(?<=abc)x)?y`, nil},
+		{`(?:(?<=abc)x)*y`, nil},
+		{`(?:(?<=abc)x){0,2}y`, nil},
+		{`(?=abc)?y`, nil},
+		{`(?<!abc)x(?!def)`, nil},
+		{`[(?<=abc)]x`, nil},
+		{`\(?<=abc\)x`, nil},
+	}
+	for _, tt := range tests {
+		if got := requiredLookarounds(tt.expr); !slices.Equal(got, tt.want) {
+			t.Errorf("requiredLookarounds(%q) = %q, want %q", tt.expr, got, tt.want)
+		}
+	}
+}
+
+// What the lookarounds add holds for every string the pattern matches.
+func TestRequirementsThroughLookaroundsStaySound(t *testing.T) {
+	cases := []struct {
+		expr    string
+		matches []string
+	}{
+		{`(?:(?<=\bimitat\w+\s+\S+\s+)(?:from))`, []string{"imitates them from", "imitating him from"}},
+		{`(?:(?<=abc)x|y)`, []string{"y", "abcx"}},
+		{`(?:(?<=abc)x)?y`, []string{"y", "abcxy"}},
+		{`(?<!abc)x(?=de|fg)`, []string{"xde", "xfg"}},
+	}
+	for _, c := range cases {
+		re := MustCompile(c.expr)
+		for _, subject := range c.matches {
+			if !re.MatchStringStd(subject) {
+				t.Fatalf("%q does not match %q, so this proves nothing", c.expr, subject)
+			}
+			lowered := strings.ToLower(subject)
+			for _, clause := range Requirements(c.expr) {
+				if !slices.ContainsFunc(clause, func(l string) bool { return strings.Contains(lowered, l) }) {
+					t.Errorf("%q: test %v rejects %q, which the pattern matches", c.expr, clause, subject)
+				}
+			}
+		}
 	}
 }
