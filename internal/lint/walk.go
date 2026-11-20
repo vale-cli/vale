@@ -800,7 +800,18 @@ func (w *walker) sourceOffset(i int) int {
 func (w *walker) walk() (html.TokenType, html.Token, string) {
 	tokt := w.z.Next()
 	tok := w.z.Token()
+	if tokt == html.StartTagToken && proseRawText[tok.Data] {
+		w.z.NextIsNotRawText()
+	}
 	return tokt, tok, html.UnescapeString(strings.Trim(tok.Data, " \t\n\r\f\v"))
+}
+
+// proseRawText names the elements HTML reads as raw text that turn up in prose
+// as a tag being written about: "creating the <title> tag". Left raw, an
+// unclosed one turns the rest of the document, markup and all, into its text.
+// Script, style, and the rest stay raw, since their content is skipped.
+var proseRawText = map[string]bool{
+	"title": true, "textarea": true, "xmp": true, "noembed": true, "noframes": true,
 }
 
 func (w *walker) replaceToks(tok html.Token) {
