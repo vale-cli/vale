@@ -32,8 +32,6 @@ type Manager struct {
 // NewManager creates a new Manager and loads the rule definitions (that is,
 // extended checks) specified by configuration.
 func NewManager(config *core.Config) (*Manager, error) {
-	var path string
-
 	mgr := Manager{
 		Config: config,
 
@@ -71,14 +69,15 @@ func NewManager(config *core.Config) (*Manager, error) {
 		if !mgr.hasStyle(parts[0]) {
 			// If this rule isn't part of an already-loaded style, we load it
 			// individually. Every segment after the style is a path
-			// component: `Std.dates.TimeFormat` is `Std/dates/TimeFormat.yml`.
-			fName := filepath.Join(parts[1:]...) + ".yml"
+			// component: `Std.dates.TimeFormat` is `Std/dates/TimeFormat.yml`
+			// (or `.yaml`).
+			stem := filepath.Join(parts[1:]...)
 			for _, p := range mgr.Config.SearchPaths() {
-				path = filepath.Join(p, parts[0], fName)
-				if !mgr.Config.FS.Exists(path) {
+				rule, found := core.FindRuleFile(mgr.Config.FS, filepath.Join(p, parts[0], stem))
+				if !found {
 					continue
 				}
-				if err = mgr.addCheckFile(chk, path); err != nil {
+				if err = mgr.addCheckFile(chk, rule); err != nil {
 					return &mgr, err
 				}
 			}
@@ -223,12 +222,19 @@ func (mgr *Manager) addStyle(path string) error {
 			// underscore prefix keeps a directory inert, the same convention
 			// the Go toolchain and the test-file walk use.
 			return filepath.SkipDir
-		case info.IsDir() || !strings.HasSuffix(info.Name(), ".yml"):
+		case info.IsDir() || !core.HasRuleExt(info.Name()):
 			return nil
 		case core.IsTestFile(info.Name()):
 			// A rule's cases live beside it, so the style directory holds YAML
 			// that is not a rule. Loaded as one it fails on `extends`, and the
 			// whole configuration stops. See #1122.
+			return nil
+		}
+
+		// `Rule.yml` and `Rule.yaml` would both be `Style.Rule`. Only the
+		// preferred extension is the rule, whichever the walk reaches first.
+		stem := strings.TrimSuffix(fp, filepath.Ext(fp))
+		if preferred, _ := core.FindRuleFile(mgr.Config.FS, stem); preferred != fp {
 			return nil
 		}
 

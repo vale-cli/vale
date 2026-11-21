@@ -3,10 +3,12 @@ package core
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/vale-cli/vale/v3/internal/glob"
+	"github.com/vale-cli/vale/v3/internal/system"
 )
 
 // TestFileSuffixes name the YAML that holds a rule's test cases rather than a
@@ -27,6 +29,27 @@ func IsTestFile(name string) bool {
 		}
 	}
 	return false
+}
+
+// RuleExtensions are the extensions a rule file may have, in order of
+// preference: a rule written as both `Rule.yml` and `Rule.yaml` is read from
+// `Rule.yml`, the one Vale loaded before `.yaml` was accepted. See #1217.
+var RuleExtensions = []string{".yml", ".yaml"}
+
+// HasRuleExt reports whether a file name ends in one of RuleExtensions.
+func HasRuleExt(name string) bool {
+	return slices.Contains(RuleExtensions, filepath.Ext(name))
+}
+
+// FindRuleFile returns the file that defines the rule at stem -- its path
+// without an extension -- trying each of RuleExtensions in turn.
+func FindRuleFile(fsys system.FS, stem string) (string, bool) {
+	for _, ext := range RuleExtensions {
+		if path := stem + ext; fsys.Exists(path) {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 // CommentsByNormedExt determines what parts of a file we should lint -- e.g.,

@@ -623,6 +623,73 @@ cases:
       styles/Demo/Rule.yml:4:5:Vale.Spelling:Did you really mean 'typpo'?
       styles/Demo/Rule.yml:5:11:Vale.Spelling:Did you really mean 'typpo'?
 
+  - name: rule-yaml-extension
+    about: "#1217 -- a rule file may end in `.yaml` as well as `.yml`, whether
+      it loads with its style, is turned on by name, or is extended by a rule"
+    files:
+      _vale: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*]
+        BasedOnStyles = T
+        U.Case = YES
+      styles/T/Hedge.yaml: |
+        extends: existence
+        message: "Avoid '%s'."
+        level: warning
+        tokens:
+          - very
+      styles/T/Coined.yml: |
+        extends: Base.Words
+        message: "'%s' is not a word."
+      styles/U/Case.yaml: |
+        extends: substitution
+        message: "Use '%s' instead of '%s'."
+        level: warning
+        ignorecase: false
+        swap:
+          javascript: JavaScript
+      styles/Base/Words.yaml: |
+        extends: existence
+        message: "'%s'"
+        level: warning
+        tokens:
+          - agendize
+    args: test.md
+    exit: 0
+    want: |
+      test.md:1:11:T.Hedge:Avoid 'very'.
+      test.md:1:66:U.Case:Use 'JavaScript' instead of 'javascript'.
+      test.md:1:77:T.Coined:'agendize' is not a word.
+
+  - name: rule-yml-and-yaml
+    about: "#1217 -- with both `Hedge.yml` and `Hedge.yaml`, `T.Hedge` is read
+      from `.yml`, the file Vale loaded before `.yaml` was accepted"
+    files:
+      _vale: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*]
+        BasedOnStyles = T
+      styles/T/Hedge.yml: |
+        extends: existence
+        message: "From .yml: '%s'."
+        level: warning
+        tokens:
+          - very
+      styles/T/Hedge.yaml: |
+        extends: existence
+        message: "From .yaml: '%s'."
+        level: warning
+        tokens:
+          - very
+    args: test.md
+    exit: 0
+    want: |
+      test.md:1:11:T.Hedge:From .yml: 'very'.
+
   - name: vocab-per-section
     about: a section's Vocab adds its terms for that section's files only, with
       Terms and Avoid rules of its own; the top-level Vocab is unchanged
