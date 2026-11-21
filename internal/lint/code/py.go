@@ -20,8 +20,9 @@ func Python() *Language {
 			{Name: "", Expr: `((class_definition
   body: (block . (expression_statement (string) @docstring)))
  (#offset! @docstring 0 3 0 -3))`, Type: ""},
-			// Module docstrings
-			{Name: "", Expr: `((module . (expression_statement (string) @docstring))
+			// Module docstrings: the first statement, after any comments,
+			// such as a shebang or an encoding line.
+			{Name: "", Expr: `((module . (comment)* . (expression_statement (string) @docstring))
  (#offset! @docstring 0 3 0 -3))`, Type: ""},
 		},
 		Padding: func(s string) int {

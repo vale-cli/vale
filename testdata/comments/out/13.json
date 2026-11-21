@@ -1,0 +1,30 @@
+[
+    {
+        "Text": "Crate-level docs in a block. ",
+        "Source": "/*! Crate-level docs in a block. */",
+        "Line": 1,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "A line doc comment.\n",
+        "Source": "/// A line doc comment.\n",
+        "Line": 3,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "A plain block comment. \nAn outer comment /* with a nested one */ that keeps going. \n",
+        "Source": "/* A plain block comment. */\n/* An outer comment /* with a nested one */ that keeps going. */\n",
+        "Line": 5,
+        "Offset": 4,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "\nA block doc comment,\ndecorated on each line.\n\n",
+        "Source": "/**\n     * A block doc comment,\n     * decorated on each line.\n     */",
+        "Line": 7,
+        "Offset": 4,
+        "Scope": "text.comment.block"
+    }
+]

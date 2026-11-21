@@ -1,0 +1,16 @@
+[
+    {
+        "Text": "The module docstring, after a shebang and an encoding line.",
+        "Source": "\"\"\"The module docstring, after a shebang and an encoding line.\"\"\"",
+        "Line": 3,
+        "Offset": 0,
+        "Scope": "text.comment.line"
+    },
+    {
+        "Text": "A function docstring.",
+        "Source": "\"\"\"A function docstring.\"\"\"",
+        "Line": 9,
+        "Offset": 4,
+        "Scope": "text.comment.line"
+    }
+]
