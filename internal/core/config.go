@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -354,6 +355,31 @@ func (c *Config) SearchPaths() []string {
 type Vocabulary struct {
 	Accepted []string
 	Rejected []string
+}
+
+// ViewFor returns the View that applies to a file and the section it came
+// from. Sections are visited in the order they were written, so when two
+// match -- `[*.yml]` and `[*.openapi.yml]` -- the later one wins, as it does
+// for every other per-file setting (#965). A View registered under a key that
+// is no section, as the test runner does, comes first. See #1235.
+func (c *Config) ViewFor(held map[string]bool, names ...string) (string, *View) {
+	var order []string
+	for key := range c.Views {
+		if !StringInSlice(key, c.RuleKeys) {
+			order = append(order, key)
+		}
+	}
+	sort.Strings(order)
+	order = append(order, c.RuleKeys...)
+
+	var sec string
+	var found *View
+	for _, key := range order {
+		if view, ok := c.Views[key]; ok && c.SectionApplies(key, held, names...) {
+			sec, found = key, view
+		}
+	}
+	return sec, found
 }
 
 // SectionVocabs names every vocabulary some section uses.

@@ -12,20 +12,12 @@ import (
 )
 
 func updateQueries(f *core.File, cfg *core.Config) []core.Scope {
-	var found []core.Scope
-
-	for syntax, view := range cfg.Views {
-		if view.Engine != "tree-sitter" {
-			// A data View's selectors are not queries; it reads the file
-			// itself, and may hand a cell of it here as code.
-			continue
-		}
-		if cfg.SectionApplies(syntax, f.Held, f.Path) {
-			found = view.Scopes
-		}
+	// A data View's selectors are not queries; it reads the file itself, and
+	// may hand a cell of it here as code.
+	if _, view := cfg.ViewFor(f.Held, f.Path); view != nil && view.Engine == "tree-sitter" {
+		return view.Scopes
 	}
-
-	return found
+	return nil
 }
 
 // skipsComment reports whether `IgnoredScopes` excludes a comment of this

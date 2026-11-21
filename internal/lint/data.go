@@ -15,15 +15,8 @@ import (
 // Either reads the whole file itself, so the file's own format does not
 // matter; a tree-sitter view is reached through the code path instead.
 func (l *Linter) hasView(f *core.File) bool {
-	for syntax, view := range l.Manager.Config.Views {
-		if view.Engine == "tree-sitter" {
-			continue
-		}
-		if l.Manager.Config.SectionApplies(syntax, f.Held, f.Path) {
-			return true
-		}
-	}
-	return false
+	_, view := l.Manager.Config.ViewFor(f.Held, f.Path)
+	return view != nil && view.Engine != "tree-sitter"
 }
 
 // ruleProse names the fields of a Vale rule that hold prose.
@@ -65,41 +58,31 @@ func (l *Linter) lintRule(f *core.File) error {
 
 // hasCodeView reports whether a tree-sitter view applies to the file.
 func (l *Linter) hasCodeView(f *core.File) bool {
-	for syntax, view := range l.Manager.Config.Views {
-		if view.Engine != "tree-sitter" {
-			continue
-		}
-		if l.Manager.Config.SectionApplies(syntax, f.Held, f.Path) {
-			return true
-		}
-	}
-	return false
+	_, view := l.Manager.Config.ViewFor(f.Held, f.Path)
+	return view != nil && view.Engine == "tree-sitter"
 }
 
 func (l *Linter) lintData(f *core.File) error {
-	for syntax, view := range l.Manager.Config.Views {
-		if view.Engine == "tree-sitter" {
-			continue
-		}
-		if l.Manager.Config.SectionApplies(syntax, f.Held, f.Path) {
-			// The View says which values are prose. The file's comments
-			// are prose whatever it says, and are read as a source file's.
-			if cerr := l.lintDataComments(f); cerr != nil {
-				return cerr
-			}
-
-			found, berr := view.Apply(f)
-			if berr != nil {
-				return core.NewE201FromTarget(
-					fmt.Sprintf("%s: %s", f.Path, berr),
-					fmt.Sprintf("[%s] View", syntax),
-					l.Manager.Config.RootINI,
-				)
-			}
-			return l.lintScopedValues(f, found)
-		}
+	syntax, view := l.Manager.Config.ViewFor(f.Held, f.Path)
+	if view == nil || view.Engine == "tree-sitter" {
+		return nil
 	}
-	return nil
+
+	// The View says which values are prose. The file's comments are prose
+	// whatever it says, and are read as a source file's.
+	if cerr := l.lintDataComments(f); cerr != nil {
+		return cerr
+	}
+
+	found, berr := view.Apply(f)
+	if berr != nil {
+		return core.NewE201FromTarget(
+			fmt.Sprintf("%s: %s", f.Path, berr),
+			fmt.Sprintf("[%s] View", syntax),
+			l.Manager.Config.RootINI,
+		)
+	}
+	return l.lintScopedValues(f, found)
 }
 
 func (l *Linter) lintScopedValues(f *core.File, values []core.ScopedValues) error {
