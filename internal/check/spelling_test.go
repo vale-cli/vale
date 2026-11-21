@@ -49,3 +49,26 @@ func TestAddExceptions(t *testing.T) {
 		}
 	}
 }
+
+// A vocabulary too long for one pattern under the default stack limit still
+// reaches the spelling rule.
+func TestAddExceptionsLargeVocabulary(t *testing.T) {
+	cfg, err := core.NewConfig(&core.CLIFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 20000 {
+		cfg.AcceptedTokens = append(cfg.AcceptedTokens, fmt.Sprintf("term%d", i))
+	}
+	cfg.AcceptedTokens = append(cfg.AcceptedTokens, "Ceph")
+
+	s := &Spelling{}
+	if err = addExceptions(s, baseCheck{}, cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, word := range []string{"Ceph", "term19999"} {
+		if ok, merr := s.exceptRe.MatchString(word); merr != nil || !ok {
+			t.Errorf("exceptRe.MatchString(%q) = %v, %v; want true, nil", word, ok, merr)
+		}
+	}
+}

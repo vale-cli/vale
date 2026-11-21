@@ -87,6 +87,24 @@ func Compile(expr string) (*Regexp, error) {
 	return &Regexp{Regexp: re, tests: &lazyTests{expr: expr}}, nil
 }
 
+// CompileList is Compile for a pattern joined from n alternatives, such as
+// a vocabulary. Trying each alternative takes stack, so past a thousand the
+// default limit fails every match; such a pattern gets no limit.
+func CompileList(expr string, n int) (*Regexp, error) {
+	if n <= listThreshold {
+		return Compile(expr)
+	}
+	re, err := regexp2.Compile(expr, regexp2.RE2, regexp2.OptionMaxBacktrackingStackSize(-1))
+	if err != nil {
+		return nil, err
+	}
+	return &Regexp{Regexp: re, tests: &lazyTests{expr: expr}}, nil
+}
+
+// listThreshold is the most alternatives a pattern may join under the
+// default stack limit.
+const listThreshold = 1000
+
 // MightMatch reports whether lowered could contain a match.
 //
 // lowered is the subject lower-cased, which the caller does once per block

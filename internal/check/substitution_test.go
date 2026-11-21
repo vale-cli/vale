@@ -1,6 +1,7 @@
 package check
 
 import (
+	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -394,5 +395,41 @@ func TestKeepWrap(t *testing.T) {
 	}
 	if got := keepWrap("OAuth2", "oauth 2"); got != "OAuth2" {
 		t.Errorf("keepWrap with mismatched words = %q", got)
+	}
+}
+
+// Vale.Terms from a large vocabulary: enough terms are possible in a block
+// that the rule runs its joined pattern, which must match rather than fail.
+func TestLargeVocabularyTerms(t *testing.T) {
+	swap := map[string]string{`(?<!\w)ceph(?!\w)`: "Ceph"}
+	var text strings.Builder
+	for i := range 20000 {
+		swap[fmt.Sprintf(`(?<!\w)term%d(?!\w)`, i)] = fmt.Sprintf("term%d", i)
+		if i < 100 {
+			fmt.Fprintf(&text, "term%d ", i)
+		}
+	}
+	text.WriteString("and ceph")
+
+	rule, err := makeSubstitution(baseCheck{
+		"extends":    "substitution",
+		"name":       "Vale.Terms",
+		"level":      "error",
+		"message":    "Use '%s' instead of '%s'.",
+		"ignorecase": true,
+		"nonword":    true,
+		"swap":       swap,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txt := text.String()
+	alerts, err := rule.Run(nlp.NewBlock(txt, txt, "text"), &core.File{}, &core.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) != 1 || alerts[0].Match != "ceph" {
+		t.Fatalf("alerts = %+v; want one, on 'ceph'", alerts)
 	}
 }

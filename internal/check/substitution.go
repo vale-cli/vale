@@ -119,7 +119,7 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 	template := strings.Replace(regex, "%s", each, 1)
 	regex = fmt.Sprintf(regex, tokens)
 
-	re, err = rx.Compile(regex)
+	re, err = rx.CompileList(regex, len(terms))
 	if err != nil {
 		return rule, patternError(err, path, terms...)
 	}

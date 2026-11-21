@@ -77,7 +77,7 @@ func addFilters(s *Spelling, generic baseCheck, _ *core.Config) error {
 	return nil
 }
 
-func addExceptions(s *Spelling, generic baseCheck, cfg *core.Config) error { //nolint:unparam
+func addExceptions(s *Spelling, generic baseCheck, cfg *core.Config) error {
 	if generic["ignore"] != nil {
 		// Backwards compatibility: we need to be able to accept a single
 		// or an array.
@@ -104,8 +104,11 @@ func addExceptions(s *Spelling, generic baseCheck, cfg *core.Config) error { //n
 		s.Exceptions = append(s.Exceptions, term)
 	}
 	if len(s.Exceptions) > 0 {
-		s.exceptRe = rx.MustCompile(
-			ignoreCase + strings.Join(s.Exceptions, "|"))
+		re, err := rx.CompileList(ignoreCase+strings.Join(s.Exceptions, "|"), len(s.Exceptions))
+		if err != nil {
+			return err
+		}
+		s.exceptRe = re
 	}
 
 	// A multi-word term (e.g. `mea culpa`) is accepted only as a phrase; its

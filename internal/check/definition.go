@@ -500,7 +500,7 @@ func updateExceptions(previous []string, current []string, vocab bool) (*rx.Rege
 
 	regex = fmt.Sprintf(regex, strings.Join(previous, "|"))
 	if len(previous) > 0 {
-		return rx.Compile(regex)
+		return rx.CompileList(regex, len(previous))
 	}
 
 	return &rx.Regexp{}, nil
@@ -531,7 +531,7 @@ func buildPhraseRe(previous, current []string, vocab bool) *rx.Regexp {
 		return nil
 	}
 
-	re, err := rx.Compile(ignoreCase + `\b(?:` + strings.Join(phrases, "|") + `)\b`)
+	re, err := rx.CompileList(ignoreCase+`\b(?:`+strings.Join(phrases, "|")+`)\b`, len(phrases))
 	if err != nil {
 		return nil
 	}

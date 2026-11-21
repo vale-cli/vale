@@ -79,7 +79,7 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 	template := regex
 	regex = fmt.Sprintf(regex, strings.Join(parsed, "|"))
 
-	re, err = rx.Compile(regex)
+	re, err = rx.CompileList(regex, len(parsed))
 	if err != nil {
 		return rule, patternError(err, path, append(parsed, rule.Raw...)...)
 	}
