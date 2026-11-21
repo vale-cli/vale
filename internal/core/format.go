@@ -33,7 +33,7 @@ func IsTestFile(name string) bool {
 
 // RuleExtensions are the extensions a rule file may have, in order of
 // preference: a rule written as both `Rule.yml` and `Rule.yaml` is read from
-// `Rule.yml`, the one Vale loaded before `.yaml` was accepted. See #1217.
+// `Rule.yml`. See #1217.
 var RuleExtensions = []string{".yml", ".yaml"}
 
 // HasRuleExt reports whether a file name ends in one of RuleExtensions.

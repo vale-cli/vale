@@ -665,7 +665,7 @@ cases:
 
   - name: rule-yml-and-yaml
     about: "#1217 -- with both `Hedge.yml` and `Hedge.yaml`, `T.Hedge` is read
-      from `.yml`, the file Vale loaded before `.yaml` was accepted"
+      from `.yml`"
     files:
       _vale: |
         StylesPath = styles

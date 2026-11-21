@@ -126,9 +126,10 @@ func (mgr *Manager) resolveRule(name string) (string, error) {
 		}
 	}
 
+	stem := filepath.Join(parts[0], rel)
 	return "", fmt.Errorf(
-		"'%s' does not exist on the search path (looked for '%s.yml' or '.yaml')",
-		name, filepath.Join(parts[0], rel))
+		"'%s' does not exist on the search path (looked for '%s.yml' and '%s.yaml')",
+		name, stem, stem)
 }
 
 // overlay lays a child's keys over its parent's definition.
