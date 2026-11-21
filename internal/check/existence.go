@@ -56,7 +56,7 @@ func NewExistence(cfg *core.Config, generic baseCheck, path string) (Existence, 
 	// would suppress any match that merely *contains* it (e.g. `"plugh",`).
 	//
 	// See https://github.com/errata-ai/vale/issues/1058.
-	re, err := updateExceptions(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab && !rule.Nonword)
+	re, err := updateExceptions(cfg, rule.Exceptions, cfg.AcceptedTokens, rule.Vocab && !rule.Nonword)
 	if err != nil {
 		return rule, patternError(err, path, rule.Exceptions...)
 	}

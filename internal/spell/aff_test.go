@@ -521,3 +521,19 @@ SFX A 0 s .
 		t.Errorf("Ignored = %v, want %v", aff.Ignored, want)
 	}
 }
+
+// The count on a .dic's first line only sizes the tables, so a missing or
+// wrong one still loads every entry.
+func TestDicCountIsAHint(t *testing.T) {
+	for _, header := range []string{"2", "1", "", "x", "999999999"} {
+		gs, err := newGoSpellReader(strings.NewReader("SET UTF-8\n"), strings.NewReader(header+"\nCeph\nJsonnet\n"))
+		if err != nil {
+			t.Fatalf("header %q: %v", header, err)
+		}
+		for _, word := range []string{"Ceph", "Jsonnet"} {
+			if !gs.spell(word) {
+				t.Errorf("header %q: spell(%q) = false", header, word)
+			}
+		}
+	}
+}

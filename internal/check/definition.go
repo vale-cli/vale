@@ -44,7 +44,7 @@ func vocabFor(cfg *core.Config, f *core.File) *sectionVocab {
 				terms = append(terms, vocab.Accepted...)
 			}
 		}
-		re, err := updateExceptions(nil, terms, true)
+		re, err := updateExceptions(cfg, nil, terms, true)
 		if err != nil {
 			re = nil
 		}
@@ -470,7 +470,9 @@ func matchToken(expected, observed string, ignorecase bool) bool {
 	return r.MatchStringStd(observed)
 }
 
-func updateExceptions(previous []string, current []string, vocab bool) (*rx.Regexp, error) {
+// updateExceptions compiles a rule's exceptions, plus the vocabulary when
+// vocab is set. Rules without exceptions of their own share one pattern.
+func updateExceptions(cfg *core.Config, previous []string, current []string, vocab bool) (*rx.Regexp, error) {
 	if vocab {
 		previous = append(previous, current...)
 	}
@@ -499,11 +501,22 @@ func updateExceptions(previous []string, current []string, vocab bool) (*rx.Rege
 		true)
 
 	regex = fmt.Sprintf(regex, strings.Join(previous, "|"))
-	if len(previous) > 0 {
+	if len(previous) == 0 {
+		return &rx.Regexp{}, nil
+	}
+	if cfg == nil {
 		return rx.CompileList(regex, len(previous))
 	}
-
-	return &rx.Regexp{}, nil
+	type compiled struct {
+		re  *rx.Regexp
+		err error
+	}
+	n := len(previous)
+	v := cfg.Cached("exceptions:"+regex, func() any {
+		re, err := rx.CompileList(regex, n)
+		return compiled{re, err}
+	}).(compiled) //nolint:errcheck // only compiled is stored under this key
+	return v.re, v.err
 }
 
 // buildPhraseRe compiles a regex matching the multi-word entries among the

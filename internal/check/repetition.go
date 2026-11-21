@@ -38,7 +38,7 @@ func NewRepetition(cfg *core.Config, generic baseCheck, path string) (Repetition
 		return rule, err
 	}
 
-	re, err := updateExceptions(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
+	re, err := updateExceptions(cfg, rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
 	if err != nil {
 		return rule, patternError(err, path, rule.Exceptions...)
 	}

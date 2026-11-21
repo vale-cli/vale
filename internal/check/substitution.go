@@ -67,9 +67,9 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 		}
 		rule.Swap = swap
 	}
-	tokens := ""
+	var tokens strings.Builder
 
-	re, err := updateExceptions(rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
+	re, err := updateExceptions(cfg, rule.Exceptions, cfg.AcceptedTokens, rule.Vocab)
 	if err != nil {
 		return rule, patternError(err, path, rule.Exceptions...)
 	}
@@ -105,19 +105,22 @@ func NewSubstitution(cfg *core.Config, generic baseCheck, path string) (Substitu
 				return rule, core.NewE201FromTarget(err.Error(), regexstr, path)
 			}
 		}
-		tokens += `(` + regexstr + `)|`
+		if tokens.Len() > 0 {
+			tokens.WriteByte('|')
+		}
+		tokens.WriteString(`(` + regexstr + `)`)
 		parts = append(parts, regexstr)
 		replacements = append(replacements, replacement)
 	}
 
-	tokens = strings.TrimRight(tokens, "|")
+	joined := tokens.String()
 	each := `(%s)`
 	if shared != "" {
-		tokens = shared + `(?:` + tokens + `)`
+		joined = shared + `(?:` + joined + `)`
 		each = strings.ReplaceAll(shared, "%", "%%") + `(?:(%s))`
 	}
 	template := strings.Replace(regex, "%s", each, 1)
-	regex = fmt.Sprintf(regex, tokens)
+	regex = fmt.Sprintf(regex, joined)
 
 	re, err = rx.CompileList(regex, len(terms))
 	if err != nil {

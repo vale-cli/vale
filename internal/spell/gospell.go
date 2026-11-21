@@ -6,6 +6,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode"
@@ -947,12 +948,18 @@ func newGoSpellReader(aff, dic io.Reader) (*goSpell, error) {
 	if !scanner.Scan() {
 		return nil, scanner.Err()
 	}
+	// The first line is the entry count, which sizes the roots up front.
+	size := 0
+	if fields := strings.Fields(scanner.Text()); len(fields) > 0 {
+		size, _ = strconv.Atoi(fields[0])
+	}
+	size = min(max(size, 0), 1<<20)
 
 	gs := goSpell{
 		dictData: &dictData{
 			affix:          affix,
-			roots:          make(map[string][]rootEntry),
-			upperRoots:     make(map[string][]string),
+			roots:          make(map[string][]rootEntry, size),
+			upperRoots:     make(map[string][]string, size/4),
 			forbiddenRoots: make(map[string][]rootEntry),
 			pairs:          make(map[string]struct{}),
 			compounds:      make([]*regexp.Regexp, 0, len(affix.CompoundRule)),
