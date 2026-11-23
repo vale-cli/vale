@@ -182,6 +182,11 @@ func TestStripEdgeLookarounds(t *testing.T) {
 		{`a(?=b)c`, `a(?=b)c`},
 		{`pod\(s\)`, `pod\(s\)`},
 		{`(?<=a )`, `(?<=a )`},
+		{`(?<![\w.)\]])\.(\d+)`, `\.(\d+)`},
+		{`(?<=[)])a`, `a`},
+		{`(?<=[]a])b`, `b`},
+		{`a(?=[(])`, `a`},
+		{`a[)]`, `a[)]`},
 	}
 	for _, tt := range tests {
 		if got := stripEdgeLookarounds(tt.in); got != tt.want {
@@ -213,6 +218,31 @@ func TestLookbehindWithCapture(t *testing.T) {
 		"Create the Horizontal pod autoscalers now.": "Use 'HorizontalPodAutoscalers' instead of 'Horizontal pod autoscalers'.",
 		"Add a Horizontal pod autoscaler now.":       "Use 'HorizontalPodAutoscaler' instead of 'Horizontal pod autoscaler'.",
 		"Add a Config Map now.":                      "Use 'ConfigMap' instead of 'Config Map'.",
+	} {
+		alerts, rerr := rule.Run(nlp.NewBlock(text, text, "text"), &core.File{}, &core.Config{})
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		if len(alerts) != 1 || alerts[0].Message != want {
+			t.Errorf("%q: got %+v, want %q", text, alerts, want)
+		}
+	}
+
+	// A `)` inside a class in the lookbehind is not the group's end.
+	rule, err = makeSubstitution(map[string]interface{}{
+		"extends": "substitution",
+		"name":    "N.Decimals",
+		"level":   "warning",
+		"message": "Use '%s' instead of '%s'.",
+		"scope":   "text",
+		"nonword": true,
+		"swap":    map[string]string{`(?<![\w.)\]])\.(\d+)`: "0.$1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for text, want := range map[string]string{
+		"Take .5 of a tablet.": "Use '0.5' instead of '.5'.",
 	} {
 		alerts, rerr := rule.Run(nlp.NewBlock(text, text, "text"), &core.File{}, &core.Config{})
 		if rerr != nil {

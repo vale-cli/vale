@@ -177,54 +177,62 @@ func stripEdgeLookarounds(expr string) string {
 // trailingLookaround returns the lookaround expr closes with, brackets
 // included, or "" when it ends with anything else.
 func trailingLookaround(expr string) string {
-	if !strings.HasSuffix(expr, ")") || strings.HasSuffix(expr, `\)`) {
+	last := len(expr) - 1
+	open, ok := groupBounds(expr)[last]
+	if !ok || !isLookaround(expr[open:]) {
 		return ""
 	}
-
-	// Find the group's opening bracket, skipping escaped ones.
-	depth := 0
-	for i := len(expr) - 1; i >= 0; i-- {
-		if i > 0 && expr[i-1] == '\\' {
-			continue
-		}
-		switch expr[i] {
-		case ')':
-			depth++
-		case '(':
-			if depth--; depth == 0 {
-				if leadingGroup(expr[i:]) == expr[i:] {
-					return expr[i:]
-				}
-				return ""
-			}
-		}
-	}
-
-	return ""
+	return expr[open:]
 }
 
 // leadingGroup returns the lookaround expr opens with, brackets included.
 func leadingGroup(expr string) string {
-	if !strings.HasPrefix(expr, "(?=") && !strings.HasPrefix(expr, "(?!") &&
-		!strings.HasPrefix(expr, "(?<=") && !strings.HasPrefix(expr, "(?<!") {
+	if !isLookaround(expr) {
 		return ""
 	}
-
-	depth := 0
-	for i := 0; i < len(expr); i++ {
-		switch expr[i] {
-		case '\\':
-			i++
-		case '(':
-			depth++
-		case ')':
-			if depth--; depth == 0 {
-				return expr[:i+1]
-			}
+	for end, open := range groupBounds(expr) {
+		if open == 0 {
+			return expr[:end+1]
 		}
 	}
-
 	return ""
+}
+
+func isLookaround(expr string) bool {
+	return strings.HasPrefix(expr, "(?=") || strings.HasPrefix(expr, "(?!") ||
+		strings.HasPrefix(expr, "(?<=") || strings.HasPrefix(expr, "(?<!")
+}
+
+// groupBounds maps the index of each group's closing bracket to its opening
+// one. Escapes and character classes are skipped, so `[)]` is not a group.
+func groupBounds(expr string) map[int]int {
+	bounds := map[int]int{}
+	var opens []int
+	inClass := false
+	for i := 0; i < len(expr); i++ {
+		switch c := expr[i]; {
+		case c == '\\':
+			i++
+		case inClass:
+			inClass = c != ']'
+		case c == '[':
+			inClass = true
+			// A `]` first in a class, after any `^`, is literal.
+			j := i + 1
+			if j < len(expr) && expr[j] == '^' {
+				j++
+			}
+			if j < len(expr) && expr[j] == ']' {
+				i = j
+			}
+		case c == '(':
+			opens = append(opens, i)
+		case c == ')' && len(opens) > 0:
+			bounds[i] = opens[len(opens)-1]
+			opens = opens[:len(opens)-1]
+		}
+	}
+	return bounds
 }
 
 // Run executes the `substitution`-based rule.
@@ -605,7 +613,15 @@ func subMsg(s Substitution, index int, observed string) (string, error) {
 		msg = `(?i)` + msg
 	}
 
-	msgRe := rx.MustCompile(msg)
+	msgRe, err := rx.Compile(msg)
+	if err != nil {
+		// Stripping could only have broken a pattern that compiled whole.
+		msg = s.msgMap[index]
+		if s.Ignorecase {
+			msg = `(?i)` + msg
+		}
+		msgRe = rx.MustCompile(msg)
+	}
 	return msgRe.Replace(observed, expected, -1, -1)
 }
 
