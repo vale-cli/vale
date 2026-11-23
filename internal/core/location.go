@@ -353,8 +353,10 @@ func locateMatch(ctx, txt string, a Alert, at int) (int, string, int) {
 	// The walker placed the block; trust that over an earlier copy of its
 	// text, which is what a repeated table header or heading is. Earlier
 	// alerts have masked their matches in the block, so the text is read
-	// through the mask.
-	if at >= 0 && at <= len(ctx) && throughMask(ctx[at:], txt) {
+	// through the mask. A `doc()` block joins several blocks with blank lines,
+	// so only its first needs to be found there.
+	lead, _, _ := strings.Cut(txt, "\n\n")
+	if at >= 0 && at <= len(ctx) && throughMask(ctx[at:], lead) {
 		offset = at
 	}
 

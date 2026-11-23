@@ -422,7 +422,7 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 				summarize(f, strings.Repeat(" ", shift)+txt, b, shift)
 			}
 			b.Inline = inlineRuns(state.inline, b.Text, shift)
-			state.gather(txt, b.Line, metric)
+			state.gather(txt, b.Line, b.Offset, metric)
 
 			// Prose, not just a block: a list item or a heading is made of
 			// sentences the same way a paragraph is, and only this path segments
@@ -464,7 +464,7 @@ func (l *Linter) lintScope(f *core.File, state *walker, txt string) error {
 	b := state.block(txt, withClasses("text", state)+f.MetaScope+f.RealExt, shift)
 	summarize(f, strings.Repeat(" ", shift)+txt, b, shift)
 	b.Inline = inlineRuns(state.inline, b.Text, shift)
-	state.gather(txt, b.Line, "paragraphs")
+	state.gather(txt, b.Line, b.Offset, "paragraphs")
 	if err := l.lintProse(f, b, state.lines, true); err != nil {
 		return err
 	}

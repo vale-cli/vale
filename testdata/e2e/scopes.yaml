@@ -847,3 +847,48 @@ cases:
       test.md:7:5:L.Either:'Draft' in a section heading.
       test.md:11:4:L.Either:'Draft' in a section heading.
       test.md:13:1:L.Empty:'Nothing' right after a heading.
+
+  - name: doc-placement
+    about: "a `doc(...)` match is placed in the element it was read from, not
+      at an earlier copy of the same text: a heading whose words a logo's alt
+      text repeats, and a section whose second paragraph repeats a word the
+      introduction used first."
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.md]
+        BasedOnStyles = P
+      styles/P/Title.yml: |
+        extends: existence
+        message: "'%s' heads the page."
+        level: warning
+        scope: 'doc(body > section:first-of-type > h2:first-child)'
+        nonword: true
+        raw:
+          - '^[^\n]+'
+      styles/P/Usage.yml: |
+        extends: existence
+        message: "'%s' in Usage."
+        level: warning
+        scope: 'doc(section:has(> h2:contains("Usage")))'
+        tokens:
+          - widget
+      test.md: |
+        <img alt="tiny-http logo" src="logo.png">
+
+        ## tiny-http
+
+        A widget server.
+
+        ## Usage
+
+        Start the server.
+
+        Then open the widget.
+    args: test.md
+    exit: 0
+    want: |
+      test.md:3:4:P.Title:'tiny-http' heads the page.
+      test.md:11:15:P.Usage:'widget' in Usage.

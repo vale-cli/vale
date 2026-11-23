@@ -329,8 +329,10 @@ type openTag struct {
 // An aggregate gathers the text of an element a `doc(...)` selector matched,
 // to be linted as one block when the element closes.
 type aggregate struct {
-	ids     []string
-	line    int
+	ids  []string
+	line int
+	// offset is where the first gathered block begins in the source, or -1.
+	offset  int
 	text    strings.Builder
 	metrics map[string]int
 }
@@ -344,7 +346,7 @@ func (w *walker) enclose(tag, cls, marks string) {
 	}
 	if ids := strings.Fields(marks); len(ids) > 0 {
 		open.ids = ids
-		open.agg = &aggregate{ids: ids, line: -1}
+		open.agg = &aggregate{ids: ids, line: -1, offset: -1}
 		w.aggs = append(w.aggs, open.agg)
 		if w.seen == nil {
 			w.seen = map[string]bool{}
@@ -379,10 +381,11 @@ func (w *walker) selections() []string {
 
 // gather adds a block's text to every selection still open around it, and
 // counts it under the metric the file counts it under.
-func (w *walker) gather(txt string, line int, metric string) {
+func (w *walker) gather(txt string, line, offset int, metric string) {
 	for _, a := range w.aggs {
 		if a.line < 0 {
 			a.line = line
+			a.offset = offset
 		}
 		a.text.WriteString(txt)
 		a.text.WriteString("\n\n")

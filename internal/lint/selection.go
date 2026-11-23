@@ -147,7 +147,7 @@ func (l *Linter) lintAbsent(f *core.File, sels []check.Selection, seen map[strin
 // The block's scope is `doc` plus the id of every selector that matched the
 // element, so an element two selectors both name is linted once. Its context
 // is the file, as the summary's is: a match is placed by searching the file
-// for it.
+// for it, from where the element's first block begins.
 func (l *Linter) lintSelection(f *core.File, agg *aggregate) error {
 	text := strings.TrimSpace(agg.text.String())
 	if text == "" {
@@ -157,6 +157,7 @@ func (l *Linter) lintSelection(f *core.File, agg *aggregate) error {
 	scope := "doc." + strings.Join(agg.ids, ".") + f.MetaScope + f.RealExt
 	blk := nlp.NewLinedBlock(f.Content, text, scope, agg.line)
 	blk.Metrics = agg.metrics
+	blk.Offset = agg.offset
 
 	return l.lintBlock(f, blk, len(f.Lines), 0, true)
 }
