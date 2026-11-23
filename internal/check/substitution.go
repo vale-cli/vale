@@ -162,6 +162,47 @@ func sharedLookaround(terms []string) string {
 	return lead
 }
 
+// stripEdgeLookarounds drops the lookarounds expr opens and closes with. They
+// are zero-width, so the text a match consumed is the same without them.
+func stripEdgeLookarounds(expr string) string {
+	for lead := leadingGroup(expr); lead != "" && lead != expr; lead = leadingGroup(expr) {
+		expr = expr[len(lead):]
+	}
+	for trail := trailingLookaround(expr); trail != "" && trail != expr; trail = trailingLookaround(expr) {
+		expr = expr[:len(expr)-len(trail)]
+	}
+	return expr
+}
+
+// trailingLookaround returns the lookaround expr closes with, brackets
+// included, or "" when it ends with anything else.
+func trailingLookaround(expr string) string {
+	if !strings.HasSuffix(expr, ")") || strings.HasSuffix(expr, `\)`) {
+		return ""
+	}
+
+	// Find the group's opening bracket, skipping escaped ones.
+	depth := 0
+	for i := len(expr) - 1; i >= 0; i-- {
+		if i > 0 && expr[i-1] == '\\' {
+			continue
+		}
+		switch expr[i] {
+		case ')':
+			depth++
+		case '(':
+			if depth--; depth == 0 {
+				if leadingGroup(expr[i:]) == expr[i:] {
+					return expr[i:]
+				}
+				return ""
+			}
+		}
+	}
+
+	return ""
+}
+
 // leadingGroup returns the lookaround expr opens with, brackets included.
 func leadingGroup(expr string) string {
 	if !strings.HasPrefix(expr, "(?=") && !strings.HasPrefix(expr, "(?!") &&
@@ -557,7 +598,9 @@ func subMsg(s Substitution, index int, observed string) (string, error) {
 		return expected, nil
 	}
 
-	msg := s.msgMap[index]
+	// The pattern already held its lookarounds against the block; `observed`
+	// is only the match, so a lookbehind there has nothing to look at.
+	msg := stripEdgeLookarounds(s.msgMap[index])
 	if s.Ignorecase {
 		msg = `(?i)` + msg
 	}
