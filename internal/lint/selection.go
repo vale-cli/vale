@@ -157,7 +157,7 @@ func (l *Linter) lintSelection(f *core.File, agg *aggregate) error {
 	scope := "doc." + strings.Join(agg.ids, ".") + f.MetaScope + f.RealExt
 	blk := nlp.NewLinedBlock(f.Content, text, scope, agg.line)
 	blk.Metrics = agg.metrics
-	blk.Offset = agg.offset
+	blk.Anchor = agg.offset
 
 	return l.lintBlock(f, blk, len(f.Lines), 0, true)
 }

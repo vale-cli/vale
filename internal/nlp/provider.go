@@ -42,6 +42,12 @@ type Block struct {
 	// repeated in a document is the common case.
 	Offset int
 
+	// Anchor is where the first part of a joined block begins in Context, when
+	// it is greater than zero. A `doc()` selection joins several blocks, so
+	// its Text is not in Context as a whole; the anchor only tells the search
+	// where to start, and makes no promise about the bytes after it.
+	Anchor int
+
 	// Runs maps pieces of Text back to the source they were read from, for a
 	// block that has no Offset of its own.
 	//

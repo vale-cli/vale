@@ -875,20 +875,31 @@ cases:
         scope: 'doc(section:has(> h2:contains("Usage")))'
         tokens:
           - widget
+      styles/P/Cite.yml: |
+        extends: existence
+        message: "'%s' in Usage."
+        level: warning
+        scope: 'doc(section:has(> h2:contains("Usage")))'
+        nonword: true
+        raw:
+          - '\[\d+\]'
       test.md: |
         <img alt="tiny-http logo" src="logo.png">
 
         ## tiny-http
 
-        A widget server.
+        A widget server [1].
 
         ## Usage
 
         Start the server.
 
-        Then open the widget.
+
+
+        Then open the widget [1].
     args: test.md
     exit: 0
     want: |
       test.md:3:4:P.Title:'tiny-http' heads the page.
-      test.md:11:15:P.Usage:'widget' in Usage.
+      test.md:13:15:P.Usage:'widget' in Usage.
+      test.md:13:22:P.Cite:'[1]' in Usage.

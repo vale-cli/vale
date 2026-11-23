@@ -642,6 +642,9 @@ func (f *File) AddAlert(a Alert, blk nlp.Block, lines, pad int, lookup bool) {
 			// An earlier alert's mask may have shortened ctx, so the block's
 			// offset into its context is carried over to the masked copy.
 			at := maskedOffset(blk.Context, ctx, blk.Offset)
+			if at < 0 && blk.Anchor > 0 {
+				at = maskedOffset(blk.Context, ctx, blk.Anchor)
+			}
 			a.Line, a.Span, hit = f.FindLoc(ctx, blk.Text, pad, lines, a, at)
 		}
 	}
