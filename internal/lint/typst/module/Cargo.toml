@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-typst2vast = "=0.1.0"
+typst2vast = "=0.2.0"
 
 [profile.release]
 lto = true

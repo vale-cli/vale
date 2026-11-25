@@ -358,9 +358,9 @@ dependencies = [
 
 [[package]]
 name = "typst2vast"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0cc6786f28cbb985f60ebb5591cf30f24513b7b2c7fa71019cb999dd6e8f32e"
+checksum = "ce8515852ec1319aef82dbfd055b001fd74133aecd416a901859f9d03776ace6"
 dependencies = [
  "typst-syntax",
 ]
