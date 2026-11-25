@@ -113,7 +113,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 	t.Run("walks back to a supported release", func(t *testing.T) {
 		withVersion(t, "3.22.0")
 		styles := t.TempDir()
-		if err := download("Pkg", latest, styles, 0); err != nil {
+		if _, err := download("Pkg", latest, styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.1.0" {
@@ -124,7 +124,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 	t.Run("takes the latest when it fits", func(t *testing.T) {
 		withVersion(t, "99.1.0")
 		styles := t.TempDir()
-		if err := download("Pkg", latest, styles, 0); err != nil {
+		if _, err := download("Pkg", latest, styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.3.0" {
@@ -135,7 +135,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 	t.Run("a development build meets every floor", func(t *testing.T) {
 		withVersion(t, "master")
 		styles := t.TempDir()
-		if err := download("Pkg", latest, styles, 0); err != nil {
+		if _, err := download("Pkg", latest, styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.3.0" {
@@ -146,7 +146,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 	t.Run("a pinned release is installed as asked", func(t *testing.T) {
 		withVersion(t, "3.22.0")
 		styles := t.TempDir()
-		if err := download("Pkg", srv.URL+"/releases/download/v0.2.0/Pkg.zip", styles, 0); err != nil {
+		if _, err := download("Pkg", srv.URL+"/releases/download/v0.2.0/Pkg.zip", styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.2.0" {
@@ -158,7 +158,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 		withVersion(t, "3.22.0")
 		bare := pkgServer(t, releases, floors, false)
 		styles := t.TempDir()
-		if err := download("Pkg", bare.URL+"/releases/latest/download/Pkg.zip", styles, 0); err != nil {
+		if _, err := download("Pkg", bare.URL+"/releases/latest/download/Pkg.zip", styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.1.0" {
@@ -169,7 +169,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 	t.Run("nothing fitting installs the latest, as before", func(t *testing.T) {
 		withVersion(t, "2.0.0")
 		styles := t.TempDir()
-		if err := download("Pkg", latest, styles, 0); err != nil {
+		if _, err := download("Pkg", latest, styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.3.0" {
@@ -188,7 +188,7 @@ func TestSyncInstallsTheReleaseThisValeSupports(t *testing.T) {
 			mux(t, releases, floors, mute.URL).ServeHTTP(w, r)
 		})
 		styles := t.TempDir()
-		if err := download("Pkg", mute.URL+"/releases/latest/download/Pkg.zip", styles, 0); err != nil {
+		if _, err := download("Pkg", mute.URL+"/releases/latest/download/Pkg.zip", styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "v0.3.0" {
@@ -242,7 +242,7 @@ func TestSyncInstallsFromTheReleaseManifest(t *testing.T) {
 	t.Run("picks the newest release this Vale supports", func(t *testing.T) {
 		withVersion(t, "3.22.0")
 		styles := t.TempDir()
-		if err := download("Pkg", srv.URL+"/current/Pkg.zip", styles, 0); err != nil {
+		if _, err := download("Pkg", srv.URL+"/current/Pkg.zip", styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "0.2.0" {
@@ -253,7 +253,7 @@ func TestSyncInstallsFromTheReleaseManifest(t *testing.T) {
 	t.Run("nothing fitting installs the latest, as before", func(t *testing.T) {
 		withVersion(t, "2.0.0")
 		styles := t.TempDir()
-		if err := download("Pkg", srv.URL+"/current/Pkg.zip", styles, 0); err != nil {
+		if _, err := download("Pkg", srv.URL+"/current/Pkg.zip", styles, 0, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := installed(t, styles); got != "0.3.0" {

@@ -445,7 +445,9 @@ func GetPackages(src string) ([]string, error) {
 	if err != nil {
 		return packages, err
 	}
-	uCfg, err := ini.Load(b)
+	// Read as the configuration is: `#` starts a comment only after a
+	// space, so a package's `#sha256:` digest is part of its value.
+	uCfg, err := ini.LoadSources(ini.LoadOptions{SpaceBeforeInlineComment: true}, b)
 	if err != nil {
 		return packages, err
 	}

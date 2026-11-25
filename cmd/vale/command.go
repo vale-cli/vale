@@ -191,19 +191,26 @@ func sync(_ []string, flags *core.CLIFlags) error {
 	}
 
 	for idx, pkg := range pkgs {
-		name := system.FileNameWithoutExt(pkg)
+		bare, pinned, _ := splitDigest(pkg)
+		name := system.FileNameWithoutExt(bare)
 
 		if bar != nil {
 			bar.UpdateTitle("Syncing " + name)
 			bar.Increment()
 		}
 
-		if err = readPkg(pkg, stylesPath, idx); err != nil {
-			return err
+		digest, serr := syncPkg(pkg, stylesPath, idx)
+		if serr != nil {
+			return serr
 		}
 
 		if bar == nil {
-			fmt.Printf("Synced %s\n", name)
+			// The digest to pin the archive to, unless it already is.
+			if digest != "" && pinned == "" {
+				fmt.Printf("Synced %s (sha256:%s)\n", name, digest)
+			} else {
+				fmt.Printf("Synced %s\n", name)
+			}
 		}
 	}
 

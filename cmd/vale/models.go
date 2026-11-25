@@ -47,7 +47,7 @@ func syncModels(cfg *core.Config, stylesPath string, idx int, report func(name, 
 		if err != nil {
 			return synced, core.NewE100("sync", err)
 		}
-		if err = loadPkg(lang, src, stylesPath, idx+i); err != nil {
+		if _, err = loadPkg(lang, src, stylesPath, idx+i, ""); err != nil {
 			return synced, err
 		}
 		report(lang, describeModel(stylesPath, lang))
@@ -274,7 +274,7 @@ func syncGrammars(cfg *core.Config, stylesPath string, idx int, report func(name
 		if serr != nil {
 			return i, core.NewE100("sync", serr)
 		}
-		if lerr := loadPkg(pkg, src, stylesPath, idx+i); lerr != nil {
+		if _, lerr := loadPkg(pkg, src, stylesPath, idx+i, ""); lerr != nil {
 			return i, lerr
 		}
 		report(pkg, grammarDetail(cfg, name))

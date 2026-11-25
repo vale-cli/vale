@@ -33,23 +33,45 @@ func initPath(cfg *core.Config) error {
 }
 
 func readPkg(pkg, path string, idx int) error {
+	_, err := syncPkg(pkg, path, idx)
+	return err
+}
+
+// syncPkg installs one entry of `Packages` and returns the SHA-256 digest
+// of its archive, "" for a directory.
+func syncPkg(pkg, path string, idx int) (string, error) {
+	pkg, want, err := splitDigest(pkg)
+	if err != nil {
+		return "", err
+	}
 	if core.IsPhrase(pkg) && !system.IsDir(pkg) {
 		entry := inLibrary(pkg, path)
 		if entry != "" {
-			return download(pkg, entry, path, idx)
+			return download(pkg, entry, path, idx, want)
 		}
 	}
-	return loadPkg(system.FileNameWithoutExt(pkg), pkg, path, idx)
+	return loadPkg(system.FileNameWithoutExt(pkg), pkg, path, idx, want)
 }
 
-func loadPkg(name, urlOrPath, styles string, index int) error {
+func loadPkg(name, urlOrPath, styles string, index int, want string) (string, error) {
 	if fileInfo, err := os.Stat(urlOrPath); err == nil {
 		if fileInfo.IsDir() {
-			return loadLocalPkg(name, urlOrPath, styles, index)
+			if want != "" {
+				return "", core.NewE100("sync", fmt.Errorf(
+					"'%s' is a directory: only an archive can be pinned to a digest", urlOrPath))
+			}
+			return "", loadLocalPkg(name, urlOrPath, styles, index)
 		}
-		return loadLocalZipPkg(name, urlOrPath, styles, index)
+		got, derr := fileDigest(urlOrPath)
+		if derr != nil {
+			return "", derr
+		}
+		if derr = checkDigest(urlOrPath, want, got); derr != nil {
+			return got, derr
+		}
+		return got, loadLocalZipPkg(name, urlOrPath, styles, index)
 	}
-	return download(name, urlOrPath, styles, index)
+	return download(name, urlOrPath, styles, index, want)
 }
 
 func loadLocalPkg(name, pkgPath, styles string, index int) error {
@@ -69,26 +91,39 @@ func loadLocalZipPkg(name, pkgPath, styles string, index int) error {
 	return installPkg(dir, name, styles, index)
 }
 
-func download(name, url, styles string, index int) error {
+func download(name, url, styles string, index int, want string) (string, error) {
 	dir, err := os.MkdirTemp("", name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if err = fetch(url, dir); err != nil {
+	got, err := fetchPinned(url, dir, want)
+	if err != nil {
 		if strings.Contains(err.Error(), "unsupported protocol scheme") {
 			err = fmt.Errorf("'%s' is not a valid URL or the directory doesn't exist", url)
 		}
-		return core.NewE100("download", err)
+		// A digest mismatch is already Vale's own error, and passes through.
+		return got, core.NewE100("download", err)
+	}
+
+	if want != "" {
+		// A pinned archive is the one installed: another release would be
+		// other bytes than the ones pinned.
+		if meta := pkgMeta(dir, name); !supportsVale(meta.Vale) {
+			return got, core.NewE100("sync", fmt.Errorf(
+				"'%s' needs Vale %s; this is %s, and it's pinned to a digest, so no other release is installed",
+				name, meta.Vale, version))
+		}
+		return got, installPkg(dir, name, styles, index)
 	}
 
 	// The release that landed may need a newer Vale than this one; see
 	// pkgver.go for the one that gets installed instead.
 	if dir, err = supportedRelease(name, url, dir); err != nil {
-		return err
+		return got, err
 	}
 
-	return installPkg(dir, name, styles, index)
+	return got, installPkg(dir, name, styles, index)
 }
 
 // pkgRoot returns the entry in dir that holds the package named name: an

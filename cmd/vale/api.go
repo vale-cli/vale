@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -71,32 +73,46 @@ func init() {
 }
 
 func fetch(src, dst string) error {
+	_, err := fetchPinned(src, dst, "")
+	return err
+}
+
+// fetchPinned downloads the archive at src and unpacks it into dst,
+// returning its SHA-256 digest. A `want` digest it doesn't match stops it
+// before anything is unpacked.
+func fetchPinned(src, dst, want string) (string, error) {
 	// Fetch the resource from the web:
 	resp, err := http.Get(src) //nolint:gosec,noctx
 
 	if err != nil {
-		return err
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("could not fetch '%s' (status code '%d')", src, resp.StatusCode)
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("could not fetch '%s' (status code '%d')", src, resp.StatusCode)
 	}
 
 	// Create a temp file to represent the archive locally:
 	tmpfile, err := os.CreateTemp("", "temp.*.zip")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer os.Remove(tmpfile.Name()) // clean up
 
-	// Write to the  local archive:
-	_, err = io.Copy(tmpfile, resp.Body)
+	// Write to the local archive, hashing it on the way:
+	h := sha256.New()
+	_, err = io.Copy(io.MultiWriter(tmpfile, h), resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	} else if err = tmpfile.Close(); err != nil {
-		return err
+		return "", err
 	}
 
-	resp.Body.Close()
-	return system.Unarchive(tmpfile.Name(), dst)
+	got := hex.EncodeToString(h.Sum(nil))
+	if err = checkDigest(src, want, got); err != nil {
+		return got, err
+	}
+	return got, system.Unarchive(tmpfile.Name(), dst)
 }
 
 func install(args []string, flags *core.CLIFlags) error {
