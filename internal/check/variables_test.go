@@ -93,3 +93,27 @@ func TestSentence(t *testing.T) {
 		}
 	}
 }
+
+// A heading's list number (`1.`, `1.2.`) is followed by a capital, but a
+// version in the same place (`2.0`, `v2.0`) is a word like any other (#1237).
+func TestSentenceListNumbers(t *testing.T) {
+	headings := []changeCase{
+		{heading: "1. An important heading", match: true},
+		{heading: "1.2. An important heading", match: true},
+		{heading: "1. an important heading", match: false},
+		{heading: "2.0 release notes", match: true},
+		{heading: "2.0 Release notes", match: false},
+		{heading: "Version 2.0 release notes", match: true},
+		{heading: "V2.0 release notes", match: true},
+	}
+	for _, h := range headings {
+		sc := strcase.NewSentenceConverter(
+			strcase.UsingVocab(h.exceptions),
+			strcase.UsingIndicator(wasIndicator(nil)),
+		)
+		_, s := sentence(h.heading, nil, sc, 1)
+		if s != h.match {
+			t.Errorf("expected = %v, got = %v (%s)", h.match, s, h.heading)
+		}
+	}
+}

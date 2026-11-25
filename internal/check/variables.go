@@ -10,7 +10,9 @@ import (
 	"github.com/vale-cli/vale/v3/internal/core"
 )
 
-var reNumberList = rx.MustCompile(`\d+\.`)
+// reNumberList is a heading's list number, `1.` or `1.2.`: the whole word,
+// so a version (`2.0`, `v2.0`) isn't one.
+var reNumberList = rx.MustCompile(`^(?:\d+\.)+$`)
 
 // tokenPattern is the expression the capitalization checks split words with.
 //
