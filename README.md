@@ -177,4 +177,4 @@ Bug reports, feature requests, documentation fixes, and pull requests are all we
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Created and maintained by [Joseph Kato](https://jdkato.io).
