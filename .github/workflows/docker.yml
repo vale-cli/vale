@@ -40,8 +40,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # A misspelling in a Typst file has to come back as an alert: that
-      # takes the binary and typst2vast both.
+      # A misspelling in a Typst file has to come back as an alert: the
+      # binary reads Typst on its own.
       - name: Smoke test
         run: |
           mkdir smoke
