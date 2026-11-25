@@ -38,6 +38,26 @@ files:
     scope: raw
     tokens:
       - '^1\. [^\n]*\n( |  |    )[\w-]'
+  styles/T/Terms.yml: |
+    extends: substitution
+    message: "use '%s' instead of '%s'"
+    level: error
+    ignorecase: true
+    swap:
+      ' api': ' API'
+      app router: App Router
+  terms.md: |
+    This is the public
+    API of the library.
+
+    Read about the App
+    Router here.
+
+    This is the public
+    api of the library.
+
+    Read about the app
+    router here.
   indent.md: |
     1. A step that runs on to
        a second line.
@@ -66,6 +86,14 @@ cases:
       swap.md:3:18:T.Swap:use 'to' instead of 'in order to'
       wrap.md:1:19:T.Phrase:found 'for example'
       wrap.md:3:18:T.Phrase:found 'for example'
+
+  - name: a wrapped phrase already in the swap's form
+    about: "the wrap is compared as a space: `App\\nRouter` is `App Router` (#1238)"
+    args: --output=line terms.md
+    exit: 1
+    want: |
+      terms.md:7:19:T.Terms:use ' API' instead of ' api'
+      terms.md:10:16:T.Terms:use 'App Router' instead of 'app router'
 
   - name: a quantified space keeps its meaning
     about: "`{2,}` after a space quantifies the space; it is not a line wrap"

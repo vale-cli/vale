@@ -273,15 +273,18 @@ func (s Substitution) Run(blk nlp.Block, f *core.File, cfg *core.Config) ([]core
 		// For non-`replace` rules the value may instead be a regex that
 		// describes the acceptable forms (e.g. a vocab term `[pP]y.*\b`,
 		// or a `LookAround`-style pattern), which we still match as one.
+		//
+		// A phrase may wrap across a line, so it's compared as one line:
+		// `App\nRouter` already is `App Router` (#1238).
+		flat := unwrap(observed)
 		var same bool
 		switch {
 		case s.Fields().Action.Name == "replace":
-			same = core.StringInSlice(observed, getOptions(expected))
+			same = core.StringInSlice(flat, getOptions(expected))
 		case s.terms:
-			// A phrase may wrap across a line where the term has a space.
 			same = matchToken(termPattern(expected), observed, false)
 		default:
-			same = matchToken(expected, observed, false)
+			same = matchToken(expected, flat, false)
 		}
 		if !same && !isMatch(s.exceptRe, observed) && !withinPhrase(s.phraseRe, txt, loc) &&
 			!vocab.accepts(observed, txt, loc) {
