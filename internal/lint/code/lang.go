@@ -90,9 +90,19 @@ var Loader = func(name string) ([]byte, error) {
 	return nil, &NotInstalledError{Name: name}
 }
 
-// grammars holds each grammar once loaded: compiling a module is the costly
+// grammars holds each grammar's load: compiling a module is the costly
 // step, and every file of a language shares the result.
-var grammars sync.Map // name -> *tsw.Language
+var grammars sync.Map // name -> *grammarLoad
+
+// A grammarLoad compiles a grammar once, however many files ask for it at
+// the same time. A second compile of the same module in the shared runtime
+// can hand a caller a module whose entry points aren't ready yet, which
+// panics in the runtime.
+type grammarLoad struct {
+	once sync.Once
+	lang *tsw.Language
+	err  error
+}
 
 // Grammar returns the compiled grammar of the given name, loading it on
 // first use.
@@ -100,19 +110,20 @@ func Grammar(name string) (*tsw.Language, error) {
 	if !tsw.Built {
 		return nil, tsw.ErrNotBuilt
 	}
-	if g, ok := grammars.Load(name); ok {
-		return g.(*tsw.Language), nil //nolint:errcheck // only *tsw.Language is stored
+	v, _ := grammars.LoadOrStore(name, &grammarLoad{})
+	l := v.(*grammarLoad) //nolint:errcheck // only *grammarLoad is stored
+	l.once.Do(func() {
+		wasm, err := Loader(name)
+		if err == nil {
+			l.lang, err = tsw.Load(name, wasm)
+		}
+		l.err = err
+	})
+	if l.err != nil {
+		// Try again next time: a long run may see the grammar installed.
+		grammars.CompareAndDelete(name, l)
 	}
-	wasm, err := Loader(name)
-	if err != nil {
-		return nil, err
-	}
-	g, err := tsw.Load(name, wasm)
-	if err != nil {
-		return nil, err
-	}
-	actual, _ := grammars.LoadOrStore(name, g)
-	return actual.(*tsw.Language), nil //nolint:errcheck // only *tsw.Language is stored
+	return l.lang, l.err
 }
 
 // newLanguage returns the language for ext and the extension it was found
