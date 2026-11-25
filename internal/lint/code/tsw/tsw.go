@@ -98,8 +98,10 @@ type Language struct {
 	free chan *instance
 }
 
-// Load compiles a grammar module. name labels it in errors.
-func Load(name string, wasm []byte) (*Language, error) {
+// Compile compiles a module with the runtime every module shares, so its
+// compiled code is cached with theirs. It returns the runtime to
+// instantiate it with.
+func Compile(wasm []byte) (wazero.Runtime, wazero.CompiledModule, error) {
 	ctx := context.Background()
 	rt := sharedRuntime()
 	compiled, err := rt.CompileModule(ctx, wasm)
@@ -107,6 +109,12 @@ func Load(name string, wasm []byte) (*Language, error) {
 		rt = plainRuntime()
 		compiled, err = rt.CompileModule(ctx, wasm)
 	}
+	return rt, compiled, err
+}
+
+// Load compiles a grammar module. name labels it in errors.
+func Load(name string, wasm []byte) (*Language, error) {
+	rt, compiled, err := Compile(wasm)
 	if err != nil {
 		return nil, fmt.Errorf("grammar %s: %w", name, err)
 	}

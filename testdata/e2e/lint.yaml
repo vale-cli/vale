@@ -465,7 +465,6 @@ cases:
       parser without its evaluator: markup is prose, code mode is masked,
       and a content block anywhere inside code is prose again"
     args: test.typ
-    requires: typst2vast
     exit: 0
     want: |
       test.typ:12:27:vale.Annotations:'TODO' left in text
@@ -535,7 +534,6 @@ cases:
 
         - A list item with ZQX inside.
     args: test.typ
-    requires: typst2vast
     exit: 1
     want: |
       test.typ:1:18:T.Head:heading

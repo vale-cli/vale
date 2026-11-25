@@ -46,7 +46,6 @@ jobs:
             sudo apt-get -qq update
             sudo apt-get install -y xsltproc
           fi
-          cargo install --locked typst2vast  # runners ship a Rust toolchain
           curl -fsSL -o dita-ot-3.6.zip \
             https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip
           unzip -q dita-ot-3.6.zip
@@ -97,7 +96,6 @@ jobs:
       - name: Install documentation toolchain
         shell: bash
         run: |
-          cargo install --locked typst2vast  # runners ship a Rust toolchain
           choco install --no-progress -y xsltproc
           curl -fsSL -o dita-ot-3.6.zip \
             https://github.com/dita-ot/dita-ot/releases/download/3.6/dita-ot-3.6.zip

@@ -1,0 +1,18 @@
+# typst2vast as the WebAssembly module Vale embeds. Built by ../build.sh.
+[package]
+name = "vale-typst"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+typst2vast = "=0.1.0"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "s"
+panic = "abort"

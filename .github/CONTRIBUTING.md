@@ -46,7 +46,6 @@ The end-to-end suite shells out to external converters, so these also need to be
 
 * [xsltproc](http://xmlsoft.org/xslt/xsltproc.html)
 * [dita](https://www.dita-ot.org/download) (v3.6+)
-* [typst2vast](https://github.com/jdkato/typst2vast) (`cargo install --locked typst2vast`)
 
 Then build and test:
 
