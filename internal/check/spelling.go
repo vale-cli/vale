@@ -349,7 +349,7 @@ func (s Spelling) alert(word string, at, length int) core.Alert {
 var inlineCode = map[string]string{
 	".md": "`%s`", ".mdx": "`%s`", ".myst": "`%s`", ".mdoc": "`%s`", ".qmd": "`%s`", ".ipynb": "`%s`",
 	".adoc": "`%s`", ".typ": "`%s`", ".rst": "``%s``", ".org": "~%s~",
-	".html": "<code>%s</code>",
+	".html": "<code>%s</code>", ".tex": `\verb|%s|`,
 }
 
 // identifierShape matches snake_case, and lowerCamel with two or more

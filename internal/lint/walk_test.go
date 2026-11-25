@@ -343,10 +343,22 @@ func TestMapWords(t *testing.T) {
 			want: []nlp.Run{{At: 0, Src: 0, N: 4}, {At: 5, Src: 5, N: 2}, {At: 8, Src: 14, N: 8}, {At: 17, Src: 28, N: 6}},
 		},
 		{
-			desc: "an escape skips one word",
+			desc: "an escape leaves the letters around it mapped",
 			ctx:  "Files (\\*.in.rst) with rsp",
 			raw:  "Files (*.in.rst) with rsp",
-			want: []nlp.Run{{At: 0, Src: 0, N: 5}, {At: 17, Src: 18, N: 4}, {At: 22, Src: 23, N: 3}},
+			want: []nlp.Run{
+				{At: 0, Src: 0, N: 5}, {At: 9, Src: 10, N: 2}, {At: 12, Src: 13, N: 3},
+				{At: 17, Src: 18, N: 4}, {At: 22, Src: 23, N: 3},
+			},
+		},
+		{
+			desc: "rewritten punctuation leaves its word mapped",
+			ctx:  "a ``quoted'' word---here",
+			raw:  "a “quoted” word—here",
+			want: []nlp.Run{
+				{At: 0, Src: 0, N: 1}, {At: 5, Src: 4, N: 6},
+				{At: 15, Src: 13, N: 4}, {At: 22, Src: 20, N: 4},
+			},
 		},
 	}
 

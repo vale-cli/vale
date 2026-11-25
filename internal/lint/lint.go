@@ -407,6 +407,8 @@ func (l *Linter) lintPrepared(file *core.File, built []byte) lintResult {
 			err = l.lintQuarto(file)
 		case ".rst":
 			err = l.lintRST(file)
+		case ".tex":
+			err = l.lintLaTeX(file)
 		case ".typ":
 			err = l.lintTypst(file)
 		case ".xml", ".xsd":

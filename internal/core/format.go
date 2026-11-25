@@ -179,6 +179,7 @@ var FormatByExtension = map[string][]string{
 	`\.(?:sass|scss|less)$`: {".c", "code"},
 	`\.(?:scala|sbt)$`:      {".c", "code"},
 	`\.(?:swift)$`:          {".c", "code"},
+	`\.(?:tex|ltx|latex)$`:  {".tex", "markup"},
 	`\.(?:ts|tsx|mts|cts)$`: {".ts", "code"},
 	`\.(?:typ)$`:            {".typ", "markup"},
 	`\.(?:txt)$`:            {".txt", "text"},

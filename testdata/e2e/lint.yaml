@@ -543,6 +543,110 @@ cases:
       test.typ:3:49:T.Code:code
       test.typ:5:20:T.List:list
 
+  - name: latex
+    about: "LaTeX is read without running TeX: the title, sections,
+      paragraphs, footnotes, items, captions, cells and a theorem's body are
+      prose; the preamble, labels, citations, references, math, verbatim
+      text, options, lengths, comments and anything after the document's end
+      say nothing"
+    args: test.tex
+    exit: 0
+    want: |
+      test.tex:4:23:vale.Annotations:'TODO' left in text
+      test.tex:9:39:vale.Annotations:'XXX' left in text
+      test.tex:12:20:vale.Annotations:'TODO' left in text
+      test.tex:13:67:vale.Annotations:'XXX' left in text
+      test.tex:15:34:vale.Annotations:'TODO' left in text
+      test.tex:23:29:vale.Annotations:'XXX' left in text
+      test.tex:26:24:vale.Annotations:'TODO' left in text
+      test.tex:27:31:vale.Annotations:'XXX' left in text
+      test.tex:31:23:vale.Annotations:'TODO' left in text
+      test.tex:31:37:vale.Annotations:'XXX' left in text
+      test.tex:37:34:vale.Annotations:'TODO' left in text
+      test.tex:43:18:vale.Annotations:'XXX' left in text
+      test.tex:44:41:vale.Annotations:'TODO' left in text
+      test.tex:56:18:vale.Annotations:'TODO' left in text
+      test.tex:59:48:vale.Annotations:'XXX' left in text
+      test.tex:60:26:vale.Annotations:'XXX' left in text
+      test.tex:60:61:vale.Annotations:'XXX' left in text
+      test.tex:61:35:vale.Annotations:'TODO' left in text
+      test.tex:69:24:vale.Annotations:'TODO' left in text
+
+  - name: latex-scopes
+    about: LaTeX's headings, styled spans, code, list items and table cells
+      land in their Vale scopes, and a pattern to ignore is honored
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.tex]
+        TokenIgnores = (<<[^>]+>>)
+        T.Head = YES
+        T.Strong = YES
+        T.Code = YES
+        T.List = YES
+        T.Any = YES
+      styles/T/Head.yml: |
+        extends: existence
+        message: heading
+        level: error
+        nonword: true
+        scope: heading
+        raw:
+          - ZQX
+      styles/T/Strong.yml: |
+        extends: existence
+        message: strong
+        level: error
+        nonword: true
+        scope: strong
+        raw:
+          - ZQX
+      styles/T/Code.yml: |
+        extends: existence
+        message: code
+        level: error
+        nonword: true
+        scope: code
+        raw:
+          - ZQX
+      styles/T/List.yml: |
+        extends: existence
+        message: list
+        level: error
+        nonword: true
+        scope: list
+        raw:
+          - ZQX
+      styles/T/Any.yml: |
+        extends: existence
+        message: any
+        level: error
+        nonword: true
+        raw:
+          - QQQ
+      test.tex: |
+        \section{A heading with ZQX inside}
+
+        Plain prose with \textbf{a strong ZQX span} and \texttt{a raw ZQX span}.
+
+        \begin{itemize}
+          \item A list item with ZQX inside.
+        \end{itemize}
+
+        Ignored <<QQQ>> here, but caf\'e QQQ and ``QQQ''---QQQ are found.
+    args: test.tex
+    exit: 1
+    want: |
+      test.tex:1:25:T.Head:heading
+      test.tex:3:35:T.Strong:strong
+      test.tex:3:63:T.Code:code
+      test.tex:6:26:T.List:list
+      test.tex:9:34:T.Any:any
+      test.tex:9:44:T.Any:any
+      test.tex:9:52:T.Any:any
+
   - name: qdoc
     about: "#784 -- QDoc's commands are markup: topic lines, code blocks,
       links' targets, and options say nothing, while titles, sections,

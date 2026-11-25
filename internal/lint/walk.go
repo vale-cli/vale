@@ -754,8 +754,20 @@ func (w *walker) mapWords(at int, raw, ctx string) {
 		limit := min(len(ctx), cursor+gap+word[1]-word[0])
 		i := strings.Index(ctx[cursor:limit], raw[word[0]:word[1]])
 		if i < 0 {
-			// Rewritten too, as an escaped `\*` is: it stays unmapped, and
-			// the words after it are still found.
+			// Rewritten too, as an escaped `\*` is, or carrying punctuation
+			// a converter rewrote, as TeX's quotes and dashes are: what
+			// letters it has are still found, and so are the words after it.
+			for _, part := range alnumSpans(raw[word[0]:word[1]]) {
+				lo, hi := word[0]+part[0], word[0]+part[1]
+				stop := min(len(ctx), cursor+gap+hi-lo)
+				j := strings.Index(ctx[cursor:stop], raw[lo:hi])
+				if j < 0 {
+					continue
+				}
+				src := cursor + j
+				runs = append(runs, nlp.Run{At: at + lo, Src: src, N: hi - lo})
+				cursor = src + hi - lo
+			}
 			continue
 		}
 		src := cursor + i
@@ -765,6 +777,29 @@ func (w *walker) mapWords(at int, raw, ctx string) {
 
 	w.srcCursor = cursor
 	w.spans = append(w.spans, runs...)
+}
+
+// alnumSpans returns the start and end of each run of letters and digits in
+// s, or nothing when s is a single such run.
+func alnumSpans(s string) [][2]int {
+	var out [][2]int
+	start := -1
+	for i, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if start < 0 {
+				start = i
+			}
+		} else if start >= 0 {
+			out = append(out, [2]int{start, i})
+			start = -1
+		}
+	}
+	if start > 0 {
+		out = append(out, [2]int{start, len(s)})
+	} else if start == 0 {
+		return nil
+	}
+	return out
 }
 
 // wordSpans returns the start and end of each whitespace-separated word in s.

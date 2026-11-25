@@ -1,0 +1,73 @@
+\documentclass[11pt]{article}
+\usepackage{TODO}
+\newcommand{\product}[1]{XXX #1}
+\title{A title with a TODO in it}
+\author{XXX Person}
+\begin{document}
+\maketitle
+
+\section[XXX short]{A section with an XXX in it}
+\label{sec:TODO}
+
+A paragraph with a TODO, a citation~\cite[p.~3]{TODO}, a reference to
+\ref{fig:XXX}, inline math $x = TODO$, and \emph{emphasis with an XXX}.
+It continues with \texttt{TODO} and \verb|XXX| and a
+note.\footnote{A footnote with a TODO.} % XXX in a comment
+
+% A comment line with a TODO.
+
+\begin{equation}
+  TODO = XXX
+\end{equation}
+
+We get \[ TODO \] where the XXX is prose again.
+
+\begin{itemize}
+  \item An item with a TODO
+  \item An item with ``quoted XXX'' text---and a dash
+\end{itemize}
+
+\begin{description}
+  \item[A term with a TODO] and its XXX description
+\end{description}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.5\textwidth]{TODO.png}
+  \caption[XXX]{A caption with a TODO.}
+  \label{fig:XXX}
+\end{figure}
+
+\begin{tabular}{l|r}
+  \hline
+  A cell with an XXX & Another \\
+  \multicolumn{2}{c}{A wide cell with a TODO} \\
+\end{tabular}
+
+\begin{verbatim}
+TODO in code
+\end{verbatim}
+
+\begin{lstlisting}[language=XXX]
+XXX in a listing
+\end{lstlisting}
+
+\begin{theorem}[XXX]
+A theorem with a TODO.
+\end{theorem}
+
+A \href{https://example.com/TODO}{link with an XXX} and
+\textcolor{TODO}{colored XXX} and an \unknown[TODO]{unknown XXX} command,
+with space\vspace{2TODO} and 50\% TODO.
+
+% vale off
+
+A paragraph with a TODO that is off.
+
+% vale on
+
+\subsection*{A starred TODO}
+
+\end{document}
+
+Anything after the end, XXX included, is never typeset.
