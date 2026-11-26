@@ -23,6 +23,7 @@ haskell
 Homebrew
 ignorecase
 Joblint
+Kato
 kincaid
 liau
 Linode
