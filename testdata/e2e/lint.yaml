@@ -645,6 +645,53 @@ cases:
       test.tex:9:44:T.Any:any
       test.tex:9:52:T.Any:any
 
+  - name: latex-rewritten-words
+    about: a match on a word the reader rewrote -- an accent, an escape,
+      TeX's quotes and dashes -- is reported where the word starts in the
+      source, and display math opened by a shorthand such as `\be` is code
+    files:
+      .vale.ini: |
+        StylesPath = styles
+        MinAlertLevel = suggestion
+
+        [*.tex]
+        T.Word = YES
+        T.Quote = YES
+      styles/T/Word.yml: |
+        extends: existence
+        message: "'%s'"
+        level: error
+        tokens:
+          - Montréal
+          - Gödel
+          - R&D
+          - naïve
+          - pages 1–2
+          - ZQX
+      styles/T/Quote.yml: |
+        extends: existence
+        message: "'%s'"
+        level: error
+        nonword: true
+        raw:
+          - '“quoted”'
+      test.tex: |
+        In Montr\'eal, G\"odel did R\&D on ``quoted'' text, pages 1--2.
+        A na\"{\i}ve reader.
+        \be
+          ZQX = 1
+        \ee
+        \bea ZQX \eea and \eqn\label{ZQX}
+    args: test.tex
+    exit: 1
+    want: |
+      test.tex:1:4:T.Word:'Montréal'
+      test.tex:1:16:T.Word:'Gödel'
+      test.tex:1:28:T.Word:'R&D'
+      test.tex:1:36:T.Quote:'“quoted”'
+      test.tex:1:53:T.Word:'pages 1–2'
+      test.tex:2:3:T.Word:'naïve'
+
   - name: qdoc
     about: "#784 -- QDoc's commands are markup: topic lines, code blocks,
       links' targets, and options say nothing, while titles, sections,

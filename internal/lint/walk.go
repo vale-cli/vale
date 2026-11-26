@@ -754,20 +754,14 @@ func (w *walker) mapWords(at int, raw, ctx string) {
 		limit := min(len(ctx), cursor+gap+word[1]-word[0])
 		i := strings.Index(ctx[cursor:limit], raw[word[0]:word[1]])
 		if i < 0 {
-			// Rewritten too, as an escaped `\*` is, or carrying punctuation
-			// a converter rewrote, as TeX's quotes and dashes are: what
-			// letters it has are still found, and so are the words after it.
-			for _, part := range alnumSpans(raw[word[0]:word[1]]) {
-				lo, hi := word[0]+part[0], word[0]+part[1]
-				stop := min(len(ctx), cursor+gap+hi-lo)
-				j := strings.Index(ctx[cursor:stop], raw[lo:hi])
-				if j < 0 {
-					continue
-				}
-				src := cursor + j
-				runs = append(runs, nlp.Run{At: at + lo, Src: src, N: hi - lo})
-				cursor = src + hi - lo
+			// Rewritten too, as an escaped `\*` is, or as TeX's accents,
+			// quotes and dashes are: it is placed around its ASCII letters.
+			found, next := alignWord(raw[word[0]:word[1]], ctx, cursor, gap)
+			for _, r := range found {
+				r.At += at + word[0]
+				runs = append(runs, r)
 			}
+			cursor = next
 			continue
 		}
 		src := cursor + i
@@ -779,13 +773,131 @@ func (w *walker) mapWords(at int, raw, ctx string) {
 	w.spans = append(w.spans, runs...)
 }
 
-// alnumSpans returns the start and end of each run of letters and digits in
-// s, or nothing when s is a single such run.
-func alnumSpans(s string) [][2]int {
+// alignWord maps a word a converter rewrote: its runs of ASCII letters and
+// digits are found as written, and each piece between them is the source
+// between them. A rewritten piece at either end reaches to the edge of the
+// markup it came from, so a match on the word spans all of it.
+func alignWord(word, ctx string, cursor, gap int) ([]nlp.Run, int) {
+	var runs []nlp.Run
+	done, src := 0, -1 // where the last anchor ends, in the word and the source
+	for _, a := range asciiAlnumSpans(word) {
+		stop := min(len(ctx), cursor+gap+a[1]-a[0])
+		j := strings.Index(ctx[cursor:stop], word[a[0]:a[1]])
+		if j < 0 {
+			continue
+		}
+		at := cursor + j
+		if a[0] > done {
+			from := src
+			if from < 0 {
+				from = leadStart(ctx, cursor, at)
+			}
+			runs = append(runs, spread(word, done, a[0], ctx, from, at)...)
+		}
+		runs = append(runs, nlp.Run{At: a[0], Src: at, N: a[1] - a[0]})
+		done, src = a[1], at+a[1]-a[0]
+		cursor = src
+	}
+	if src >= 0 && done < len(word) {
+		end := trailEnd(ctx, src, min(len(ctx), src+gap))
+		runs = append(runs, spread(word, done, len(word), ctx, src, end)...)
+		cursor = max(cursor, end)
+	}
+	return runs, cursor
+}
+
+// spread maps the word's bytes [ra, rb) onto the source's [sa, sb). An ASCII
+// character is found as written; anything else is the source up to the
+// next one, its first byte at the start and the rest at the end.
+func spread(word string, ra, rb int, ctx string, sa, sb int) []nlp.Run {
+	if sb <= sa {
+		return nil
+	}
+	if rb-ra == sb-sa {
+		return []nlp.Run{{At: ra, Src: sa, N: rb - ra}}
+	}
+
+	var runs []nlp.Run
+	p := sa
+	for i := ra; i < rb; {
+		r, n := utf8.DecodeRuneInString(word[i:rb])
+		if r < utf8.RuneSelf {
+			if k := strings.IndexByte(ctx[p:sb], word[i]); k >= 0 {
+				runs = append(runs, nlp.Run{At: i, Src: p + k, N: 1})
+				p += k + 1
+				i++
+				continue
+			}
+		}
+		stop := sb
+		if next := i + n; next < rb && word[next] < utf8.RuneSelf {
+			if k := strings.IndexByte(ctx[p:sb], word[next]); k > 0 {
+				stop = p + k
+			}
+		}
+		runs = append(runs, nlp.Run{At: i, Src: min(p, sb-1), N: 1})
+		for b := 1; b < n; b++ {
+			runs = append(runs, nlp.Run{At: i + b, Src: max(p, stop-1), N: 1})
+		}
+		p = max(p, stop)
+		i += n
+	}
+	return runs
+}
+
+// leadStart returns where the markup a word's first letters came from begins:
+// back from `at` to a space, or to the brace a command's argument opens with.
+func leadStart(ctx string, floor, at int) int {
+	i := at
+	for i > floor {
+		b := ctx[i-1]
+		if b == ' ' || b == '\t' || b == '\n' {
+			break
+		}
+		if b == '{' && i-2 >= floor && (isASCIILetter(ctx[i-2]) || ctx[i-2] == ']') {
+			break
+		}
+		i--
+	}
+	return i
+}
+
+// trailEnd returns where the markup a word's last letters came from ends:
+// at a space, a tie, a comment, the brace closing the group it sits in, or
+// the next command.
+func trailEnd(ctx string, at, limit int) int {
+	depth := 0
+	for i := at; i < limit; i++ {
+		switch b := ctx[i]; b {
+		case ' ', '\t', '\n', '~', '%':
+			return i
+		case '{':
+			depth++
+		case '}':
+			if depth == 0 {
+				return i
+			}
+			depth--
+		case '\\':
+			if i > at {
+				return i
+			}
+		}
+	}
+	return limit
+}
+
+func isASCIILetter(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+// asciiAlnumSpans returns the start and end of each run of ASCII letters and
+// digits in s.
+func asciiAlnumSpans(s string) [][2]int {
 	var out [][2]int
 	start := -1
-	for i, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+	for i := 0; i <= len(s); i++ {
+		if i < len(s) && (isASCIILetter(s[i]) || (s[i] >= '0' && s[i] <= '9')) {
 			if start < 0 {
 				start = i
 			}
@@ -793,11 +905,6 @@ func alnumSpans(s string) [][2]int {
 			out = append(out, [2]int{start, i})
 			start = -1
 		}
-	}
-	if start > 0 {
-		out = append(out, [2]int{start, len(s)})
-	} else if start == 0 {
-		return nil
 	}
 	return out
 }

@@ -127,6 +127,14 @@ var texMath = map[string]struct{}{
 	"IEEEeqnarray": {}, "dmath": {}, "subequations": {}, "array": {},
 }
 
+// texMathAliases pairs the shorthands papers define for display math, such
+// as `\newcommand{\be}{\begin{equation}}`, with the command that closes each.
+// The definition is often in another file, so the common names are known.
+var texMathAliases = map[string]string{
+	"be": "ee", "beq": "eeq", "beqn": "eeqn", "bea": "eea", "beqa": "eeqa",
+	"bean": "eean",
+}
+
 // texEnvSigs is texSigs for the arguments that follow `\begin{name}`.
 var texEnvSigs = map[string]string{
 	"tabular": "om", "tabularx": "mm", "tabulary": "mm", "longtable": "om",
@@ -602,6 +610,17 @@ func (c *texConv) command(end int) { //nolint:gocyclo // one case per command fa
 			c.i += at
 			c.arg(end)
 		}
+	case texMathAliases[name] != "":
+		c.mathAlias(texMathAliases[name], end)
+	case name == "eqn", name == "eqna":
+		// harvmac's `\eqn\label{body}`.
+		if c.i < end && c.src[c.i] == '\\' {
+			c.i++
+			for c.i < end && isTeXLetter(c.src[c.i]) {
+				c.i++
+			}
+		}
+		c.sig("k", end)
 	case name == "vskip", name == "hskip", name == "kern":
 		c.i += len(texGlue.FindString(c.src[c.i:end]))
 	case name == "cmidrule":
@@ -685,6 +704,27 @@ func (c *texConv) accent(mark string, end int) {
 		return
 	}
 	c.text(norm.NFC.String(letter[:1] + mark + letter[1:]))
+}
+
+// mathAlias reads display math a shorthand opened, through the command that
+// closes it. With no such command, the shorthand is something else and only
+// its name is markup.
+func (c *texConv) mathAlias(shut string, end int) {
+	mark := `\` + shut
+	for j := c.i; j < end; {
+		k := strings.Index(c.src[j:end], mark)
+		if k < 0 {
+			return
+		}
+		k += j
+		after := k + len(mark)
+		if after >= end || !isTeXLetter(c.src[after]) {
+			c.code(c.src[c.i:k])
+			c.i = after
+			return
+		}
+		j = after
+	}
 }
 
 // verb reads inline verbatim text: `\verb|...|`, and the listings and minted

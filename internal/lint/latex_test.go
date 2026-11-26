@@ -65,6 +65,18 @@ func TestTeXHTML(t *testing.T) {
 			nil,
 		},
 		{
+			"math a shorthand opens is code",
+			"One\n\\be\n a_i \\label{eq}\n\\ee\ntwo \\bea x_j \\eea and \\eqn\\name{y_k} three.\n",
+			[]string{"<code>\n a_i \\label{eq}\n</code>", "<code> x_j </code>", "<code>y_k</code>", "three."},
+			[]string{"name"},
+		},
+		{
+			"a shorthand nothing closes is markup",
+			"One \\be two \\eel three.\n",
+			[]string{"One  two  three."},
+			[]string{"<code>"},
+		},
+		{
 			"a dollar sign nothing closes is text",
 			"It costs $5 today.\n\nAnd \\$10 tomorrow.\n",
 			[]string{"<p>It costs $5 today.</p>", "And $10 tomorrow."},

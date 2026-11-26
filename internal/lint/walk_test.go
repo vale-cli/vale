@@ -347,8 +347,10 @@ func TestMapWords(t *testing.T) {
 			ctx:  "Files (\\*.in.rst) with rsp",
 			raw:  "Files (*.in.rst) with rsp",
 			want: []nlp.Run{
-				{At: 0, Src: 0, N: 5}, {At: 9, Src: 10, N: 2}, {At: 12, Src: 13, N: 3},
-				{At: 17, Src: 18, N: 4}, {At: 22, Src: 23, N: 3},
+				{At: 0, Src: 0, N: 5}, {At: 6, Src: 6, N: 1}, {At: 7, Src: 8, N: 1},
+				{At: 8, Src: 9, N: 1}, {At: 9, Src: 10, N: 2}, {At: 11, Src: 12, N: 1},
+				{At: 12, Src: 13, N: 3}, {At: 15, Src: 16, N: 1}, {At: 17, Src: 18, N: 4},
+				{At: 22, Src: 23, N: 3},
 			},
 		},
 		{
@@ -356,9 +358,27 @@ func TestMapWords(t *testing.T) {
 			ctx:  "a ``quoted'' word---here",
 			raw:  "a “quoted” word—here",
 			want: []nlp.Run{
-				{At: 0, Src: 0, N: 1}, {At: 5, Src: 4, N: 6},
-				{At: 15, Src: 13, N: 4}, {At: 22, Src: 20, N: 4},
+				{At: 0, Src: 0, N: 1}, {At: 2, Src: 2, N: 1}, {At: 3, Src: 3, N: 1},
+				{At: 4, Src: 3, N: 1}, {At: 5, Src: 4, N: 6}, {At: 11, Src: 10, N: 1},
+				{At: 12, Src: 11, N: 1}, {At: 13, Src: 11, N: 1}, {At: 15, Src: 13, N: 4},
+				{At: 19, Src: 17, N: 3}, {At: 22, Src: 20, N: 4},
 			},
+		},
+		{
+			desc: "an accented letter spans its command",
+			ctx:  "Montr\\'eal and na\\\"{\\i}ve",
+			raw:  "Montréal and naïve",
+			want: []nlp.Run{
+				{At: 0, Src: 0, N: 5}, {At: 5, Src: 5, N: 1}, {At: 6, Src: 7, N: 1},
+				{At: 7, Src: 8, N: 2}, {At: 10, Src: 11, N: 3}, {At: 14, Src: 15, N: 2},
+				{At: 16, Src: 17, N: 1}, {At: 17, Src: 22, N: 1}, {At: 18, Src: 23, N: 2},
+			},
+		},
+		{
+			desc: "an escaped character is found past its backslash",
+			ctx:  "R\\&D,",
+			raw:  "R&D,",
+			want: []nlp.Run{{At: 0, Src: 0, N: 1}, {At: 1, Src: 2, N: 1}, {At: 2, Src: 3, N: 1}, {At: 3, Src: 4, N: 1}},
 		},
 	}
 
