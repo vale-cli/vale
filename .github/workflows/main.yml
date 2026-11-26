@@ -50,6 +50,24 @@ jobs:
             -f event_type=vale-release \
             -F 'client_payload[version]=${{ github.ref_name }}'
 
+      # A blog post written for this release (`release:` in its front
+      # matter) leads the draft's notes with its banner, title, and summary.
+      - name: Link the release post
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |-
+          site="$RUNNER_TEMP/vale.sh"
+          git clone --quiet --depth 1 --branch svelte https://github.com/vale-cli/vale.sh "$site"
+          header=$(node "$site/script/release-post.mjs" --notes "$TAG")
+          if [ -z "$header" ]; then
+            echo "no post for $TAG"
+            exit 0
+          fi
+          body=$(gh release view "$TAG" --json body --jq .body)
+          printf '%s\n\n%s\n' "$header" "$body" | gh release edit "$TAG" --notes-file -
+
   lint:
     name: runner / vale
     runs-on: ubuntu-latest
