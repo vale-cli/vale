@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/errata-ai/ini"
 
 	"github.com/vale-cli/vale/v3/internal/glob"
@@ -190,6 +192,7 @@ type Config struct {
 	GChecks           map[string]bool              // Global checks
 	IgnoredClasses    []string                     // A list of HTML classes to ignore
 	IgnoredScopes     []string                     // A list of HTML tags to ignore
+	IgnoredPaths      []string                     // Globs, resolved against their .vale.ini, for paths never linted
 	MinAlertLevel     int                          // Lowest alert level to display
 	Vocab             []string                     // The active project
 	Grammars          []string                     // Tree-sitter grammars to sync: names, or ALL
@@ -502,4 +505,38 @@ func (c *Config) SphinxNames(key string) []string {
 		}
 	}
 	return out
+}
+
+// IsIgnoredPath reports whether path, or a directory it is in, matches one of
+// the IgnoredPaths globs. An absolute glob is matched against the absolute
+// path; a relative one, from a configuration with no file, against the path
+// as given.
+func (c *Config) IsIgnoredPath(path string) bool {
+	if len(c.IgnoredPaths) == 0 || path == "" {
+		return false
+	}
+
+	rel := filepath.ToSlash(filepath.Clean(path))
+	abs := rel
+	if a, err := filepath.Abs(path); err == nil {
+		abs = filepath.ToSlash(a)
+	}
+
+	for _, pat := range c.IgnoredPaths {
+		target := rel
+		if filepath.IsAbs(filepath.FromSlash(pat)) {
+			target = abs
+		}
+		for p := target; ; {
+			if ok, _ := doublestar.Match(pat, p); ok {
+				return true
+			}
+			parent := pathpkg.Dir(p)
+			if parent == p || parent == "." {
+				break
+			}
+			p = parent
+		}
+	}
+	return false
 }

@@ -643,3 +643,57 @@ Lang = fr
 		}
 	}
 }
+
+func TestSplitPatterns(t *testing.T) {
+	cases := map[string][]string{
+		"vendor/**, build":           {"vendor/**", "build"},
+		"{vendor,.terraform}/**, a/": {"{vendor,.terraform}/**", "a/"},
+		" , x ,":                     {"x"},
+		"":                           nil,
+	}
+	for in, want := range cases {
+		if got := splitPatterns(in); fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("splitPatterns(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestResolveIgnored(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.ToSlash(dir)
+	cases := []struct{ pat, dir, want string }{
+		{"vendor/**", dir, p + "/vendor/**"},
+		{"build", dir, p + "/**/build"},
+		{"build/", dir, p + "/**/build"},
+		{"docs/build/", dir, p + "/docs/build"},
+		{p + "/abs/**", dir, p + "/abs/**"},
+		{"vendor/**", "", "vendor/**"},
+		{"build", "", "**/build"},
+	}
+	for _, tc := range cases {
+		if got := resolveIgnored(tc.pat, tc.dir); got != tc.want {
+			t.Errorf("resolveIgnored(%q, %q) = %q, want %q", tc.pat, tc.dir, got, tc.want)
+		}
+	}
+}
+
+func TestIsIgnoredPath(t *testing.T) {
+	p := filepath.ToSlash(t.TempDir())
+	cfg := &Config{IgnoredPaths: []string{p + "/vendor/**", p + "/**/build", "drafts/**"}}
+	cases := map[string]bool{
+		p + "/vendor":            true,
+		p + "/vendor/lib/a.md":   true,
+		p + "/docs/vendor/a.md":  false,
+		p + "/docs/build":        true,
+		p + "/docs/build/x/a.md": true,
+		p + "/builds/a.md":       false,
+		"drafts/a.md":            true,
+		"docs/drafts/a.md":       false,
+		p + "/docs/page.md":      false,
+	}
+	for path, want := range cases {
+		if got := cfg.IsIgnoredPath(filepath.FromSlash(path)); got != want {
+			t.Errorf("IsIgnoredPath(%q) = %v, want %v", path, got, want)
+		}
+	}
+}

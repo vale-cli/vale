@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/errata-ai/ini"
 
 	"github.com/vale-cli/vale/v3/internal/glob"
@@ -444,6 +445,20 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 		cfg.SkippedScopes = mergeValues(sec.Key("SkippedScopes").StringsWithShadows(","))
 		return nil
 	},
+	"IgnoredPaths": func(sec *ini.Section, cfg *Config) error {
+		cfg.IgnoredPaths = nil
+		for _, v := range sec.Key("IgnoredPaths").ValueWithShadows() {
+			for _, pat := range splitPatterns(v) {
+				if !doublestar.ValidatePattern(pat) {
+					invalid := func(v string) bool { return !doublestar.ValidatePattern(v) }
+					return NewE201FromKey(cfg, "IgnoredPaths", invalid,
+						"This IgnoredPaths entry isn't a valid glob.")
+				}
+				cfg.IgnoredPaths = append(cfg.IgnoredPaths, pat)
+			}
+		}
+		return nil
+	},
 	"IgnoredClasses": func(sec *ini.Section, cfg *Config) error {
 		cfg.IgnoredClasses = mergeValues(sec.Key("IgnoredClasses").StringsWithShadows(","))
 		return nil
@@ -467,11 +482,26 @@ var coreOpts = map[string]func(*ini.Section, *Config) error{
 
 func expandPaths(file *ini.File, source interface{}) {
 	var path string
-
-	switch s := source.(type) {
-	case string:
+	if s, ok := source.(string); ok {
 		abs, _ := filepath.Abs(s)
 		path = filepath.Dir(abs)
+	}
+	if key, err := file.Section("").GetKey("IgnoredPaths"); err == nil {
+		// IgnoredPaths names the project's files, so `.config/vale.ini`'s
+		// are relative to the project, not to `.config/`.
+		base := path
+		if filepath.Base(base) == ".config" {
+			base = filepath.Dir(base)
+		}
+		var pats []string
+		for _, pat := range splitPatterns(key.Value()) {
+			pats = append(pats, resolveIgnored(pat, base))
+		}
+		key.SetValue(strings.Join(pats, ","))
+	}
+
+	switch source.(type) {
+	case string:
 		if filepath.Base(path) == PipeDir {
 			// A package's StylesPath named the styles it shipped with, which
 			// sync has since merged into the project's. Resolved from here it
@@ -498,6 +528,48 @@ func expandPaths(file *ini.File, source interface{}) {
 			}
 		}
 	}
+}
+
+// resolveIgnored makes an IgnoredPaths glob absolute, against the directory
+// of the file that set it, or leaves it relative when there is no file. As
+// in .gitignore, a pattern with no slash but a trailing one matches at any
+// depth.
+func resolveIgnored(pat, dir string) string {
+	pat = filepath.ToSlash(pat)
+	if trimmed := strings.TrimSuffix(pat, "/"); !strings.Contains(trimmed, "/") {
+		pat = "**/" + trimmed
+	} else {
+		pat = trimmed
+	}
+	if dir == "" || filepath.IsAbs(filepath.FromSlash(pat)) {
+		return pat
+	}
+	return filepath.ToSlash(dir) + "/" + pat
+}
+
+// splitPatterns splits a comma-separated list of globs, leaving the commas
+// inside a brace group alone.
+func splitPatterns(s string) []string {
+	var out []string
+	depth, start := 0, 0
+	for i := 0; i <= len(s); i++ {
+		if i < len(s) {
+			switch s[i] {
+			case '{':
+				depth++
+			case '}':
+				depth = max(depth-1, 0)
+			}
+			if s[i] != ',' || depth > 0 {
+				continue
+			}
+		}
+		if pat := strings.TrimSpace(s[start:i]); pat != "" {
+			out = append(out, pat)
+		}
+		start = i + 1
+	}
+	return out
 }
 
 func shadowMerge(primary *ini.File, secondary *ini.File) {

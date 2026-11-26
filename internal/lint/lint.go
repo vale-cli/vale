@@ -305,11 +305,19 @@ func (l *Linter) lintFiles(done <-chan core.File, root string) (<-chan lintResul
 				return err
 			}
 
-			if info.IsDir() && (core.ShouldIgnoreDirectory(fp) || (fp != root && l.isStylesPath(fp))) {
+			switch {
+			case l.Manager.Config.IsIgnoredPath(fp):
+				// IgnoredPaths wins over every section, and over a path
+				// named on the command line.
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			case info.IsDir() && (core.ShouldIgnoreDirectory(fp) || (fp != root && l.isStylesPath(fp))):
 				// A StylesPath holds rules, vocabularies, and synced
 				// packages, not prose; it is linted only when named.
 				return filepath.SkipDir
-			} else if info.IsDir() || l.skip(fp) {
+			case info.IsDir() || l.skip(fp):
 				return nil
 			}
 

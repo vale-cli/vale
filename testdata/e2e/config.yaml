@@ -591,6 +591,98 @@ cases:
       styles/Demo/README.md:1:11:Vale.Spelling:Use 'README' instead of 'readme'.
       styles/Demo/README.md:1:25:Vale.Spelling:Did you really mean 'typpo'?
 
+  - name: ignored-paths
+    about: "#1074 -- IgnoredPaths wins over every section, whatever their
+      order. A pattern with a slash is anchored at the config's directory;
+      one without matches at any depth, as in .gitignore"
+    files:
+      .vale.ini: |
+        MinAlertLevel = suggestion
+        IgnoredPaths = vendor/**, build
+
+        [*.md]
+        BasedOnStyles = Vale
+      vendor/a.md: |
+        A typpo here.
+      docs/vendor/b.md: |
+        A typpo here.
+      docs/build/c.md: |
+        A typpo here.
+      build/d.md: |
+        A typpo here.
+    args: .
+    exit: 1
+    want: |
+      docs/vendor/b.md:1:3:Vale.Spelling:Did you really mean 'typpo'?
+      test.md:1:66:Vale.Spelling:Use 'JavaScript' instead of 'javascript'.
+      test.md:1:77:Vale.Spelling:Did you really mean 'agendize'?
+
+  - name: ignored-paths-named
+    about: a file IgnoredPaths matches is skipped even when it's named
+    files:
+      .vale.ini: |
+        MinAlertLevel = suggestion
+        IgnoredPaths = vendor/**
+
+        [*.md]
+        BasedOnStyles = Vale
+      vendor/a.md: |
+        A typpo here.
+    args: vendor/a.md
+    exit: 0
+    absent:
+      - typpo
+
+  - name: ignored-paths-braces
+    about: a brace group's commas don't split the list
+    files:
+      .vale.ini: |
+        MinAlertLevel = suggestion
+        IgnoredPaths = {vendor,.terraform}/**, test.md
+
+        [*.md]
+        BasedOnStyles = Vale
+      vendor/a.md: |
+        A typpo here.
+      .terraform/b.md: |
+        A typpo here.
+      docs/c.md: |
+        A typpo here.
+    args: .
+    exit: 1
+    want: |
+      docs/c.md:1:3:Vale.Spelling:Did you really mean 'typpo'?
+
+  - name: ignored-paths-dot-config
+    about: "`.config/vale.ini`'s IgnoredPaths are relative to the project,
+      not to `.config/`"
+    files:
+      .config/vale.ini: |
+        MinAlertLevel = suggestion
+        IgnoredPaths = vendor/**
+
+        [*.md]
+        BasedOnStyles = Vale
+      vendor/a.md: |
+        A typpo here.
+    args: vendor/a.md
+    exit: 0
+    absent:
+      - typpo
+
+  - name: ignored-paths-invalid
+    about: an invalid glob points at the entry as written
+    files:
+      .vale.ini: |
+        IgnoredPaths = vendor/**, [abc
+
+        [*.md]
+        BasedOnStyles = Vale
+    args: test.md
+    exit: 2
+    contains: |
+      This IgnoredPaths entry isn't a valid glob.
+
   - name: rule-file-prose-only
     about: a Vale rule named on the command line is linted by its message and
       description; its tokens, swaps, and exceptions are patterns, not prose
