@@ -114,6 +114,7 @@ func supportedRelease(name, url, dir string) (string, error) {
 			return "", err
 		}
 		if fetch(rel.URL, tmp) != nil {
+			os.RemoveAll(tmp)
 			continue
 		}
 		// A manifest entry has stated its floor; a feed entry is checked
@@ -122,6 +123,7 @@ func supportedRelease(name, url, dir string) (string, error) {
 			pterm.Info.Printfln("%s: installed %s instead.", need, rel.Version)
 			return tmp, nil
 		}
+		os.RemoveAll(tmp)
 	}
 
 	// Nothing fits, or the URL is pinned: what was asked for is installed,

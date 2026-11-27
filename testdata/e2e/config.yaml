@@ -1703,3 +1703,28 @@ cases:
     exit: 2
     contains: |
       styles/Local/Bad.yml:4:E201:Invalid pattern: missing closing ) in `(unclosed`
+
+  - name: package-configs-in-numeric-order
+    about: "package configurations apply in the order `Packages` lists them,
+      so the eleventh, `10-`, comes after the third, `2-`, and its value wins;
+      read as text, `10-` sorted first and lost"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.md]
+        BasedOnStyles = T
+      styles/.vale-config/2-Third.ini: |
+        MinAlertLevel = error
+      styles/.vale-config/10-Eleventh.ini: |
+        MinAlertLevel = suggestion
+      styles/T/Very.yml: |
+        extends: existence
+        message: "Avoid '%s'."
+        level: suggestion
+        tokens:
+          - very
+    args: --output=line test.md
+    exit: 0
+    want: |
+      test.md:1:11:T.Very:Avoid 'very'.

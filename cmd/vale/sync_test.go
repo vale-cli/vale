@@ -308,3 +308,57 @@ func TestSyncZipTopLevelDirNameDiffers(t *testing.T) {
 		t.Fatalf("expected the package config as '0-other-root.ini', got %v", names)
 	}
 }
+
+// localPkg writes a directory package named name under root that installs
+// one style and lists the given packages of its own.
+func localPkg(t *testing.T, root, name string, pkgs ...string) {
+	t.Helper()
+
+	dir := filepath.Join(root, name)
+	style := filepath.Join(dir, "styles", name+"Style")
+	if err := os.MkdirAll(style, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	rule := []byte("extends: existence\nmessage: test\ntokens: [x]\n")
+	if err := os.WriteFile(filepath.Join(style, "Rule.yml"), rule, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ini := []byte("Packages = " + strings.Join(pkgs, ", ") + "\n")
+	if err := os.WriteFile(filepath.Join(dir, ".vale.ini"), ini, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSyncPackagesThatListEachOther(t *testing.T) {
+	root := t.TempDir()
+	a, b := filepath.Join(root, "A"), filepath.Join(root, "B")
+	localPkg(t, root, "A", b)
+	localPkg(t, root, "B", a)
+
+	cfgPath := filepath.Join(root, ".vale.ini")
+	if err := os.WriteFile(cfgPath, []byte("StylesPath = styles\nPackages = "+a+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync(nil, &core.CLIFlags{Path: cfgPath, IgnoreGlobal: true}); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	for _, style := range []string{"AStyle", "BStyle"} {
+		if !system.FileExists(filepath.Join(root, "styles", style, "Rule.yml")) {
+			t.Fatalf("expected %s to be installed", style)
+		}
+	}
+}
+
+func TestSyncLeavesNoTempDirs(t *testing.T) {
+	tmp := t.TempDir()
+	for _, v := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(v, tmp)
+	}
+
+	syncZipPkg(t, "casefold-pkg.zip")
+
+	if left := installedNames(t, tmp); len(left) != 0 {
+		t.Fatalf("expected sync to remove its temp directories, found %v", left)
+	}
+}

@@ -476,6 +476,7 @@ func pipeConfig(cfg *Config) ([]string, error) {
 			}
 			sources = append(sources, config)
 		}
+		sortFragments(sources)
 		sources = append(sources, cfg.ConfigFiles...)
 	}
 

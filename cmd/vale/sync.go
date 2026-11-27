@@ -12,6 +12,9 @@ import (
 	"github.com/vale-cli/vale/v3/internal/system"
 )
 
+// syncing holds the packages being installed right now, outermost first.
+var syncing = map[string]bool{}
+
 func initPath(cfg *core.Config) error {
 	// The first entry is always the default `StylesPath`.
 	stylesPath := cfg.StylesPath()
@@ -44,6 +47,21 @@ func syncPkg(pkg, path string, idx int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// A package being installed that turns up again in its own `Packages`,
+	// directly or through another's, is already on its way in.
+	key := pkg
+	if _, serr := os.Stat(pkg); serr == nil {
+		if abs, aerr := filepath.Abs(pkg); aerr == nil {
+			key = abs
+		}
+	}
+	if syncing[key] {
+		return "", nil
+	}
+	syncing[key] = true
+	defer delete(syncing, key)
+
 	if core.IsPhrase(pkg) && !system.IsDir(pkg) {
 		entry, lerr := inLibrary(pkg, path)
 		if entry != "" {
@@ -89,6 +107,7 @@ func loadLocalZipPkg(name, pkgPath, styles string, index int) error {
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(dir) // installPkg copies out of it
 
 	if err = system.Unarchive(pkgPath, dir); err != nil {
 		return err
@@ -102,6 +121,7 @@ func download(name, url, styles string, index int, want string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	defer os.RemoveAll(dir) // installPkg copies out of it
 
 	got, err := fetchPinned(url, dir, want)
 	if err != nil {
@@ -125,11 +145,15 @@ func download(name, url, styles string, index int, want string) (string, error) 
 
 	// The release that landed may need a newer Vale than this one; see
 	// pkgver.go for the one that gets installed instead.
-	if dir, err = supportedRelease(name, url, dir); err != nil {
+	rel, err := supportedRelease(name, url, dir)
+	if err != nil {
 		return got, err
 	}
+	if rel != dir {
+		defer os.RemoveAll(rel)
+	}
 
-	return got, installPkg(dir, name, styles, index)
+	return got, installPkg(rel, name, styles, index)
 }
 
 // pkgRoot returns the entry in dir that holds the package named name: an
