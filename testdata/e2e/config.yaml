@@ -1728,3 +1728,40 @@ cases:
     exit: 0
     want: |
       test.md:1:11:T.Very:Avoid 'very'.
+
+  - name: rule-missing-required-field
+    about: "an `existence` rule with no tokens matched every character, and a
+      `substitution` with no swap never fired; both now say what they need"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Empty.yml: |
+        extends: substitution
+        message: "Use '%s'."
+    args: --output=line test.md
+    exit: 2
+    contains: |
+      styles/T/Empty.yml:1:E201:'substitution' needs 'swap'
+
+  - name: rule-duplicate-key
+    about: "YAML a rule's parser refuses, such as a key defined twice, loaded
+      the rule empty, so it never fired and nothing said why"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.md]
+        BasedOnStyles = T
+      styles/T/Twice.yml: |
+        extends: substitution
+        message: "Use '%s'."
+        swap:
+          very: really
+          very: truly
+    args: --output=line test.md
+    exit: 2
+    contains: |
+      styles/T/Twice.yml:5:E201:mapping key "very" already defined at line 4

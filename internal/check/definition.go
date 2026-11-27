@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -226,6 +227,9 @@ func newRule(cfg *core.Config, generic baseCheck, path string) (Rule, error) {
 	// A rule may carry its own cases (see internal/testsuite); they are for
 	// `vale test`, not the compiler.
 	delete(generic, "tests")
+	if err := requireFields(name, generic, path); err != nil {
+		return Existence{}, err
+	}
 	switch name {
 	case "existence":
 		return NewExistence(cfg, generic, path)
@@ -339,15 +343,19 @@ func parse(file []byte, path string) (map[string]interface{}, error) {
 	generic := map[string]interface{}{}
 
 	if err := yaml.Unmarshal(file, &generic); err != nil {
-		r := regexp.MustCompile(`yaml: line (\d+): (.+)`)
-		if r.MatchString(err.Error()) {
-			groups := r.FindStringSubmatch(err.Error())
+		// A syntax error reads `yaml: line 3: ...`; a well-formed file the
+		// decoder still refuses, such as one with a key defined twice, reads
+		// `yaml: unmarshal errors:` with its lines below. Either stops the
+		// rule: unreported, it loaded empty and never fired.
+		r := regexp.MustCompile(`line (\d+): (.+)`)
+		if groups := r.FindStringSubmatch(err.Error()); groups != nil {
 			i, erri := strconv.Atoi(groups[1])
 			if erri != nil {
 				return generic, core.NewE100("internal", erri)
 			}
 			return generic, core.NewE201FromPosition(groups[2], path, i)
 		}
+		return generic, core.NewE201FromPosition(strings.TrimPrefix(err.Error(), "yaml: "), path, 1)
 	} else if err = validateDefinition(generic, path); err != nil {
 		return generic, err
 	}
@@ -615,4 +623,56 @@ func checkScopes(scopes []string, path string) error {
 	}
 
 	return nil
+}
+
+// required names, per check type, the fields a rule can't do without: each
+// entry is satisfied by any one of its keys. Missing, the rule matched every
+// character (an `existence` with no tokens) or never fired at all (a
+// `substitution` with no swap), and said nothing either way.
+var required = map[string][][]string{
+	"existence":      {{"tokens", "raw"}},
+	"substitution":   {{"swap"}},
+	"capitalization": {{"match"}},
+	"occurrence":     {{"token"}, {"max", "min"}},
+	"repetition":     {{"tokens"}},
+	"conditional":    {{"first"}, {"second"}},
+	"consistency":    {{"either"}},
+	"sequence":       {{"tokens"}},
+	"metric":         {{"formula"}, {"condition"}},
+	"script":         {{"script"}},
+	"readability":    {{"metrics"}, {"grade"}},
+}
+
+// requireFields reports a rule missing a field its check type needs.
+func requireFields(name string, generic baseCheck, path string) error {
+	for _, anyOf := range required[name] {
+		if !slices.ContainsFunc(anyOf, func(key string) bool { return isSet(generic[key]) }) {
+			quoted := make([]string, len(anyOf))
+			for i, key := range anyOf {
+				quoted[i] = "'" + key + "'"
+			}
+			return core.NewE201FromTarget(
+				fmt.Sprintf("'%s' needs %s", name, strings.Join(quoted, " or ")), name, path)
+		}
+	}
+	return nil
+}
+
+// isSet reports whether a rule's value says something: not missing, and not
+// an empty string, list, or map. A number counts when it's there at all:
+// `grade: 0` is a choice.
+func isSet(v interface{}) bool {
+	switch t := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(t) != ""
+	case []interface{}:
+		return len(t) > 0
+	case map[string]interface{}:
+		return len(t) > 0
+	case map[interface{}]interface{}:
+		return len(t) > 0
+	}
+	return true
 }
