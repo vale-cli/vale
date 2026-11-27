@@ -389,6 +389,16 @@ type qdocConv struct {
 	// only place QDoc looks. A comment body extracted from a source file
 	// starts inside one; a whole file starts outside.
 	inComment bool
+
+	// open counts the parentheses a skipped command's argument has left
+	// open: a `\fn` signature wrapped onto the next line goes on until they
+	// close, and its continuation is code too. See #1240.
+	open int
+}
+
+// parenDepth is how many more parentheses s opens than it closes.
+func parenDepth(s string) int {
+	return strings.Count(s, "(") - strings.Count(s, ")")
 }
 
 func (c *qdocConv) flush() {
@@ -503,6 +513,7 @@ func (c *qdocConv) line(raw string) {
 	// spelling this converter does not know -- would otherwise swallow the
 	// rest of the file.
 	if closes {
+		c.open = 0
 		if c.verbatim != "" {
 			c.html.WriteString("</code></pre>\n")
 			c.verbatim = ""
@@ -547,8 +558,16 @@ func (c *qdocConv) content(raw string) { //nolint:gocyclo // one case per comman
 	}
 
 	if trimmed == "" {
+		// A blank line ends a signature, closed or not, so one missing a
+		// parenthesis can't swallow the prose after it.
+		c.open = 0
 		c.closeDiv()
 		c.flush()
+		return
+	}
+
+	if c.open > 0 {
+		c.open += parenDepth(trimmed)
 		return
 	}
 
@@ -581,6 +600,7 @@ func (c *qdocConv) content(raw string) { //nolint:gocyclo // one case per comman
 		c.html.WriteString("<pre><code>")
 	case func() bool { _, ok := qdocSkipLine[name]; return ok }():
 		c.flush()
+		c.open = max(parenDepth(rest), 0)
 	case func() bool { _, ok := qdocDivs[name]; return ok }():
 		c.closeDiv()
 		c.div = name

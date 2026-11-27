@@ -34,6 +34,18 @@ func TestQdocHTML(t *testing.T) {
 			[]string{"overview", "QWidget", "show"},
 		},
 		{
+			"a wrapped signature is markup to its closing parenthesis",
+			"\\fn void Foo::arcTo(qreal x, qreal y, qreal width, qreal\n    height, qreal startAngle)\n    Sets the arc.\n",
+			[]string{"<p>    Sets the arc.</p>"},
+			[]string{"qreal", "startAngle", "height"},
+		},
+		{
+			"a signature missing its parenthesis ends at a blank line",
+			"\\fn void Foo::bar(qreal x\n\nProse here.\n",
+			[]string{"<p>Prose here.</p>"},
+			[]string{"qreal"},
+		},
+		{
 			"brief and note are classed paragraphs",
 			"\\brief One brief sentence.\n\n\\note A note sentence.\n",
 			[]string{

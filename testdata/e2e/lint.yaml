@@ -2846,3 +2846,25 @@ cases:
     exit: 1
     want: |
       page.qdoc:5:40:Vale.Spelling:Did you really mean 'recrod'?
+
+  - name: qdoc-wrapped-signature
+    about: "#1240 -- a `\\fn` signature wrapped onto a second line is markup
+      to its closing parenthesis; its continuation was read as prose, so every
+      type and parameter on it was a misspelling"
+    files:
+      .vale.ini: |
+        MinAlertLevel = suggestion
+
+        [*.qdoc]
+        BasedOnStyles = Vale
+      wrapped.qdoc: |
+        /*!
+            \fn void Foo::arcTo(qreal x, qreal y, qreal width, qreal
+            height, qreal startAngle)
+
+            Sets the arc. Sets teh arc.
+        */
+    args: --output=line wrapped.qdoc
+    exit: 1
+    want: |
+      wrapped.qdoc:5:24:Vale.Spelling:Did you really mean 'teh'?
