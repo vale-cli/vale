@@ -337,6 +337,10 @@ func (mgr *Manager) addCheckFile(chkName, path string) error {
 	return nil
 }
 
+// skippedRules holds the rules already warned about: a run can build more
+// than one Manager from the same styles.
+var skippedRules sync.Map
+
 // skipBroken reports whether a rule that failed to compile can be left out
 // with a warning: one from a synced package, which may need a newer Vale.
 // A broken rule in the user's own styles still stops the run.
@@ -353,6 +357,9 @@ func (mgr *Manager) skipBroken(chkName string, err error) bool {
 	var ve *core.Error
 	if errors.As(err, &ve) {
 		msg = ve.Msg
+	}
+	if _, seen := skippedRules.LoadOrStore(chkName, true); seen {
+		return true
 	}
 	core.Warn(fmt.Sprintf("Skipped %s, which doesn't compile on this Vale; its package may need a newer one: %s",
 		chkName, msg))

@@ -12,8 +12,7 @@ import (
 )
 
 // stampFile records what the last sync installed, so `vale sync --if-needed`
-// can skip one that would install the same thing. It sits outside PipeDir,
-// whose every file is read as configuration.
+// can skip one that would install the same thing.
 const stampFile = core.SyncFile
 
 // installedStyles collects the styles the running sync installs, for the
@@ -50,5 +49,15 @@ func writeStamp(stylesPath, stamp string) error {
 	sort.Strings(names)
 
 	body := strings.Join(append([]string{stamp}, names...), "\n") + "\n"
-	return os.WriteFile(filepath.Join(stylesPath, stampFile), []byte(body), 0o600)
+	path := filepath.Join(stylesPath, stampFile)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return err
+	}
+	// Ignored by its own .gitignore, as tool caches are, so the record never
+	// shows up as a change in a project that tracks part of its StylesPath.
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*\n"), 0o600); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(body), 0o600)
 }

@@ -118,3 +118,12 @@ func TestSyncRecordsInstalledStyles(t *testing.T) {
 		t.Fatalf("expected the stamp to list TestStyle after its digest, got %q", lines)
 	}
 }
+
+func TestSyncStampIgnoresItself(t *testing.T) {
+	stylesPath, _ := firstSync(t)
+
+	b, err := os.ReadFile(filepath.Join(stylesPath, filepath.Dir(stampFile), ".gitignore"))
+	if err != nil || string(b) != "*\n" {
+		t.Fatalf("expected a .gitignore of '*' beside the stamp, got %q (%v)", b, err)
+	}
+}

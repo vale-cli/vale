@@ -1663,7 +1663,7 @@ cases:
 
         [*.md]
         BasedOnStyles = Pkg
-      styles/.vale-sync: |
+      styles/.vale-config/sync/stamp: |
         0000
         Pkg
       styles/Pkg/Bad.yml: |
@@ -1691,7 +1691,7 @@ cases:
 
         [*.md]
         BasedOnStyles = Local
-      styles/.vale-sync: |
+      styles/.vale-config/sync/stamp: |
         0000
         Pkg
       styles/Local/Bad.yml: |

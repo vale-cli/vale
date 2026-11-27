@@ -252,7 +252,7 @@ func installedNames(t *testing.T, dir string) []string {
 
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if entry.Name() != stampFile {
+		if name := entry.Name(); name != core.PipeDir && name != "sync" {
 			names = append(names, entry.Name())
 		}
 	}
