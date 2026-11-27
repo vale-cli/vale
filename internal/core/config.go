@@ -164,6 +164,7 @@ type CLIFlags struct {
 	NoExit        bool
 	NoColor       bool
 	PlainProgress bool
+	IfNeeded      bool
 	Normalize     bool
 	Relative      bool
 	Remote        bool

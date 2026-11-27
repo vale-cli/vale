@@ -1,6 +1,7 @@
 package check
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -26,6 +27,7 @@ type Manager struct {
 	docs         map[string]cascadia.Matcher
 	rules        map[string]Rule
 	styles       []string
+	synced       map[string]bool // read on the first rule that fails to compile
 	needsTagging bool
 }
 
@@ -309,6 +311,9 @@ func (mgr *Manager) addStyle(path string) error {
 			continue
 		}
 		if results[i].err != nil {
+			if mgr.skipBroken(results[i].chkName, results[i].err) {
+				continue
+			}
 			return results[i].err
 		}
 		if rerr := mgr.registerCheck(
@@ -332,9 +337,34 @@ func (mgr *Manager) addCheckFile(chkName, path string) error {
 	return nil
 }
 
+// skipBroken reports whether a rule that failed to compile can be left out
+// with a warning: one from a synced package, which may need a newer Vale.
+// A broken rule in the user's own styles still stops the run.
+func (mgr *Manager) skipBroken(chkName string, err error) bool {
+	if mgr.synced == nil {
+		mgr.synced = mgr.Config.SyncedStyles()
+	}
+	style, _, _ := strings.Cut(chkName, ".")
+	if !mgr.synced[style] {
+		return false
+	}
+
+	msg := err.Error()
+	var ve *core.Error
+	if errors.As(err, &ve) {
+		msg = ve.Msg
+	}
+	core.Warn(fmt.Sprintf("Skipped %s, which doesn't compile on this Vale; its package may need a newer one: %s",
+		chkName, msg))
+	return true
+}
+
 func (mgr *Manager) addCheck(file []byte, chkName, path string) error {
 	rule, taggedPOS, err := mgr.compileCheck(file, chkName, path)
 	if err != nil {
+		if mgr.skipBroken(chkName, err) {
+			return nil
+		}
 		return err
 	}
 	return mgr.registerCheck(chkName, rule, taggedPOS)

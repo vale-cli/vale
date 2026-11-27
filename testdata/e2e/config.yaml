@@ -1652,3 +1652,54 @@ cases:
     exit: 1
     want: |
       test.md:1:6:Vale.Spelling:Did you really mean 'recieve'?
+
+  - name: synced-broken-rule-skipped
+    about: "a package rule that doesn't compile on this Vale, as proselint
+      0.4.0's didn't on Vale before 3.28.1, is skipped with a warning; the
+      package's other rules still run"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.md]
+        BasedOnStyles = Pkg
+      styles/.vale-sync: |
+        0000
+        Pkg
+      styles/Pkg/Bad.yml: |
+        extends: existence
+        message: "'%s'"
+        tokens:
+          - '(unclosed'
+      styles/Pkg/Good.yml: |
+        extends: existence
+        message: "Avoid '%s'."
+        tokens:
+          - very
+    args: --output=line test.md
+    exit: 0
+    want: |
+      W101 Skipped Pkg.Bad, which doesn't compile on this Vale; its package may need a newer one: Invalid pattern: missing closing ) in `(unclosed`
+      test.md:1:11:Pkg.Good:Avoid 'very'.
+
+  - name: local-broken-rule-still-fatal
+    about: "a style sync didn't install is the user's own, and its broken
+      rule still stops the run"
+    files:
+      .vale.ini: |
+        StylesPath = styles
+
+        [*.md]
+        BasedOnStyles = Local
+      styles/.vale-sync: |
+        0000
+        Pkg
+      styles/Local/Bad.yml: |
+        extends: existence
+        message: "'%s'"
+        tokens:
+          - '(unclosed'
+    args: --output=line test.md
+    exit: 2
+    contains: |
+      styles/Local/Bad.yml:4:E201:Invalid pattern: missing closing ) in `(unclosed`

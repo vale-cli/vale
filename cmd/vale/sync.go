@@ -166,11 +166,19 @@ func installPkg(dir, name, styles string, index int) error {
 	cfg := filepath.Join(root, ".vale.ini")
 
 	if !system.IsDir(path) && !system.FileExists(cfg) {
+		installedStyles[name] = true
 		return moveAsset(name, dir, styles) // style-only
 	}
 
 	// StylesPath
 	if system.IsDir(path) {
+		if entries, err := os.ReadDir(path); err == nil {
+			for _, e := range entries {
+				if e.IsDir() && e.Name() != "config" {
+					installedStyles[e.Name()] = true
+				}
+			}
+		}
 		if err := moveDir(path, styles); err != nil {
 			return err
 		}

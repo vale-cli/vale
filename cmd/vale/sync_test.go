@@ -252,7 +252,9 @@ func installedNames(t *testing.T, dir string) []string {
 
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		names = append(names, entry.Name())
+		if entry.Name() != stampFile {
+			names = append(names, entry.Name())
+		}
 	}
 	return names
 }

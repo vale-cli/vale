@@ -1,3 +1,13 @@
+# List before `vale`: it installs the configuration's packages on a fresh
+# clone, and afterward only when they, or Vale, change.
+- id: vale-sync
+  name: vale sync
+  description: Install the packages your configuration names
+  entry: vale sync --if-needed --plain-progress
+  language: golang
+  pass_filenames: false
+  always_run: true
+
 - id: vale
   name: vale
   description: Run vale on your text

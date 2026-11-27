@@ -92,7 +92,10 @@ var commands = map[string]command{
 		Usage:   "sync",
 		Detail: "Reads the `Packages` key of the active configuration and installs\n" +
 			"each entry into the StylesPath. Run this after adding a package,\n" +
-			"and in CI before linting.",
+			"and in CI before linting.\n\n" +
+			"With --if-needed, the sync is skipped while the packages, models,\n" +
+			"grammars, and Vale version match the last sync's. This is what the\n" +
+			"`vale-sync` pre-commit hook runs.",
 	},
 	"test": {
 		Run:     runTests,
@@ -164,8 +167,6 @@ func sync(_ []string, flags *core.CLIFlags) error {
 	rootINI, noRoot := cfg.Root()
 	if noRoot != nil {
 		return core.NewE100("sync", noRoot)
-	} else if err = initPath(cfg); err != nil {
-		return err
 	}
 
 	pkgs, err := core.GetPackages(rootINI)
@@ -173,6 +174,18 @@ func sync(_ []string, flags *core.CLIFlags) error {
 		return err
 	}
 	stylesPath := cfg.StylesPath()
+
+	stamp := syncStamp(cfg, pkgs)
+	if flags.IfNeeded && stampMatches(stylesPath, stamp) {
+		return nil
+	}
+
+	// A sync that fails partway must not leave the last one's stamp behind.
+	_ = os.Remove(filepath.Join(stylesPath, stampFile))
+	installedStyles = map[string]bool{}
+	if err = initPath(cfg); err != nil {
+		return err
+	}
 
 	// A progress bar is for someone watching it. Redirected into a CI log it
 	// leaves a trail of redrawn frames and, at the end, no record of what was
@@ -261,7 +274,7 @@ func sync(_ []string, flags *core.CLIFlags) error {
 			strings.Join(undictionaried, ", "), filepath.Join(stylesPath, core.DictDir))
 	}
 
-	return nil
+	return writeStamp(stylesPath, stamp)
 }
 
 func printConfig(_ []string, flags *core.CLIFlags) error {

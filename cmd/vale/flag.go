@@ -32,6 +32,8 @@ func init() {
 	pflag.BoolVar(&Flags.NoColor, "no-color", false, "Don't colorize CLI output.")
 	pflag.BoolVar(&Flags.PlainProgress, "plain-progress", false,
 		"Log each step instead of drawing a progress bar.")
+	pflag.BoolVar(&Flags.IfNeeded, "if-needed", false,
+		"With `vale sync`: skip the sync when nothing has changed since the last one.")
 	pflag.BoolVar(&Flags.Wrap, "no-wrap", false, "Don't wrap CLI output.")
 	pflag.BoolVar(&Flags.NoExit, "no-exit", false, "Don't return a nonzero exit code on errors.")
 	pflag.BoolVar(&Flags.Counts, "counts", false,
