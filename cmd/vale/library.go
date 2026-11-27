@@ -17,17 +17,19 @@ func getLibrary(_ string) ([]Style, error) {
 	return styles, err
 }
 
-func inLibrary(name, path string) string {
+// inLibrary returns the URL the library lists for name, or "" when it
+// lists none. An error means the library itself couldn't be read.
+func inLibrary(name, path string) (string, error) {
 	lookup, err := getLibrary(path)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	for _, entry := range lookup {
 		if name == entry.Name {
-			return entry.URL
+			return entry.URL, nil
 		}
 	}
 
-	return ""
+	return "", nil
 }

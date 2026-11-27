@@ -39,11 +39,14 @@ func getJSON(data interface{}) string {
 }
 
 func fetchJSON(url string) ([]byte, error) {
-	resp, err := http.Get(url) //nolint:gosec,noctx
+	resp, err := httpGet(url)
 	if err != nil {
 		return []byte{}, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return []byte{}, fmt.Errorf("could not fetch '%s' (status code '%d')", url, resp.StatusCode)
+	}
 	return io.ReadAll(resp.Body)
 }
 

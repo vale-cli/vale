@@ -45,9 +45,15 @@ func syncPkg(pkg, path string, idx int) (string, error) {
 		return "", err
 	}
 	if core.IsPhrase(pkg) && !system.IsDir(pkg) {
-		entry := inLibrary(pkg, path)
+		entry, lerr := inLibrary(pkg, path)
 		if entry != "" {
 			return download(pkg, entry, path, idx, want)
+		}
+		// Without the library a name can't be told from a typo, so the
+		// failure to read it is the error, unless the name is a local file.
+		if lerr != nil && !system.FileExists(pkg) {
+			return "", core.NewE100("sync", fmt.Errorf(
+				"could not look up '%s' in the package library: %w", pkg, lerr))
 		}
 	}
 	return loadPkg(system.FileNameWithoutExt(pkg), pkg, path, idx, want)

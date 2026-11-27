@@ -3,9 +3,11 @@ package core
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/errata-ai/ini"
@@ -143,7 +145,7 @@ func loadStdinSources(src string, priors []string, cfg *Config, dry bool) (*ini.
 	if _, perr := processConfig(uCfg, cfg, true); perr == nil {
 		pipeline := filepath.Join(cfg.StylesPath(), PipeDir)
 		if frags, gerr := cfg.FS.Glob(filepath.Join(pipeline, "*")); gerr == nil && len(frags) > 0 {
-			sort.Strings(frags)
+			sortFragments(frags)
 			lead := [][]byte{}
 			for _, f := range frags {
 				if b, rerr := cfg.FS.ReadFile(f); rerr == nil {
@@ -297,4 +299,23 @@ func loadConfig(names []string) (string, string, error) {
 	}
 
 	return "", "", nil
+}
+
+// sortFragments orders the pipeline's files by the index sync named them
+// with, `<index>-<package>.ini`, as a number: sorted as text, the eleventh
+// package's `10-` would come before the third's `2-`.
+func sortFragments(frags []string) {
+	index := func(path string) int {
+		head, _, _ := strings.Cut(filepath.Base(path), "-")
+		if n, err := strconv.Atoi(head); err == nil {
+			return n
+		}
+		return math.MaxInt
+	}
+	sort.SliceStable(frags, func(i, j int) bool {
+		if a, b := index(frags[i]), index(frags[j]); a != b {
+			return a < b
+		}
+		return frags[i] < frags[j]
+	})
 }

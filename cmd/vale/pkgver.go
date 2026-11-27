@@ -132,7 +132,7 @@ func supportedRelease(name, url, dir string) (string, error) {
 
 // releaseTags lists a package's releases, newest first, from its Atom feed.
 func releaseTags(feed string) ([]string, error) {
-	resp, err := http.Get(feed) //nolint:gosec,noctx
+	resp, err := httpGet(feed)
 	if err != nil {
 		return nil, err
 	}

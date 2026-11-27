@@ -82,7 +82,7 @@ func fetch(src, dst string) error {
 // before anything is unpacked.
 func fetchPinned(src, dst, want string) (string, error) {
 	// Fetch the resource from the web:
-	resp, err := http.Get(src) //nolint:gosec,noctx
+	resp, err := httpGet(src)
 
 	if err != nil {
 		return "", err

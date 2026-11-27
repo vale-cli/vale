@@ -252,3 +252,15 @@ func TestNestedConfig(t *testing.T) {
 		t.Fatalf("got %q at %q; want %q at %q", found, dir, top, root)
 	}
 }
+
+func TestSortFragmentsByIndex(t *testing.T) {
+	frags := []string{"p/10-K.ini", "p/2-C.ini", "p/sync", "p/0-A.ini", "p/1-B.ini", "p/11-L.ini"}
+	sortFragments(frags)
+
+	want := []string{"p/0-A.ini", "p/1-B.ini", "p/2-C.ini", "p/10-K.ini", "p/11-L.ini", "p/sync"}
+	for i := range want {
+		if frags[i] != want[i] {
+			t.Fatalf("expected %v, got %v", want, frags)
+		}
+	}
+}
