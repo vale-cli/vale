@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -30,6 +32,11 @@ func PrintCustomAlerts(linted []*core.File, cfg *core.Config) (bool, error) {
 	path := cfg.Flags.Output
 	if !system.FileExists(path) {
 		path = core.FindAsset(cfg, path)
+	}
+	if path == "" {
+		return false, core.NewE100("--output", fmt.Errorf(
+			"'%s' isn't %s, or a template file that exists",
+			cfg.Flags.Output, strings.Join(outputs, ", ")))
 	}
 
 	b, err := os.ReadFile(path)

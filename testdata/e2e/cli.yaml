@@ -580,3 +580,46 @@ cases:
     want: |
       doc.md:1:1:T.Order:Put the family name first: 'Ada Lovelace (author)' should be 'Lovelace, Ada'.
       doc.md:1:32:T.Code:Format 'the option --no-exit' as code, '`--no-exit`'.
+
+  - name: mistyped-path
+    about: "a single argument that names no file but is shaped like one is a
+      mistyped path, not text: linted as text it reported nothing and exited 0"
+    args: tset.md
+    exit: 2
+    contains: |
+      argument 'tset.md' does not exist
+
+  - name: mistyped-dir
+    args: nosuchdir/
+    exit: 2
+    contains: |
+      argument 'nosuchdir/' does not exist
+
+  - name: ext-without-dot
+    about: "`--ext=md` is `--ext=.md`; without the dot it matched no section"
+    args: "--ext=md"
+    stdin: test.md
+    exit: 0
+    contains: |
+      stdin.md:3:1:vale.Annotations:'NOTE' left in text
+
+  - name: unknown-alert-level
+    about: "a level Vale doesn't have used to be ignored in silence"
+    args: --minAlertLevel=eror test.txt
+    exit: 2
+    contains: |
+      'eror' isn't a level; the levels are suggestion, warning, error
+
+  - name: output-any-case
+    args: --output=LINE test.txt
+    exit: 0
+    want: |
+      test.txt:1:27:vale.Annotations:'NOTE' left in text
+      test.txt:4:12:vale.Annotations:'XXX' left in text
+      test.txt:4:66:vale.Annotations:'TODO' left in text
+
+  - name: output-missing-template
+    args: --output=nope.tmpl test.txt
+    exit: 2
+    contains: |
+      'nope.tmpl' isn't CLI, line, JSON, or a template file that exists

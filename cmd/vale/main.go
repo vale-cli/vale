@@ -43,6 +43,12 @@ func doLint(args []string, l *lint.Linter, glob string) ([]*core.File, error) {
 		// Case 1:
 		//
 		// $ vale "some text in a string"
+		if looksLikePath(args[0]) {
+			return linted, core.NewE100(
+				"input",
+				fmt.Errorf("argument '%s' does not exist", args[0]),
+			)
+		}
 		linted, err = l.LintString(args[0])
 	} else if length > 0 {
 		// Case 2:
@@ -94,6 +100,11 @@ func main() {
 		os.Exit(2)
 	}
 	configureColor()
+
+	if err := checkFlags(&Flags); err != nil {
+		stopProfiling()
+		handleError(err)
+	}
 
 	args := pflag.Args()
 	argc := len(args)
